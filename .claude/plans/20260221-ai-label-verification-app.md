@@ -1607,7 +1607,7 @@ Skills are preferred because they load only when invoked and use minimal context
 |------|------------|
 | Cloud Vision OCR may miss text on curved/distorted labels | Include confidence scores, allow "needs review" status, store raw AI responses for debugging |
 | 5-second target may be tight with two-stage pipeline | Stage 1 (Cloud Vision) is <1s, Stage 2 (GPT-5 Mini) is ~1-2s — well within budget. Show progress indicator for each stage. |
-| GPT-5 Mini may misclassify ambiguous text blocks | Include confidence scores, fall back to GPT-5.2 for low-confidence results if needed |
+| GPT-5 Mini may misclassify ambiguous text blocks | Include confidence scores, flag low-confidence extractions for human review (route to review queue if below threshold) |
 | Batch processing 300 items could timeout | Process asynchronously with polling, don't block on single request |
 | Health warning statement exact matching too strict | Normalize whitespace/encoding before comparison, flag near-matches for specialist review |
 | Vercel serverless function timeout (60s on Pro) | Process batch items individually, not in single function invocation |
