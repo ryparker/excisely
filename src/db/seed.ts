@@ -6,7 +6,9 @@ dotenv.config({ path: '.env.local', override: true })
 
 import { eq } from 'drizzle-orm'
 import { neon } from '@neondatabase/serverless'
-import { drizzle } from 'drizzle-orm/neon-http'
+import { drizzle as drizzleNeon } from 'drizzle-orm/neon-http'
+import { drizzle as drizzleNode } from 'drizzle-orm/node-postgres'
+import pg from 'pg'
 import { nanoid } from 'nanoid'
 
 import * as schema from './schema'
@@ -36,17 +38,24 @@ async function hashPassword(password: string): Promise<string> {
 // Database connection (standalone — not the proxy from db/index.ts)
 // ---------------------------------------------------------------------------
 
-type Db = ReturnType<typeof createDb>
+type Db = ReturnType<typeof drizzleNeon<typeof schema>>
 
-function createDb() {
+function createDb(): Db {
   const url = process.env.DATABASE_URL
   if (!url) {
     throw new Error(
-      'DATABASE_URL is not set. Create a .env.local file with your Neon connection string.',
+      'DATABASE_URL is not set. Create a .env.local file with your connection string.',
     )
   }
-  const sql = neon(url)
-  return drizzle(sql, { schema })
+
+  if (url.includes('neon.tech')) {
+    const sql = neon(url)
+    return drizzleNeon(sql, { schema })
+  }
+
+  // Local Postgres (OrbStack / Docker)
+  const pool = new pg.Pool({ connectionString: url })
+  return drizzleNode(pool, { schema }) as unknown as Db
 }
 
 // ---------------------------------------------------------------------------

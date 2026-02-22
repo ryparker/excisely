@@ -60,6 +60,9 @@ scripts/sample-images/
 # misc
 *.pem
 
+# local credentials
+config/
+
 # next-agents-md
 .next-docs/
 
@@ -80,3 +83,5 @@ skills/
 .roo/
 .trae/
 .windsurf/
+.vercel
+.env*.local

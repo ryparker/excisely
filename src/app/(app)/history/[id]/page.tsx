@@ -14,6 +14,7 @@ import {
 } from '@/db/schema'
 import { getSession } from '@/lib/auth/get-session'
 import { getEffectiveStatus } from '@/lib/labels/effective-status'
+import { getSignedImageUrl } from '@/lib/storage/blob'
 import { PageHeader } from '@/components/layout/page-header'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { ValidationSummary } from '@/components/validation/validation-summary'
@@ -108,6 +109,9 @@ export default async function ValidationDetailPage({
 
   const brandName = appData?.brandName ?? 'Untitled Label'
   const primaryImage = images[0]
+  const signedImageUrl = primaryImage
+    ? await getSignedImageUrl(primaryImage.imageUrl)
+    : null
   const confidence = label.overallConfidence
     ? Number(label.overallConfidence)
     : null
@@ -145,9 +149,9 @@ export default async function ValidationDetailPage({
       />
 
       {/* Two-panel layout: image + field comparisons */}
-      {primaryImage && items.length > 0 ? (
+      {primaryImage && signedImageUrl && items.length > 0 ? (
         <ValidationDetailPanels
-          imageUrl={primaryImage.imageUrl}
+          imageUrl={signedImageUrl}
           validationItems={items.map((item) => ({
             id: item.id,
             fieldName: item.fieldName,

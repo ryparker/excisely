@@ -42,17 +42,19 @@ function createClient(): InstanceType<typeof vision.ImageAnnotatorClient> {
 // ---------------------------------------------------------------------------
 
 /**
- * Runs Google Cloud Vision text detection on a single image URL.
+ * Runs Google Cloud Vision text detection on image bytes (base64).
  * Returns structured word-level results with bounding polygons.
  */
-export async function extractText(imageUrl: string): Promise<OcrResult> {
+export async function extractText(imageBytes: Buffer): Promise<OcrResult> {
   const client = createClient()
 
-  const [result] = await client.textDetection(imageUrl)
+  const [result] = await client.textDetection({
+    image: { content: imageBytes },
+  })
   const annotations = result.textAnnotations
 
   if (!annotations || annotations.length === 0) {
-    throw new Error(`No text detected in image: ${imageUrl}`)
+    throw new Error('No text detected in image')
   }
 
   // First annotation contains the full concatenated text
@@ -91,9 +93,10 @@ export async function extractText(imageUrl: string): Promise<OcrResult> {
 
 /**
  * Runs OCR on multiple images in parallel.
+ * Accepts image byte buffers (fetched from private blob storage).
  */
 export async function extractTextMultiImage(
-  imageUrls: string[],
+  imageBuffers: Buffer[],
 ): Promise<OcrResult[]> {
-  return Promise.all(imageUrls.map(extractText))
+  return Promise.all(imageBuffers.map(extractText))
 }

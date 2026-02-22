@@ -4,6 +4,7 @@ import {
   type OcrWord,
 } from '@/lib/ai/ocr'
 import { classifyFields } from '@/lib/ai/classify-fields'
+import { fetchImageBytes } from '@/lib/storage/blob'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -133,8 +134,11 @@ export async function extractLabelFields(
 ): Promise<ExtractionResult> {
   const startTime = performance.now()
 
+  // Fetch image bytes from private blob storage
+  const imageBuffers = await Promise.all(imageUrls.map(fetchImageBytes))
+
   // Stage 1: OCR all images in parallel
-  const ocrResults = await extractTextMultiImage(imageUrls)
+  const ocrResults = await extractTextMultiImage(imageBuffers)
 
   // Build combined word list for classification
   const combinedWords = buildCombinedWordList(ocrResults)

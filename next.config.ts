@@ -4,9 +4,9 @@ const cspDirectives = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com",
+  "img-src 'self' data: blob: https://*.blob.vercel-storage.com",
   "font-src 'self' https://fonts.gstatic.com",
-  "connect-src 'self' https://va.vercel-scripts.com https://*.public.blob.vercel-storage.com",
+  "connect-src 'self' https://va.vercel-scripts.com https://*.blob.vercel-storage.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '*.public.blob.vercel-storage.com',
+        hostname: '*.blob.vercel-storage.com',
       },
     ],
   },
