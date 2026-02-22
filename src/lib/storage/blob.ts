@@ -26,21 +26,27 @@ export async function deleteImage(url: string): Promise<void> {
   await del(url)
 }
 
+function isBlobUrl(url: string): boolean {
+  return url.includes('.blob.vercel-storage.com')
+}
+
 /**
  * Returns a time-limited signed download URL for a private blob.
- * Use this in server components before passing image URLs to client components.
+ * Non-blob URLs (e.g. placeholders from seed data) are returned as-is.
  */
 export async function getSignedImageUrl(url: string): Promise<string> {
+  if (!isBlobUrl(url)) return url
   const metadata = await head(url)
   return metadata.downloadUrl
 }
 
 /**
  * Fetches image bytes from a private blob for server-side processing (e.g. OCR).
+ * Also handles non-blob URLs (e.g. placeholders from seed data).
  */
 export async function fetchImageBytes(url: string): Promise<Buffer> {
-  const signedUrl = await getSignedImageUrl(url)
-  const response = await fetch(signedUrl)
+  const fetchUrl = isBlobUrl(url) ? await getSignedImageUrl(url) : url
+  const response = await fetch(fetchUrl)
   if (!response.ok) {
     throw new Error(`Failed to fetch image: ${response.status}`)
   }

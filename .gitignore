@@ -66,6 +66,9 @@ config/
 # next-agents-md
 .next-docs/
 
+# playwright-cli output
+.playwright-cli/
+
 # agent skills (symlink dirs — canonical source is .agents/skills/)
 skills/
 .agent/

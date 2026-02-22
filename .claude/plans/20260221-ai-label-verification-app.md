@@ -564,7 +564,7 @@ human_reviews
 │       ├── check-deployment/
 │       │   └── SKILL.md           # Verify Vercel deployment health via Vercel MCP
 │       └── test-page/
-│           └── SKILL.md           # Test pages/flows via Playwright MCP
+│           └── SKILL.md           # Test pages/flows via Playwright CLI
 proxy.ts                               # Next.js 16 proxy (replaces middleware.ts) — auth checks, redirects, security headers
 public/
 ├── favicon.ico                        # Favicon (32x32, government-themed shield/seal)
