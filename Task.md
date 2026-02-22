@@ -10,7 +10,7 @@ The following document contains notes from our discovery sessions with the Compl
 
 ## Interview Notes: Sarah Chen, Deputy Director of Label Compliance
 
-*Conducted Tuesday, 3:15 PM — Sarah was running late from her daughter's school play rehearsal*
+_Conducted Tuesday, 3:15 PM — Sarah was running late from her daughter's school play rehearsal_
 
 > "Thanks for meeting with me. Sorry about the delay—my daughter's playing the lead in her school's production of Annie next week and rehearsals have been crazy. Anyway, let me tell you about what we're dealing with here.
 >
@@ -30,7 +30,7 @@ The following document contains notes from our discovery sessions with the Compl
 
 ## Interview Notes: Marcus Williams, IT Systems Administrator
 
-*Coffee chat, Thursday morning*
+_Coffee chat, Thursday morning_
 
 > "Sarah probably gave you the business side. Let me fill you in on some of the technical landscape.
 >
@@ -48,7 +48,7 @@ The following document contains notes from our discovery sessions with the Compl
 
 ## Interview Notes: Dave Morrison, Senior Compliance Agent (28 years)
 
-*Brief hallway conversation*
+_Brief hallway conversation_
 
 > "Look, I'll be honest, I've seen a lot of these 'modernization' projects come and go. Remember the automated phone system they put in back in 2008? Supposed to reduce call volume. We ended up with more calls because nobody could figure out how to navigate it.
 >
@@ -60,7 +60,7 @@ The following document contains notes from our discovery sessions with the Compl
 
 ## Interview Notes: Jenny Park, Junior Compliance Agent (8 months)
 
-*Teams call, Friday afternoon*
+_Teams call, Friday afternoon_
 
 > "I'm so excited you're working on this! When I started here, I was kind of shocked at how manual everything is. Like, I literally have a printed checklist on my desk that I go through for every label. Brand name—check with my eyes. ABV—check with my eyes. Warning statement—check with my eyes. It's 2024!
 >

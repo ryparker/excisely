@@ -53,3 +53,30 @@ drizzle/meta/_journal.json.bak
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# sample images (downloaded during seed)
+scripts/sample-images/
+
+# misc
+*.pem
+
+# next-agents-md
+.next-docs/
+
+# agent skills (symlink dirs — canonical source is .agents/skills/)
+skills/
+.agent/
+.augment/
+.cline/
+.continue/
+.crush/
+.goose/
+.junie/
+.kilocode/
+.kiro/
+.mux/
+.openhands/
+.qwen/
+.roo/
+.trae/
+.windsurf/

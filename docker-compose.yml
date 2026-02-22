@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: excisely-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: excisely
+      POSTGRES_PASSWORD: excisely
+      POSTGRES_DB: excisely
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

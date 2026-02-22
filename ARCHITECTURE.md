@@ -703,18 +703,18 @@ All primary keys use nanoid (21-char, URL-friendly) generated via `$defaultFn(()
 
 ### Key Relationships
 
-| Relationship | Cardinality | Notes |
-|---|---|---|
-| users -> labels | 1:many | `specialist_id` tracks who processed each label |
-| applicants -> labels | 1:many | Labels grouped by submitting company |
-| batches -> labels | 1:many | Batch uploads contain multiple labels |
-| labels -> labels | self-ref | `prior_label_id` for resubmission chains |
-| labels -> label_images | 1:many | Front, back, neck, strip images |
-| labels -> application_data | 1:1 | Form 5100.31 data per label |
-| labels -> validation_results | 1:many | Multiple results via revalidation |
-| validation_results -> self | self-ref | `superseded_by` chains result history |
-| validation_results -> validation_items | 1:many | Per-field comparison results |
-| validation_items -> human_reviews | 1:many | Specialist override records |
+| Relationship                           | Cardinality | Notes                                           |
+| -------------------------------------- | ----------- | ----------------------------------------------- |
+| users -> labels                        | 1:many      | `specialist_id` tracks who processed each label |
+| applicants -> labels                   | 1:many      | Labels grouped by submitting company            |
+| batches -> labels                      | 1:many      | Batch uploads contain multiple labels           |
+| labels -> labels                       | self-ref    | `prior_label_id` for resubmission chains        |
+| labels -> label_images                 | 1:many      | Front, back, neck, strip images                 |
+| labels -> application_data             | 1:1         | Form 5100.31 data per label                     |
+| labels -> validation_results           | 1:many      | Multiple results via revalidation               |
+| validation_results -> self             | self-ref    | `superseded_by` chains result history           |
+| validation_results -> validation_items | 1:many      | Per-field comparison results                    |
+| validation_items -> human_reviews      | 1:many      | Specialist override records                     |
 
 ### Enums
 

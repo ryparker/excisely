@@ -21,6 +21,7 @@ mcp__playwright__browser_navigate(url: "<url>")
 ```
 
 Wait for the page to load:
+
 ```
 mcp__playwright__browser_wait_for(time: 2)
 ```
@@ -60,6 +61,7 @@ mcp__playwright__browser_take_screenshot(fullPage: true)
 ### 4. Common Test Flows
 
 #### Login Flow
+
 1. Navigate to `/login`
 2. Fill email: `jenny.park@ttb.gov`
 3. Fill password: `specialist123`
@@ -68,6 +70,7 @@ mcp__playwright__browser_take_screenshot(fullPage: true)
 6. Screenshot — verify dashboard loaded
 
 #### Validate Label Flow
+
 1. Login first (see above)
 2. Navigate to `/validate`
 3. Select beverage type
@@ -78,6 +81,7 @@ mcp__playwright__browser_take_screenshot(fullPage: true)
 8. Screenshot — verify results page with annotated image
 
 #### Review Queue Flow
+
 1. Login first
 2. Navigate to `/review`
 3. Screenshot — verify queue table with pending items
@@ -87,6 +91,7 @@ mcp__playwright__browser_take_screenshot(fullPage: true)
 ### 5. Assess Results
 
 After taking screenshots:
+
 - Check that the page renders correctly (no broken layouts, missing content)
 - Verify status badges show correct colors and text
 - Check that forms have proper labels and validation
@@ -95,11 +100,11 @@ After taking screenshots:
 
 ## Test Users
 
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | sarah.chen@ttb.gov | admin123 |
+| Role                | Email                 | Password      |
+| ------------------- | --------------------- | ------------- |
+| Admin               | sarah.chen@ttb.gov    | admin123      |
 | Specialist (senior) | dave.morrison@ttb.gov | specialist123 |
-| Specialist (junior) | jenny.park@ttb.gov | specialist123 |
+| Specialist (junior) | jenny.park@ttb.gov    | specialist123 |
 
 ## Tips
 

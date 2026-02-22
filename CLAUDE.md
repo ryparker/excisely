@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Excisely
 
 **Label verification, precisely.**
@@ -8,9 +12,9 @@ AI-powered alcohol label verification tool for TTB labeling specialists. Compare
 
 - **Framework:** Next.js 16 (App Router, Turbopack, `proxy.ts`, `use cache`, React 19.2)
 - **Language:** TypeScript (strict mode)
-- **Styling:** Tailwind CSS v4 (CSS-first config, `@theme` directive) + shadcn/ui (new-york style)
+- **Styling:** Tailwind CSS v4 (CSS-first config, `@theme` directive, OKLCH colors) + shadcn/ui (new-york style)
 - **Animation:** Motion (framer-motion v12)
-- **Database:** Drizzle ORM + Neon Postgres (`@neondatabase/serverless`)
+- **Database:** Drizzle ORM + Neon Postgres (production) / local Postgres via Docker (development)
 - **Storage:** Vercel Blob (signed URLs, client-side direct uploads via `@vercel/blob/client`)
 - **AI:** Hybrid pipeline — Google Cloud Vision (`@google-cloud/vision`) for OCR + bounding boxes, GPT-5 Mini (`ai` + `@ai-sdk/openai`) for field classification via `generateText` + `Output.object()` + Zod schemas
 - **Forms:** React Hook Form v7 + `@hookform/resolvers` (Zod resolver)
@@ -25,32 +29,51 @@ AI-powered alcohol label verification tool for TTB labeling specialists. Compare
 ## Commands
 
 ```bash
+# Development
+docker compose up -d    # Start local Postgres (OrbStack/Docker)
 yarn dev                # Start dev server (Turbopack)
 yarn build              # Production build
 yarn start              # Start production server
+
+# Code quality
 yarn lint               # ESLint (flat config — no `next lint` in Next.js 16)
 yarn lint:fix           # ESLint autofix
 yarn format             # Prettier format all files
 yarn format:check       # Prettier check (CI)
+yarn knip               # Find unused files, exports, dependencies
+
+# Testing
 yarn test               # Vitest watch mode
 yarn test:coverage      # Vitest with V8 coverage
+yarn vitest run src/lib/ai/compare-fields.test.ts  # Run a single test file
 yarn test:e2e           # Playwright E2E tests
-yarn knip               # Find unused files, exports, dependencies
+
+# Database
+yarn db:push            # Push schema to dev database (no migration files)
 yarn db:generate        # Generate Drizzle migrations from schema changes
-yarn db:migrate         # Run pending migrations
+yarn db:migrate         # Run pending migrations (production)
 yarn db:seed            # Seed database with ~1,000 sample labels
 yarn db:studio          # Open Drizzle Studio (web UI)
 ```
+
+## Local Development
+
+```bash
+docker compose up -d                   # Start Postgres 17 (OrbStack or Docker Desktop)
+cp .env.example .env.local             # DATABASE_URL pre-filled for local Docker
+yarn db:push && yarn db:seed           # Create tables + seed ~1,000 labels
+yarn dev                               # http://localhost:3000
+```
+
+`src/db/index.ts` auto-detects the driver: URLs containing `neon.tech` use `@neondatabase/serverless` (HTTP); all other URLs use `pg` (node-postgres) for local Docker.
 
 ## Database Access (Read-Only)
 
 Use `psql` for all database inspection. **Never run mutating queries** (INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE).
 
 ```bash
-# Quick connection test
 psql "$DATABASE_URL" -c "SELECT count(*) FROM labels;"
-
-# Schema source of truth is src/db/schema.ts
+# Schema source of truth: src/db/schema.ts
 ```
 
 Use the `/db-inspect` skill for common queries — it has ready-made queries for counts, labels by status, applicant stats, review queue, validation items, and more.
@@ -81,32 +104,32 @@ Use the `/db-inspect` skill for common queries — it has ready-made queries for
 
 Use TTB's exact terminology everywhere — UI, code, comments, variable names.
 
-| Correct | Incorrect |
-|---------|-----------|
-| Labeling Specialist | Agent, Reviewer |
-| Health Warning Statement / GOVERNMENT WARNING | Government warning |
-| Alcohol Content | ABV (in form context) |
-| Type of Product | Beverage type |
-| Fanciful Name (Item 7) | Subtitle, tagline |
-| Brand Name (Item 6) | Trade name |
-| Name and Address (Item 8) | Producer info |
-| Qualifying Phrase | Producer type |
-| Needs Correction | Failed, needs review |
-| Conditionally Approved | Partial approval |
-| Class/Type Code | Category number |
-| Serial Number (Item 4) | Application number |
+| Correct                                       | Incorrect             |
+| --------------------------------------------- | --------------------- |
+| Labeling Specialist                           | Agent, Reviewer       |
+| Health Warning Statement / GOVERNMENT WARNING | Government warning    |
+| Alcohol Content                               | ABV (in form context) |
+| Type of Product                               | Beverage type         |
+| Fanciful Name (Item 7)                        | Subtitle, tagline     |
+| Brand Name (Item 6)                           | Trade name            |
+| Name and Address (Item 8)                     | Producer info         |
+| Qualifying Phrase                             | Producer type         |
+| Needs Correction                              | Failed, needs review  |
+| Conditionally Approved                        | Partial approval      |
+| Class/Type Code                               | Category number       |
+| Serial Number (Item 4)                        | Application number    |
 
 ## User Roles & Test Accounts
 
-| Role | Name | Email | Password |
-|------|------|-------|----------|
-| Admin | Sarah Chen | sarah.chen@ttb.gov | admin123 |
-| Specialist (senior) | Dave Morrison | dave.morrison@ttb.gov | specialist123 |
-| Specialist (junior) | Jenny Park | jenny.park@ttb.gov | specialist123 |
-| Specialist | Marcus Williams | marcus.williams@ttb.gov | specialist123 |
-| Specialist | Janet Torres | janet.torres@ttb.gov | specialist123 |
-| Specialist | Robert Kim | robert.kim@ttb.gov | specialist123 |
-| Specialist (part-time) | Lisa Chen | lisa.chen@ttb.gov | specialist123 |
+| Role                   | Name            | Email                   | Password      |
+| ---------------------- | --------------- | ----------------------- | ------------- |
+| Admin                  | Sarah Chen      | sarah.chen@ttb.gov      | admin123      |
+| Specialist (senior)    | Dave Morrison   | dave.morrison@ttb.gov   | specialist123 |
+| Specialist (junior)    | Jenny Park      | jenny.park@ttb.gov      | specialist123 |
+| Specialist             | Marcus Williams | marcus.williams@ttb.gov | specialist123 |
+| Specialist             | Janet Torres    | janet.torres@ttb.gov    | specialist123 |
+| Specialist             | Robert Kim      | robert.kim@ttb.gov      | specialist123 |
+| Specialist (part-time) | Lisa Chen       | lisa.chen@ttb.gov       | specialist123 |
 
 ## Label Statuses
 
@@ -119,50 +142,53 @@ Received → Processing → Approved
 
 ## Key Files
 
-| File | Purpose |
-|------|---------|
-| `src/db/schema.ts` | Database schema — single source of truth for all tables, types (`$inferSelect`/`$inferInsert`), and Zod schemas (`drizzle-orm/zod`) |
-| `src/app/actions/` | Server actions — all mutations live here |
-| `src/lib/ai/ocr.ts` | Stage 1: Google Cloud Vision OCR — word-level bounding polygons |
-| `src/lib/ai/classify-fields.ts` | Stage 2: GPT-5 Mini field classification — text-only input |
-| `src/lib/ai/extract-label.ts` | AI pipeline orchestrator — runs OCR → classification → merges bounding boxes |
-| `src/lib/labels/effective-status.ts` | Lazy deadline expiration — `getEffectiveStatus()` |
-| `src/lib/ai/compare-fields.ts` | Field comparison engine (fuzzy, strict, normalized) |
-| `src/lib/ai/prompts.ts` | Classification prompts (beverage-type-aware) |
-| `src/config/beverage-types.ts` | Mandatory fields + valid sizes per product type |
-| `src/config/class-type-codes.ts` | TTB numeric class/type codes (0-999) |
-| `src/config/health-warning.ts` | Exact GOVERNMENT WARNING text + formatting rules |
-| `src/config/qualifying-phrases.ts` | "Bottled by", "Distilled by", etc. |
-| `proxy.ts` | Auth checks, redirects, security headers |
-| `.claude/plans/20260221-ai-label-verification-app.md` | Full implementation plan |
-| `.claude/plans/test-workflows.md` | 150+ test cases by feature area |
-| `CONTEXT.md` | TTB research — vocabulary, Form 5100.31 fields, regulations |
+| File                                                  | Purpose                                                                                                                             |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `src/db/schema.ts`                                    | Database schema — single source of truth for all tables, types (`$inferSelect`/`$inferInsert`), and Zod schemas (`drizzle-orm/zod`) |
+| `src/app/actions/`                                    | Server actions — all mutations live here                                                                                            |
+| `src/lib/ai/ocr.ts`                                   | Stage 1: Google Cloud Vision OCR — word-level bounding polygons                                                                     |
+| `src/lib/ai/classify-fields.ts`                       | Stage 2: GPT-5 Mini field classification — text-only input                                                                          |
+| `src/lib/ai/extract-label.ts`                         | AI pipeline orchestrator — runs OCR → classification → merges bounding boxes                                                        |
+| `src/lib/labels/effective-status.ts`                  | Lazy deadline expiration — `getEffectiveStatus()`                                                                                   |
+| `src/lib/ai/compare-fields.ts`                        | Field comparison engine (fuzzy, strict, normalized)                                                                                 |
+| `src/lib/ai/prompts.ts`                               | Classification prompts (beverage-type-aware)                                                                                        |
+| `src/config/beverage-types.ts`                        | Mandatory fields + valid sizes per product type                                                                                     |
+| `src/config/class-type-codes.ts`                      | TTB numeric class/type codes (0-999)                                                                                                |
+| `src/config/health-warning.ts`                        | Exact GOVERNMENT WARNING text + formatting rules                                                                                    |
+| `src/config/qualifying-phrases.ts`                    | "Bottled by", "Distilled by", etc.                                                                                                  |
+| `proxy.ts`                                            | Auth checks, redirects, security headers                                                                                            |
+| `docker-compose.yml`                                  | Local Postgres 17 for development (OrbStack/Docker)                                                                                 |
+| `AGENTS.md`                                           | Next.js 16.1.6 docs index for AI agents (auto-generated by `@next/codemod`)                                                        |
+| `.next-docs/`                                         | Full Next.js docs (referenced by AGENTS.md) — gitignored                                                                            |
+| `.claude/plans/20260221-ai-label-verification-app.md` | Full implementation plan                                                                                                            |
+| `.claude/plans/test-workflows.md`                     | 150+ test cases by feature area                                                                                                     |
+| `CONTEXT.md`                                          | TTB research — vocabulary, Form 5100.31 fields, regulations                                                                         |
 
 ## Available Skills
 
-| Skill | When to Use |
-|-------|-------------|
-| `/db-inspect` | Check database state, verify data, debug queries |
-| `/check-deployment` | Verify Vercel deployment health |
-| `/test-page <url>` | Test a page or flow with Playwright screenshots |
-| `/run-all-tests-and-fix` | Run test suite and fix failures |
-| `/improve-design-of-page <url>` | Iteratively improve page design via screenshots |
-| `/security-audit` | Comprehensive security review |
-| `/code-review-checklist` | Code review before merge |
-| `/vercel-react-best-practices` | Performance optimization check |
-| `/commit-and-push` | Create descriptive commit and push |
-| `/create-pr` | Create well-structured pull request |
+| Skill                           | When to Use                                      |
+| ------------------------------- | ------------------------------------------------ |
+| `/db-inspect`                   | Check database state, verify data, debug queries |
+| `/check-deployment`             | Verify Vercel deployment health                  |
+| `/test-page <url>`              | Test a page or flow with Playwright screenshots  |
+| `/run-all-tests-and-fix`        | Run test suite and fix failures                  |
+| `/improve-design-of-page <url>` | Iteratively improve page design via screenshots  |
+| `/security-audit`               | Comprehensive security review                    |
+| `/code-review-checklist`        | Code review before merge                         |
+| `/vercel-react-best-practices`  | Performance optimization check                   |
+| `/commit-and-push`              | Create descriptive commit and push               |
+| `/create-pr`                    | Create well-structured pull request              |
 
 ## Environment Variables
 
 ```bash
-DATABASE_URL=              # Neon Postgres connection string
+DATABASE_URL=              # Local: postgresql://excisely:excisely@localhost:5432/excisely
+                           # Prod: Neon Postgres connection string (must contain neon.tech)
 OPENAI_API_KEY=            # OpenAI API key (used by @ai-sdk/openai provider for GPT-5 Mini)
 GOOGLE_APPLICATION_CREDENTIALS=  # Path to Google Cloud service account JSON (for Cloud Vision OCR)
 BLOB_READ_WRITE_TOKEN=     # Vercel Blob storage token
-BETTER_AUTH_SECRET=        # Better Auth session secret
+BETTER_AUTH_SECRET=        # Better Auth session secret (openssl rand -hex 32)
 BETTER_AUTH_URL=           # App URL (http://localhost:3000 in dev)
-# Note: .env.local for local secrets, .env for defaults. No dotenv package needed.
-# For Vercel deployment: set GOOGLE_APPLICATION_CREDENTIALS_JSON env var with the JSON content,
-# then parse it at runtime (Cloud Vision client accepts credentials object directly).
+# .env.local for local secrets, .env for defaults. No dotenv package needed.
+# For Vercel: set GOOGLE_APPLICATION_CREDENTIALS_JSON with raw JSON content (not file path).
 ```

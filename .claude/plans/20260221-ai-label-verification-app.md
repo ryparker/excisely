@@ -15,6 +15,7 @@ Build a standalone AI-powered tool for TTB labeling specialists to verify alcoho
 ## Key Decisions
 
 ### 1. Architecture: RSC-First (Stockbridge Pattern) on Next.js 16
+
 - **Everything is a React Server Component** by default
 - Data loading happens in RSC async components — no client-side fetching, no exposed API routes
 - All mutations go through **Server Actions** with Zod validation
@@ -27,14 +28,15 @@ Build a standalone AI-powered tool for TTB labeling specialists to verify alcoho
   - **`next lint` removed** — use ESLint CLI directly (`eslint .`)
 
 ### 2. Database: PostgreSQL via Drizzle ORM on Neon (Vercel-native)
+
 - **Drizzle ORM** — lightweight, type-safe, SQL-first (simpler than Prisma for this scope)
 - **Neon Postgres** — serverless Postgres that deploys on Vercel with zero config via `@neondatabase/serverless`
 - Connection via Neon's HTTP driver for serverless compatibility (no connection pooling headaches)
 - **Nano IDs for all primary keys** — use `nanoid` (21-char, URL-friendly) instead of UUID. Shorter, URL-safe, smaller index footprint, no hyphens. Generated in application code via `$defaultFn(() => nanoid())` on each `text('id').primaryKey()` column.
 - **Type inference from schema** — Drizzle's `$inferSelect` and `$inferInsert` derive TypeScript types directly from table definitions. No manual type maintenance:
   ```ts
-  type Label = typeof labels.$inferSelect        // SELECT result type
-  type NewLabel = typeof labels.$inferInsert      // INSERT input type
+  type Label = typeof labels.$inferSelect // SELECT result type
+  type NewLabel = typeof labels.$inferInsert // INSERT input type
   ```
 - **Zod schema generation** — `drizzle-orm/zod` auto-generates Zod schemas from tables for runtime validation in server actions:
   ```ts
@@ -52,6 +54,7 @@ Build a standalone AI-powered tool for TTB labeling specialists to verify alcoho
   - **Workflow:** edit `schema.ts` → `yarn db:generate` → review generated SQL → `yarn db:migrate` → commit migration files
 
 ### 3. Beverage-Type-Aware Validation (TTB "Type of Product")
+
 - **Type of Product selector** on the validation form (mirrors Form 5100.31 Item 5): Distilled Spirits, Wine, Malt Beverages
 - **Class/Type Code** — numeric code (0-999) per TTB's classification system. Dropdown or type-ahead populated from `src/config/class-type-codes.ts` (e.g., 101 = Straight Bourbon Whisky, 84 = Sparkling Wine, 901 = Beer)
 - Selection determines:
@@ -66,6 +69,7 @@ Build a standalone AI-powered tool for TTB labeling specialists to verify alcoho
 - Field definitions stored in `src/config/beverage-types.ts` and `src/config/class-type-codes.ts` — easy to update if regulations change
 
 ### 4. AI: Hybrid Pipeline — Google Cloud Vision + GPT-5 Mini (via Vercel AI SDK)
+
 - **Two-stage pipeline** for accurate bounding boxes and cheap classification:
   - **Stage 1: Google Cloud Vision API** (`@google-cloud/vision`) — purpose-built OCR engine
     - `TEXT_DETECTION` returns word-level bounding polygons (4 vertices, pixel-accurate), <1s latency, $0.0015/image
@@ -100,6 +104,7 @@ Build a standalone AI-powered tool for TTB labeling specialists to verify alcoho
 - Target < 5s total per label (Stage 1: <1s per image + Stage 2: ~1-2s classification)
 
 ### 5. Image Annotation System
+
 - Store bounding box data from Google Cloud Vision OCR in the database alongside each validation item (pixel-accurate polygons, not LLM approximations)
 - Frontend renders an **interactive overlay** on the original image using **CSS transforms** for zoom/pan (custom ~80 lines, no library dependency) with **absolute-positioned SVG elements** for bounding boxes
 - Each annotation is color-coded: green (match), red (mismatch), yellow (uncertain)
@@ -107,6 +112,7 @@ Build a standalone AI-powered tool for TTB labeling specialists to verify alcoho
 - **Zoom/pan implementation:** `transform: scale(${zoom}) translate(${x}px, ${y}px)` on a container div wrapping the image + SVG overlay. Wheel zoom, drag to pan, programmatic "zoom to field" when clicking a comparison row.
 
 ### 6. UI: Government Compliance Theme
+
 - **shadcn/ui** (new-york style, slate base) as component foundation
 - Custom government/official theme:
   - Deep navy (`#1a2332`), gold accents (`#c5a944`), white/slate backgrounds
@@ -119,6 +125,7 @@ Build a standalone AI-powered tool for TTB labeling specialists to verify alcoho
 - Responsive but desktop-first (agents use desktop workstations)
 
 ### 7. Iconography & Visual Clarity
+
 - **Use icons where they genuinely help** — to aid recognition, reduce clutter, and make the UI faster to learn. Not every element needs an icon; use judgment
 - **Icon library:** Lucide React (consistent stroke style, large set, tree-shakeable)
 - **Where icons shine:**
@@ -132,6 +139,7 @@ Build a standalone AI-powered tool for TTB labeling specialists to verify alcoho
 - **Consistent vocabulary:** same icon always means the same thing across the entire app — builds familiarity fast
 
 ### 8. Authentication & Roles (Better Auth)
+
 - **Better Auth** — same library as stockbridge, proven pattern
 - **Two roles:**
   - **Admin** (Sarah Chen, Deputy Director) — full access: manages specialists, views all validations across the team, performance dashboards, applicant risk overview, settings management
@@ -159,10 +167,11 @@ Build a standalone AI-powered tool for TTB labeling specialists to verify alcoho
   - Each specialist has realistic validation history distributed across the seed data
 
 ### 9. Security Posture (Production-Grade)
+
 - **No API routes exposed** — all data access through RSC and server actions only
 - **Server Action hardening:**
   - Every server action validates input with Zod schemas
-  - File upload validation: type checking (image/*), size limits (10MB), magic byte verification
+  - File upload validation: type checking (image/\*), size limits (10MB), magic byte verification
   - No raw SQL — all queries through Drizzle's parameterized query builder
 - **Headers:** Strict CSP, X-Frame-Options DENY, X-Content-Type-Options nosniff
 - **Environment variables:** All secrets server-only (no `NEXT_PUBLIC_` for sensitive keys)
@@ -172,6 +181,7 @@ Build a standalone AI-powered tool for TTB labeling specialists to verify alcoho
 - **Rate limiting:** ~~Deferred for prototype.~~ Production would use `@upstash/ratelimit` + Upstash Redis (HTTP-based, serverless-compatible). In-memory rate limiting does NOT work on Vercel serverless (each invocation is isolated). Noted as a production hardening item.
 
 ### 9b. State Management: Zustand + nuqs
+
 - **Zustand** (v5) — lightweight client-side state for:
   - Image annotation viewer state (active field, zoom level, pan position)
   - Keyboard shortcut context (which shortcuts are active, which page context)
@@ -189,6 +199,7 @@ Build a standalone AI-powered tool for TTB labeling specialists to verify alcoho
 - **Boundary:** Zustand for ephemeral client state (annotation interactions, form drafts). nuqs for persistent filter/navigation state (URL-backed, shareable, RSC-compatible).
 
 ### 10. Human Review Queue
+
 - When the AI confidence on any field falls below a configurable threshold (e.g., < 80%), that **validation item** gets flagged `needs_correction`
 - If **any** field on a label is `needs_correction`, the overall label status becomes `needs_correction`
 - Dedicated **Review Queue page** (`/review`) shows all labels awaiting specialist verification
@@ -203,6 +214,7 @@ Build a standalone AI-powered tool for TTB labeling specialists to verify alcoho
 - Dashboard and reports include review queue metrics: queue depth, avg time-to-review, human override rate
 
 ### 11. Communication Reports (Approval / Rejection Notices)
+
 - After a label is fully validated (approved, conditionally approved, needs correction, rejected, or reviewed by specialist), the specialist needs to communicate results back to the applicant
 - **Two report templates** generated server-side from validation data:
   - **Approval notice:** Confirmation that the label meets all requirements — professional, concise
@@ -218,9 +230,10 @@ Build a standalone AI-powered tool for TTB labeling specialists to verify alcoho
 - Reports include: label image thumbnail, field-by-field breakdown, overall determination, and any human review notes
 
 ### 12. Configurable Validation Settings (Simplified)
+
 - **Settings page** (`/settings`) — allows admins to tune how the AI validation behaves without code changes
 - **Confidence threshold** (global):
-  - Slider or input: "Flag for human review when confidence is below ___%" (default: 80%)
+  - Slider or input: "Flag for human review when confidence is below \_\_\_%" (default: 80%)
   - Applies to all fields — any field below this threshold routes to the review queue
 - **Per-field match strictness:**
   - Each field (brand name, class/type, alcohol content, etc.) can be set to: **Strict** (exact match required), **Moderate** (case-insensitive, normalized), or **Lenient** (fuzzy, allows minor variations)
@@ -242,6 +255,7 @@ Build a standalone AI-powered tool for TTB labeling specialists to verify alcoho
 - Changes take effect immediately on next validation (no restart needed)
 
 ### 13. Correction Deadline Tracking
+
 - **30-day countdown** for "Needs Correction" labels and **7-day countdown** for "Conditionally Approved" labels — mirrors TTB's real correction windows
 - `labels` table gets two new columns:
   - `correction_deadline` (timestamp, nullable) — set when status transitions to `needs_correction` (now + 30 days) or `conditionally_approved` (now + 7 days)
@@ -259,6 +273,7 @@ Build a standalone AI-powered tool for TTB labeling specialists to verify alcoho
 - **Reports:** correction response rate (what % of "Needs Correction" get addressed before deadline)
 
 ### 14. Side-by-Side Field Comparison View
+
 - On the validation detail page (`/history/[id]`) and review detail page (`/review/[id]`), the right panel uses a **two-column comparison layout** for each field:
   - **Left column:** "Application (Form 5100.31)" — the expected value from the form data
   - **Right column:** "Label (AI Extracted)" — what the AI found on the image
@@ -269,6 +284,7 @@ Build a standalone AI-powered tool for TTB labeling specialists to verify alcoho
 - **Compact mode** toggle for experienced specialists who want to see all fields at once without expanding
 
 ### 15. Keyboard Shortcuts for Queue Processing
+
 - **Global shortcuts** (active on history detail, review detail, and queue pages):
   - `A` = Approve label (sets overall status to approved)
   - `R` = Reject label
@@ -284,6 +300,7 @@ Build a standalone AI-powered tool for TTB labeling specialists to verify alcoho
 - This directly addresses throughput — the AI handles extraction in ~5s, but the specialist also needs to act fast. Keyboard-driven review can halve the per-label review time.
 
 ### 16. Resubmission Linking
+
 - When a label with status "Needs Correction" or "Rejected" is resubmitted, the new submission can be **linked to the original** via a "Prior TTB ID" / "Prior Submission" field (mirrors Form 5100.31 Item 18d "Resubmission of Previously Rejected Application")
 - `labels` table gets: `prior_label_id` (text, FK → labels, nullable) — creates a chain: Original → Corrected Resubmission
 - On the validation detail page, linked labels show:
@@ -294,6 +311,7 @@ Build a standalone AI-powered tool for TTB labeling specialists to verify alcoho
 - Resubmission chain is visible on the applicant detail page — shows the full lifecycle of a label from first submission through correction to approval
 
 ### 17. Quick Approve for Clean Labels
+
 - When the AI returns high confidence (above threshold) on ALL fields and every field is a match, show a streamlined **"Quick Approve" view** instead of the full comparison layout:
   - Condensed summary card: "All N fields match with high confidence (avg XX%)"
   - Thumbnail of the label with all bboxes in green
@@ -304,6 +322,7 @@ Build a standalone AI-powered tool for TTB labeling specialists to verify alcoho
 - This is key for throughput: ~40% of labels pass cleanly. If specialists don't have to click through each field on the easy ones, they can spend their time on the hard cases.
 
 ### 18. Revalidation
+
 - Any label can be **re-validated** at any time — useful when settings change (new accepted variants, adjusted thresholds), a better image is provided, or the specialist just wants a fresh AI pass
 - **"Revalidate" button** on the history detail page (`/history/[id]`) and review detail page (`/review/[id]`)
   - Icon button with `RefreshCw` icon + "Revalidate" text
@@ -317,6 +336,7 @@ Build a standalone AI-powered tool for TTB labeling specialists to verify alcoho
 - `validation_results` table gets a `superseded_by` column (nullable FK to itself) to chain result history
 
 ### 19. Applicant / Company Grouping & Compliance Reputation (Simplified)
+
 - Labels are linked to an **applicant** — a company or individual who submitted the application
 - **`applicants` table:** stores company name, contact email, and optional metadata
 - When submitting a label for validation, the specialist selects or creates an applicant
@@ -342,6 +362,7 @@ Build a standalone AI-powered tool for TTB labeling specialists to verify alcoho
 - Communication reports auto-populate the applicant name and details
 
 ### 20. Batch Upload System
+
 - Drag-and-drop zone via `react-dropzone` accepting multiple files (up to 300 at once)
 - Client-side file queuing with progress indicators (Zustand `upload-store`)
 - **Upload phase:** client-side direct-to-Blob uploads via `@vercel/blob/client` with `p-limit` concurrency control (max 5 parallel uploads). Per-file progress tracking.
@@ -749,6 +770,7 @@ src/
 ### Phase 1: Project Scaffolding & Infrastructure (Steps 1-5) — MVP
 
 **Step 1: Initialize Next.js 16 Project**
+
 - `npx create-next-app@latest` with App Router, TypeScript, Tailwind CSS (Turbopack is now the default bundler in Next.js 16)
 - Configure `next.config.ts`:
   - `poweredByHeader: false`
@@ -761,6 +783,7 @@ src/
 - Set up dev tooling (see Step 1b below)
 
 **Step 1b: Developer Environment & Tooling**
+
 - **ESLint** (v10 + flat config only):
   - Install: `eslint`, `eslint-config-next` (v16.x), `typescript-eslint` (v8+), `@eslint/js`, `eslint-config-prettier`
   - Create `eslint.config.mjs` (flat config — Next.js 16 removed `next lint`, use `eslint .` directly):
@@ -790,7 +813,12 @@ src/
   - Create `knip.json` with Next.js App Router entry points:
     ```json
     {
-      "entry": ["src/app/**/page.tsx", "src/app/**/layout.tsx", "src/app/api/**/route.ts", "next.config.ts"],
+      "entry": [
+        "src/app/**/page.tsx",
+        "src/app/**/layout.tsx",
+        "src/app/api/**/route.ts",
+        "next.config.ts"
+      ],
       "project": ["src/**/*.{ts,tsx}"],
       "ignore": ["src/components/_base/**"]
     }
@@ -844,6 +872,7 @@ src/
   ```
 
 **Step 2: Database Setup (Drizzle + Neon)**
+
 - Install: `drizzle-orm`, `@neondatabase/serverless`, `drizzle-kit`, `nanoid`
 - Define schema in `src/db/schema.ts` (all tables from schema above):
   - All PKs use `text('id').primaryKey().$defaultFn(() => nanoid())` — nano IDs generated in app code
@@ -873,6 +902,7 @@ src/
 - Set up db client in `src/db/index.ts` with connection pooling
 
 **Step 3: Vercel Blob Storage Setup**
+
 - Install `@vercel/blob`
 - Create upload helper in `src/lib/storage/blob.ts` (server-side: signed URL generation, deletion)
 - Create client upload route at `src/app/api/blob/upload/route.ts` — handles `@vercel/blob/client` token exchange:
@@ -882,6 +912,7 @@ src/
 - Client-side uploads use `upload()` from `@vercel/blob/client` with `multipart: true` for large files and `onUploadProgress` for progress tracking
 
 **Step 4: UI Foundation**
+
 - Install shadcn/ui CLI and initialize with `new-york` style
 - Install base components: button, card, badge, dialog, input, label, select, table, tabs, toast (sonner), progress, skeleton, dropdown-menu, scroll-area, separator, tooltip, sheet, **chart** (shadcn/ui Charts — Recharts v3 composition layer with Tailwind theming + dark mode)
 - Install `motion` (framer-motion), `next-themes`, `@vercel/analytics`, `nuqs`, `react-hook-form`, `@hookform/resolvers`, `react-dropzone`, `diff`
@@ -899,6 +930,7 @@ src/
 - Create root `layout.tsx` with navigation structure, ThemeProvider, Analytics
 
 **Step 5: Authentication (Better Auth)**
+
 - Install `better-auth` and configure with Drizzle adapter
 - Create `src/lib/auth/auth.ts` — server-side Better Auth config:
   - Drizzle adapter pointing to `users` and `sessions` tables
@@ -921,6 +953,7 @@ src/
 ### Phase 2: Core AI Pipeline (Steps 6-8) — MVP
 
 **Step 6: AI Pipeline — Hybrid OCR + Classification**
+
 - Install `@google-cloud/vision` (Google Cloud Vision API), `ai` (Vercel AI SDK v6), and `@ai-sdk/openai` (OpenAI provider)
 - **Stage 1: OCR with Google Cloud Vision**
 - Create `src/lib/ai/ocr.ts`:
@@ -933,11 +966,12 @@ src/
     import vision from '@google-cloud/vision'
     const client = new vision.ImageAnnotatorClient()
     const [result] = await client.textDetection(imageUrl)
-    const words = result.textAnnotations?.slice(1).map(a => ({
-      text: a.description,
-      boundingPoly: a.boundingPoly,
-      confidence: a.confidence ?? 1.0,
-    })) ?? []
+    const words =
+      result.textAnnotations?.slice(1).map((a) => ({
+        text: a.description,
+        boundingPoly: a.boundingPoly,
+        confidence: a.confidence ?? 1.0,
+      })) ?? []
     ```
 - **Stage 2: Field Classification with GPT-5 Mini**
 - Create `src/lib/ai/classify-fields.ts`:
@@ -949,10 +983,12 @@ src/
     const { object, usage } = await generateText({
       model: openai('gpt-5-mini'),
       output: Output.object({ schema: fieldClassificationSchema }),
-      messages: [{
-        role: 'user',
-        content: buildClassificationPrompt(ocrResult, beverageType),
-      }],
+      messages: [
+        {
+          role: 'user',
+          content: buildClassificationPrompt(ocrResult, beverageType),
+        },
+      ],
     })
     ```
   - Classifies OCR text blocks into TTB fields (brand name, alcohol content, health warning, etc.)
@@ -967,6 +1003,7 @@ src/
 - Handle error cases: unclear image, no text found, partial extraction, Cloud Vision API failures
 
 **Step 7: Field Comparison Engine**
+
 - Create `src/lib/ai/compare-fields.ts`:
   - **Exact match** for health warning statement (case-sensitive, whitespace-normalized)
   - **Fuzzy match** for brand name (case-insensitive, handle "STONE'S THROW" vs "Stone's Throw")
@@ -984,6 +1021,7 @@ src/
   - Verify text after "GOVERNMENT WARNING:" is NOT bold (common error)
 
 **Step 8: Validation Pipeline Server Action**
+
 - Create `src/app/actions/validate-label.ts`:
   1. Validate file input (Zod + magic bytes check)
   2. Upload image to Vercel Blob
@@ -1002,6 +1040,7 @@ src/
 ### Phase 3: Core UI Pages (Steps 9-12) — MVP
 
 **Step 9: Single Label Validation Page (`/validate`)**
+
 - **Server component** page wrapper
 - **Client component** form managed by **React Hook Form** + `zodResolver` (client-side validation, dirty tracking, conditional field visibility). Server action re-validates with Zod independently.
 - Form fields:
@@ -1021,6 +1060,7 @@ src/
 - Motion: form field entrance animations, upload zone pulse animation
 
 **Step 10: Validation Detail Page (`/history/[id]`)**
+
 - **Server component** — loads all data in RSC
 - **Quick Approve path:** If ALL fields match with high confidence (above threshold), show the **Quick Approve view** first:
   - Condensed summary card: "All N fields match with high confidence (avg XX%)"
@@ -1070,6 +1110,7 @@ src/
 - Motion: panel transitions, field comparison reveals, highlight animations
 
 **Step 11: History Page (`/history`)**
+
 - **Server component** with pagination
 - Sortable/filterable table of all validations
 - Columns: image thumbnail, label name, status badge, confidence, deadline countdown (if applicable), priority badge (if resubmission), date, batch (if any)
@@ -1080,6 +1121,7 @@ src/
 - Motion: table row entrance stagger animation
 
 **Step 12: Dashboard Page (`/` — home, role-aware)**
+
 - **Server component** with stats queries scoped by role
 - **Specialist view:**
   - Stats cards: my validations today/week, my approval rate, my avg processing time, my pending reviews
@@ -1098,6 +1140,7 @@ src/
 ### Phase 4: Human Review Queue (Steps 13-15) — Stretch
 
 **Step 13: Review Queue Page (`/review`)**
+
 - **Server component** — queries all labels with `status = 'needs_correction'`
 - Table columns: image thumbnail, label name/filename, flagged field count, confidence, deadline countdown, priority badge, date submitted, batch (if any)
 - **Filters:**
@@ -1112,6 +1155,7 @@ src/
 - Motion: badge pulse animation when queue has items
 
 **Step 14: Review Detail Page (`/review/[id]`)**
+
 - Same annotated-image + side-by-side comparison layout as `/history/[id]`, but with **interactive override controls**
 - **Resubmission context** (if applicable): shows what was wrong in the prior submission and what changed
 - **Deadline badge** showing remaining correction window time
@@ -1136,6 +1180,7 @@ src/
 - Motion: smooth transitions between fields, success animation on complete
 
 **Step 15: Review Audit Trail**
+
 - Every human override is persisted in `human_reviews` table with:
   - What the AI originally said (`original_status`)
   - What the human decided (`resolved_status`)
@@ -1151,6 +1196,7 @@ src/
 ### Phase 5: Batch Processing (Steps 16-17) — Stretch
 
 **Step 16: Batch Upload Page (`/batch`)**
+
 - **Client component** multi-file dropzone via `react-dropzone` (accepts 300+ files)
 - Two-step flow:
   1. Upload files + enter shared application data (or per-label data via CSV)
@@ -1165,6 +1211,7 @@ src/
 - Redirect to batch detail page
 
 **Step 17: Batch Detail Page (`/batch/[id]`)**
+
 - **Server component** initial load + **client component** polling for updates
 - Overall progress bar with count (e.g., "Processing 45 of 200 labels...")
 - Results table that populates as items complete
@@ -1177,6 +1224,7 @@ src/
 ### Phase 6: Applicants, Revalidation & Sample Data (Steps 18-21) — Stretch
 
 **Step 18: Applicant Pages (Simplified)**
+
 - **`/applicants` list page** (RSC) — searchable/sortable table with company name, total labels, approval rate, risk badge (<70% red, 70-90% amber, >90% green), last submission date
 - **`/applicants/[id]` detail page** (RSC):
   - Compliance reputation card at top: approval rate, total submissions, last submission date, most common rejection reason — simple stats, no trend analysis
@@ -1187,6 +1235,7 @@ src/
 - Server actions: `manage-applicants.ts` for create/update
 
 **Step 19: Revalidation & Resubmission Flow**
+
 - **Revalidation** (same label, fresh AI pass):
   - "Revalidate" button on `/history/[id]` and `/review/[id]` — `RefreshCw` icon + text
   - Confirmation dialog explaining previous results are preserved
@@ -1201,6 +1250,7 @@ src/
   - Validation detail page shows the diff: what changed between original and resubmission
 
 **Step 20: Sample Data Generation (~1,000 Labels)**
+
 - Create `src/db/seed.ts` — comprehensive seed script runnable via `yarn db:seed`
 - Create `scripts/fetch-sample-images.ts` — standalone script to download real label images from TTB sources
 - **Image Sourcing Strategy:**
@@ -1281,6 +1331,7 @@ src/
 - **Default settings:** seed with sensible defaults (80% confidence threshold, standard strictness levels, common accepted variants pre-loaded, health warning template from 27 CFR Part 16)
 
 **Step 21: Admin Dashboard (`/admin`) — Admin Only (Lightweight)**
+
 - **Server component** — checks role, redirects specialists to home
 - **Single page** with key stats Sarah would care about — no deep drill-down pages:
   - **Specialist summary table:** specialist name, labels processed (today/all-time), approval rate, pending reviews — sortable, one glance
@@ -1292,6 +1343,7 @@ src/
 ### Phase 7: Reports, Agent Tools & Polish (Steps 22-25) — Stretch
 
 **Step 22: Reports Page (`/reports`)**
+
 - **Server component** with aggregation queries
 - Charts (using Recharts or simple SVG):
   - Validations over time (bar chart, daily/weekly)
@@ -1305,6 +1357,7 @@ src/
 - Motion: chart entrance animations
 
 **Step 23: Security Hardening**
+
 - `proxy.ts` (already created in Step 5 for auth) — add:
   - Security headers (CSP, HSTS, X-Frame-Options, etc.)
   - Verify auth + role checks are airtight on all protected routes
@@ -1322,6 +1375,7 @@ src/
 - Error boundaries: `global-error.tsx` (root), `error.tsx` (per route group), `not-found.tsx` — don't leak stack traces
 
 **Step 24: Agent Environment & Project CLAUDE.md**
+
 - **Already created** (in `.claude/skills/` and project root):
   - `CLAUDE.md` — project-level agent context (stack, commands, architecture rules, TTB vocabulary, test accounts, key files, available skills, env vars)
   - `.claude/skills/db-inspect/SKILL.md` — read-only database inspection via `psql` with ready-made queries for schema, counts, label detail, review queue, applicant stats, settings, dashboard summary
@@ -1334,6 +1388,7 @@ src/
 - All database access via skills is **read-only** — the `db-inspect` skill explicitly prohibits mutating queries
 
 **Step 25: Polish & Deploy**
+
 - **Favicon & app icons:**
   - `public/favicon.ico` (32x32) — government-themed shield/seal icon
   - `public/icon.svg` — SVG version for modern browsers (Next.js metadata API picks this up automatically)
@@ -1366,17 +1421,18 @@ src/
 
 ### Testing Layers
 
-| Layer | Tool | What to Test | Target Coverage |
-|-------|------|-------------|-----------------|
-| **Static** | TypeScript (strict) + ESLint | Type errors, lint violations | 100% of code |
-| **Unit** | Vitest | Zod schemas, utilities, config, pure functions, comparison engine | 80-90% |
-| **Integration** | Vitest (mocked deps) | Server actions, validation pipeline, auth checks | 80%+ |
-| **Component** | Vitest + React Testing Library | Synchronous client components, form validation | 60-70% |
-| **E2E** | Playwright | Full user flows, async RSC pages, batch upload | Critical paths |
+| Layer           | Tool                           | What to Test                                                      | Target Coverage |
+| --------------- | ------------------------------ | ----------------------------------------------------------------- | --------------- |
+| **Static**      | TypeScript (strict) + ESLint   | Type errors, lint violations                                      | 100% of code    |
+| **Unit**        | Vitest                         | Zod schemas, utilities, config, pure functions, comparison engine | 80-90%          |
+| **Integration** | Vitest (mocked deps)           | Server actions, validation pipeline, auth checks                  | 80%+            |
+| **Component**   | Vitest + React Testing Library | Synchronous client components, form validation                    | 60-70%          |
+| **E2E**         | Playwright                     | Full user flows, async RSC pages, batch upload                    | Critical paths  |
 
 ### Vitest Configuration
 
 **`vitest.config.mts`:**
+
 ```ts
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
@@ -1393,13 +1449,20 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      exclude: ['node_modules/', '**/*.config.*', '**/*.d.ts', '**/types/**', 'src/components/_base/**'],
+      exclude: [
+        'node_modules/',
+        '**/*.config.*',
+        '**/*.d.ts',
+        '**/types/**',
+        'src/components/_base/**',
+      ],
     },
   },
 })
 ```
 
 **`vitest.setup.ts`** — global mocks for Next.js modules:
+
 ```ts
 import '@testing-library/jest-dom'
 import { cleanup } from '@testing-library/react'
@@ -1412,7 +1475,12 @@ vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
 }))
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn(), back: vi.fn() }),
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    prefetch: vi.fn(),
+    back: vi.fn(),
+  }),
   usePathname: () => '/',
   useSearchParams: () => new URLSearchParams(),
   redirect: vi.fn(),
@@ -1426,19 +1494,20 @@ vi.mock('next/headers', () => ({
 
 ### Mocking Patterns
 
-| Dependency | Approach |
-|-----------|----------|
-| **Drizzle ORM** | Mock `@/db` module — mock `db.query.*`, `db.insert()`, `db.update()`, `db.delete()` return values |
-| **Google Cloud Vision** | Mock `@google-cloud/vision` — mock `ImageAnnotatorClient.textDetection()` to return OCR text + bounding polygons |
-| **Vercel AI SDK** | Mock `ai` module — mock `generateText()` to return structured field classification responses matching our Zod schema |
-| **Vercel Blob** | Mock `@vercel/blob` — mock `put()`, `del()`, return fake URLs |
-| **Better Auth** | Mock `@/lib/auth` — mock `getSession()` to return admin/specialist/null sessions |
-| **next/headers** | Mock `cookies()`, `headers()` globally in setup file |
-| **next/navigation** | Mock `redirect()`, `useRouter()`, `usePathname()` globally in setup file |
+| Dependency              | Approach                                                                                                             |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **Drizzle ORM**         | Mock `@/db` module — mock `db.query.*`, `db.insert()`, `db.update()`, `db.delete()` return values                    |
+| **Google Cloud Vision** | Mock `@google-cloud/vision` — mock `ImageAnnotatorClient.textDetection()` to return OCR text + bounding polygons     |
+| **Vercel AI SDK**       | Mock `ai` module — mock `generateText()` to return structured field classification responses matching our Zod schema |
+| **Vercel Blob**         | Mock `@vercel/blob` — mock `put()`, `del()`, return fake URLs                                                        |
+| **Better Auth**         | Mock `@/lib/auth` — mock `getSession()` to return admin/specialist/null sessions                                     |
+| **next/headers**        | Mock `cookies()`, `headers()` globally in setup file                                                                 |
+| **next/navigation**     | Mock `redirect()`, `useRouter()`, `usePathname()` globally in setup file                                             |
 
 ### Key Limitation: Async Server Components
 
 **Vitest cannot test async RSC** (components with `async function` that do DB queries). These are tested via:
+
 1. **Unit test the data-fetching logic** separately (mock DB, test the query function)
 2. **Unit test the presentational component** with props (pass data in, test rendering)
 3. **E2E test the full page** with Playwright
@@ -1446,6 +1515,7 @@ vi.mock('next/headers', () => ({
 ### Test File Organization
 
 Colocated tests in `__tests__/` subdirectories:
+
 ```
 src/app/actions/__tests__/validate-label.test.ts
 src/lib/ai/__tests__/compare-fields.test.ts
@@ -1463,6 +1533,7 @@ e2e/                                    # Playwright E2E tests
 ### What to Test (Priority Order)
 
 **P0 — Must have:**
+
 - All Zod schemas (100% coverage — they're our input validation firewall)
 - Field comparison engine (`compare-fields.ts`) — every match type, normalization, edge case
 - Server action auth checks (every action rejects unauthenticated/wrong-role)
@@ -1472,6 +1543,7 @@ e2e/                                    # Playwright E2E tests
 - E2E: login → validate label → view results → approve (happy path)
 
 **P1 — Should have:**
+
 - Server actions (validate-label, submit-review, create-batch, bulk-approve)
 - Keyboard shortcut hook (context-aware, disabled in inputs)
 - Deadline calculation and expiration logic
@@ -1480,12 +1552,14 @@ e2e/                                    # Playwright E2E tests
 - E2E: review queue flow, batch upload flow
 
 **P2 — Nice to have:**
+
 - Client component rendering (form states, loading, error)
 - Applicant stats calculations
 - Communication report generation
 - Dashboard data queries
 
 ### Edge Cases to Test (Automated)
+
 - Health warning: title case "Government Warning", missing caps, extra spaces, missing bold on header, bold on body text
 - Brand names: special characters, apostrophes, accents ("Chateau Lafite", "Jagermeister"), different casing
 - ABV normalization: "45% Alc./Vol. (90 Proof)" ↔ "45%"
@@ -1499,6 +1573,7 @@ e2e/                                    # Playwright E2E tests
 - Keyboard shortcuts: disabled in input/textarea, context-specific per page
 
 ### Lighthouse
+
 - Performance and accessibility audit before deploy
 - Target: 90+ performance, 90+ accessibility
 
@@ -1519,6 +1594,7 @@ Skills are preferred because they load only when invoked and use minimal context
 #### `/db-inspect` — Database Inspection via psql
 
 `.claude/skills/db-inspect/SKILL.md` — wraps `psql "$DATABASE_URL"` with ready-made read-only queries:
+
 - Schema inspection (`\dt`, `\d <table>`, enum listing)
 - Row counts for all tables (single query)
 - Labels by status, by beverage type, by applicant
@@ -1533,6 +1609,7 @@ Skills are preferred because they load only when invoked and use minimal context
 #### `/check-deployment` — Verify Vercel Deployment
 
 `.claude/skills/check-deployment/SKILL.md` — uses the Vercel MCP tools:
+
 1. Find project via `.vercel/project.json`
 2. Check latest deployment status via `list_deployments`
 3. If failed → `get_deployment_build_logs` to diagnose
@@ -1542,6 +1619,7 @@ Skills are preferred because they load only when invoked and use minimal context
 #### `/test-page <url>` — Test Page via Playwright
 
 `.claude/skills/test-page/SKILL.md` — uses the Playwright MCP to:
+
 1. Navigate to a URL (localhost or deployed)
 2. Take screenshots and assess the page
 3. Interact with forms, buttons, navigation
@@ -1550,68 +1628,68 @@ Skills are preferred because they load only when invoked and use minimal context
 
 #### Existing Global Skills (Already Available)
 
-| Skill | Purpose |
-|-------|---------|
-| `/run-all-tests-and-fix` | Run Vitest suite, systematically fix failures |
-| `/improve-design-of-page <url>` | Rate page design 1-10 via screenshots, iterate to 10/10 |
-| `/security-audit` | Dependency audit + code security + infrastructure review |
-| `/code-review-checklist` | Comprehensive code review |
-| `/vercel-react-best-practices` | 45 performance rules prioritized by impact |
-| `/commit-and-push` | Review diff, create descriptive commit, push |
-| `/create-pr` | Create pull request with proper description |
-| `/release` | Lint, fix, review, commit — prepare for release |
-| `/upgrade-npm-deps` | Upgrade non-fixed dependencies |
+| Skill                           | Purpose                                                  |
+| ------------------------------- | -------------------------------------------------------- |
+| `/run-all-tests-and-fix`        | Run Vitest suite, systematically fix failures            |
+| `/improve-design-of-page <url>` | Rate page design 1-10 via screenshots, iterate to 10/10  |
+| `/security-audit`               | Dependency audit + code security + infrastructure review |
+| `/code-review-checklist`        | Comprehensive code review                                |
+| `/vercel-react-best-practices`  | 45 performance rules prioritized by impact               |
+| `/commit-and-push`              | Review diff, create descriptive commit, push             |
+| `/create-pr`                    | Create pull request with proper description              |
+| `/release`                      | Lint, fix, review, commit — prepare for release          |
+| `/upgrade-npm-deps`             | Upgrade non-fixed dependencies                           |
 
 ### CLIs (Used by Skills and Directly)
 
-| CLI | Purpose | Read-Only? |
-|-----|---------|------------|
-| `psql "$DATABASE_URL"` | Direct database queries (used by `/db-inspect`) | Yes — skill enforces read-only |
-| `yarn test` | Run Vitest (used by `/run-all-tests-and-fix`) | N/A |
-| `yarn lint` | Run ESLint | N/A |
-| `yarn build` | Verify production build | N/A |
-| `yarn knip` | Find unused code | N/A |
-| `gh` | GitHub CLI for PRs, issues (used by `/create-pr`) | N/A |
+| CLI                    | Purpose                                           | Read-Only?                     |
+| ---------------------- | ------------------------------------------------- | ------------------------------ |
+| `psql "$DATABASE_URL"` | Direct database queries (used by `/db-inspect`)   | Yes — skill enforces read-only |
+| `yarn test`            | Run Vitest (used by `/run-all-tests-and-fix`)     | N/A                            |
+| `yarn lint`            | Run ESLint                                        | N/A                            |
+| `yarn build`           | Verify production build                           | N/A                            |
+| `yarn knip`            | Find unused code                                  | N/A                            |
+| `gh`                   | GitHub CLI for PRs, issues (used by `/create-pr`) | N/A                            |
 
 ### MCP Servers (Only Where Skills/CLIs Fall Short)
 
-| MCP | Status | Purpose |
-|-----|--------|---------|
-| **Vercel** | Available | Deployment logs, runtime logs, docs. Used by `/check-deployment`. |
-| **Playwright** | Available | Browser automation, screenshots. Used by `/test-page` and `/improve-design-of-page`. |
-| **Postgres** | Optional | Only if `psql` via Bash isn't sufficient for complex ad-hoc queries. Most needs covered by `/db-inspect` skill. |
+| MCP            | Status    | Purpose                                                                                                         |
+| -------------- | --------- | --------------------------------------------------------------------------------------------------------------- |
+| **Vercel**     | Available | Deployment logs, runtime logs, docs. Used by `/check-deployment`.                                               |
+| **Playwright** | Available | Browser automation, screenshots. Used by `/test-page` and `/improve-design-of-page`.                            |
+| **Postgres**   | Optional  | Only if `psql` via Bash isn't sufficient for complex ad-hoc queries. Most needs covered by `/db-inspect` skill. |
 
 ### Agent Self-Service Patterns
 
-| Agent Needs To... | Use |
-|---|---|
-| Check database state | `/db-inspect` |
-| Verify seed data loaded | `/db-inspect` → counts query |
-| Debug a specific label | `/db-inspect` → label detail query |
-| Test a page visually | `/test-page http://localhost:3000/validate` |
-| Improve page design | `/improve-design-of-page http://localhost:3000/validate` |
-| Verify deployment | `/check-deployment` |
-| Run tests and fix | `/run-all-tests-and-fix` |
-| Check security | `/security-audit` |
-| Review code quality | `/code-review-checklist` |
-| Check performance | `/vercel-react-best-practices` |
-| View runtime errors | Vercel MCP `get_runtime_logs` |
-| Create commit | `/commit-and-push` |
-| Create PR | `/create-pr` |
+| Agent Needs To...       | Use                                                      |
+| ----------------------- | -------------------------------------------------------- |
+| Check database state    | `/db-inspect`                                            |
+| Verify seed data loaded | `/db-inspect` → counts query                             |
+| Debug a specific label  | `/db-inspect` → label detail query                       |
+| Test a page visually    | `/test-page http://localhost:3000/validate`              |
+| Improve page design     | `/improve-design-of-page http://localhost:3000/validate` |
+| Verify deployment       | `/check-deployment`                                      |
+| Run tests and fix       | `/run-all-tests-and-fix`                                 |
+| Check security          | `/security-audit`                                        |
+| Review code quality     | `/code-review-checklist`                                 |
+| Check performance       | `/vercel-react-best-practices`                           |
+| View runtime errors     | Vercel MCP `get_runtime_logs`                            |
+| Create commit           | `/commit-and-push`                                       |
+| Create PR               | `/create-pr`                                             |
 
 ---
 
 ## Risks & Mitigations
 
-| Risk | Mitigation |
-|------|------------|
-| Cloud Vision OCR may miss text on curved/distorted labels | Include confidence scores, allow "needs review" status, store raw AI responses for debugging |
-| 5-second target may be tight with two-stage pipeline | Stage 1 (Cloud Vision) is <1s, Stage 2 (GPT-5 Mini) is ~1-2s — well within budget. Show progress indicator for each stage. |
-| GPT-5 Mini may misclassify ambiguous text blocks | Include confidence scores, flag low-confidence extractions for human review (route to review queue if below threshold) |
-| Batch processing 300 items could timeout | Process asynchronously with polling, don't block on single request |
-| Health warning statement exact matching too strict | Normalize whitespace/encoding before comparison, flag near-matches for specialist review |
-| Vercel serverless function timeout (60s on Pro) | Process batch items individually, not in single function invocation |
-| Image quality varies wildly | Include confidence scores, flag low-confidence extractions, suggest re-upload |
+| Risk                                                      | Mitigation                                                                                                                 |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Cloud Vision OCR may miss text on curved/distorted labels | Include confidence scores, allow "needs review" status, store raw AI responses for debugging                               |
+| 5-second target may be tight with two-stage pipeline      | Stage 1 (Cloud Vision) is <1s, Stage 2 (GPT-5 Mini) is ~1-2s — well within budget. Show progress indicator for each stage. |
+| GPT-5 Mini may misclassify ambiguous text blocks          | Include confidence scores, flag low-confidence extractions for human review (route to review queue if below threshold)     |
+| Batch processing 300 items could timeout                  | Process asynchronously with polling, don't block on single request                                                         |
+| Health warning statement exact matching too strict        | Normalize whitespace/encoding before comparison, flag near-matches for specialist review                                   |
+| Vercel serverless function timeout (60s on Pro)           | Process batch items individually, not in single function invocation                                                        |
+| Image quality varies wildly                               | Include confidence scores, flag low-confidence extractions, suggest re-upload                                              |
 
 ---
 
@@ -1630,6 +1708,7 @@ Skills are preferred because they load only when invoked and use minimal context
 ## Dependencies (latest versions as of February 2026)
 
 ### Production
+
 ```
 # Framework & Core
 next (^16.1)              # Framework (Turbopack default, proxy.ts, use cache)
@@ -1679,6 +1758,7 @@ p-limit (^6.2)            # Concurrency control for batch AI calls and parallel 
 ```
 
 ### Dev — Tooling
+
 ```
 drizzle-kit               # DB migrations & studio
 @types/node, @types/react # Type definitions

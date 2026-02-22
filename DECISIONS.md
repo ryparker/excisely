@@ -11,6 +11,7 @@ This document explains the major engineering decisions, scope choices, known lim
 **Chosen:** Two-stage pipeline -- Cloud Vision for OCR with pixel-accurate bounding boxes, then GPT-5 Mini for semantic field classification on the extracted text.
 
 **Alternatives considered:**
+
 - Single LLM (GPT-5.2 vision) for both OCR and classification
 - Gemini 2.5 Pro (best LLM at mAP 13.3 for bounding boxes)
 - Tesseract or other open-source OCR
@@ -22,6 +23,7 @@ This document explains the major engineering decisions, scope choices, known lim
 **Chosen:** React Server Components by default, client components only for interactivity (file uploads, image annotations, forms).
 
 **Alternatives considered:**
+
 - Traditional SPA (React + Vite)
 - Next.js Pages Router
 - Remix
@@ -33,6 +35,7 @@ This document explains the major engineering decisions, scope choices, known lim
 **Chosen:** Drizzle ORM with Neon Postgres (`@neondatabase/serverless`).
 
 **Alternatives considered:**
+
 - Prisma (heavier ORM, larger bundle, slower cold starts on serverless)
 - Raw SQL with `pg` driver
 - Kysely (query builder)
@@ -44,6 +47,7 @@ This document explains the major engineering decisions, scope choices, known lim
 **Chosen:** 21-character nanoid strings for all primary keys (e.g., `V1StGXR8_Z5jdHi6B-myT`).
 
 **Alternatives considered:**
+
 - UUID v4 (36 characters with hyphens)
 - CUID2
 - Auto-increment integers
@@ -55,6 +59,7 @@ This document explains the major engineering decisions, scope choices, known lim
 **Chosen:** Better Auth v1.4 with Drizzle adapter, email/password login, session-based auth.
 
 **Alternatives considered:**
+
 - NextAuth/Auth.js (complex configuration, frequent breaking changes)
 - Clerk (SaaS vendor lock-in, overkill for prototype)
 - Roll-our-own JWT auth
@@ -66,6 +71,7 @@ This document explains the major engineering decisions, scope choices, known lim
 **Chosen:** `ai` v6 + `@ai-sdk/openai` provider for the GPT-5 Mini classification stage.
 
 **Alternatives considered:**
+
 - Raw `openai` SDK (direct API calls)
 - LangChain (heavy abstraction layer)
 
@@ -76,6 +82,7 @@ This document explains the major engineering decisions, scope choices, known lim
 **Chosen:** Direct API calls to OpenAI and Google Cloud Vision -- no intermediate proxy.
 
 **Alternatives considered:**
+
 - Vercel AI Gateway
 - Portkey, Helicone, or similar AI proxy
 
@@ -86,6 +93,7 @@ This document explains the major engineering decisions, scope choices, known lim
 **Chosen:** React Hook Form v7 with `@hookform/resolvers` (Zod resolver).
 
 **Alternatives considered:**
+
 - Formik (heavier, more re-renders)
 - Native HTML forms with manual state management
 - Conform (newer, less ecosystem support)
@@ -97,6 +105,7 @@ This document explains the major engineering decisions, scope choices, known lim
 **Chosen:** `getEffectiveStatus()` computes the true label status inline by checking `correction_deadline` against the current time. Fire-and-forget DB update on page load.
 
 **Alternatives considered:**
+
 - Cron job to expire deadlines (requires Vercel Cron or external scheduler)
 - Database triggers
 - Background job queue (BullMQ, Inngest)
@@ -108,6 +117,7 @@ This document explains the major engineering decisions, scope choices, known lim
 **Chosen:** `@vercel/blob/client` for direct browser-to-Blob uploads with per-file progress tracking.
 
 **Alternatives considered:**
+
 - Server-side uploads via server actions (limited to 4.5MB body size)
 - Pre-signed S3 URLs
 - Uploadthing
@@ -119,6 +129,7 @@ This document explains the major engineering decisions, scope choices, known lim
 **Chosen:** Custom implementation using `transform: scale() translate()` -- approximately 80 lines of code.
 
 **Alternatives considered:**
+
 - react-zoom-pan-pinch (40KB+ bundle)
 - panzoom library
 - OpenSeadragon (overkill for single images)
@@ -130,6 +141,7 @@ This document explains the major engineering decisions, scope choices, known lim
 **Chosen:** Zustand v5 for ephemeral client state, nuqs v2.8 for URL-persisted state.
 
 **Alternatives considered:**
+
 - React Context (provider nesting, performance issues with frequent updates)
 - Jotai/Recoil (atomic state -- more complex than needed)
 - URL state only (insufficient for transient UI state)
@@ -141,6 +153,7 @@ This document explains the major engineering decisions, scope choices, known lim
 **Chosen:** Tailwind CSS v4 with CSS-first configuration (`@theme` directive) and shadcn/ui (new-york style) for the component library.
 
 **Alternatives considered:**
+
 - Chakra UI (opinionated, larger bundle)
 - Material UI (Google aesthetic, wrong tone for government tool)
 - Radix Primitives with custom styling (more work)
@@ -169,47 +182,51 @@ The MVP delivers a complete, end-to-end label verification workflow:
 
 These features add depth but are not required for a complete demonstration:
 
-| Feature | Why Deferred |
-|---------|-------------|
-| **Review queue & specialist assignment** | The validation detail page already shows flagged fields -- a dedicated queue page adds workflow optimization, not core functionality |
-| **Batch upload (300+ labels)** | Single-label validation proves the AI pipeline works; batch is a scaling concern |
-| **Applicant management & compliance reputation** | Useful for institutional memory, but not required to demonstrate AI verification |
-| **Admin dashboard with analytics** | The role-aware home dashboard covers basic metrics; a dedicated admin page adds depth |
-| **Reports page with charts** | Validation results are visible on detail pages; aggregate reporting is a nice-to-have |
-| **Settings management** | Confidence thresholds and match strictness are configured in code with sensible defaults |
-| **Revalidation & resubmission linking** | Demonstrates workflow maturity but not core AI accuracy |
+| Feature                                          | Why Deferred                                                                                                                         |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **Review queue & specialist assignment**         | The validation detail page already shows flagged fields -- a dedicated queue page adds workflow optimization, not core functionality |
+| **Batch upload (300+ labels)**                   | Single-label validation proves the AI pipeline works; batch is a scaling concern                                                     |
+| **Applicant management & compliance reputation** | Useful for institutional memory, but not required to demonstrate AI verification                                                     |
+| **Admin dashboard with analytics**               | The role-aware home dashboard covers basic metrics; a dedicated admin page adds depth                                                |
+| **Reports page with charts**                     | Validation results are visible on detail pages; aggregate reporting is a nice-to-have                                                |
+| **Settings management**                          | Confidence thresholds and match strictness are configured in code with sensible defaults                                             |
+| **Revalidation & resubmission linking**          | Demonstrates workflow maturity but not core AI accuracy                                                                              |
 
 ### What We Explicitly Excluded
 
-| Feature | Reasoning |
-|---------|-----------|
-| **Rate limiting** | Prototype scope. Production would use `@upstash/ratelimit` + Upstash Redis (in-memory rate limiting does not work on Vercel serverless -- each invocation is isolated) |
-| **COLA system integration** | Out of scope per Marcus Williams (IT Systems Administrator): "For this prototype, we're not looking to integrate with COLA directly" |
-| **Cron jobs** | Lazy evaluation via `getEffectiveStatus()` handles deadline expiration without external infrastructure |
-| **Real-time WebSocket updates** | Polling every 2 seconds during batch processing is simpler and sufficient for this use case |
-| **Offline support / PWA** | Government workstations have reliable internet; offline adds complexity with no real benefit |
-| **Internationalization (i18n)** | English-only, US government context. TTB vocabulary is English by definition |
-| **Mobile-first responsive** | Sarah confirmed specialists use desktop workstations ("half our team is over 50"). Desktop-first, tablet-usable |
-| **Email delivery** | "Send Report" button is visible but disabled with a BETA badge. The copy-to-clipboard workflow demonstrates the intended UX without requiring email infrastructure |
+| Feature                         | Reasoning                                                                                                                                                              |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Rate limiting**               | Prototype scope. Production would use `@upstash/ratelimit` + Upstash Redis (in-memory rate limiting does not work on Vercel serverless -- each invocation is isolated) |
+| **COLA system integration**     | Out of scope per Marcus Williams (IT Systems Administrator): "For this prototype, we're not looking to integrate with COLA directly"                                   |
+| **Cron jobs**                   | Lazy evaluation via `getEffectiveStatus()` handles deadline expiration without external infrastructure                                                                 |
+| **Real-time WebSocket updates** | Polling every 2 seconds during batch processing is simpler and sufficient for this use case                                                                            |
+| **Offline support / PWA**       | Government workstations have reliable internet; offline adds complexity with no real benefit                                                                           |
+| **Internationalization (i18n)** | English-only, US government context. TTB vocabulary is English by definition                                                                                           |
+| **Mobile-first responsive**     | Sarah confirmed specialists use desktop workstations ("half our team is over 50"). Desktop-first, tablet-usable                                                        |
+| **Email delivery**              | "Send Report" button is visible but disabled with a BETA badge. The copy-to-clipboard workflow demonstrates the intended UX without requiring email infrastructure     |
 
 ---
 
 ## 3. Known Limitations
 
 **AI Pipeline:**
+
 - Google Cloud Vision OCR may struggle with severely distorted, curved, or poorly lit label images. The system includes confidence scores and routes low-confidence results to human review rather than making incorrect determinations.
 - GPT-5 Mini classification accuracy has not been validated at scale on real TTB label data. Edge cases (unusual formatting, non-standard label layouts, multi-language labels) may require upgrading to GPT-5.2 for the classification stage, which would increase cost 7x but improve reasoning quality.
 - Bounding boxes from Cloud Vision are word-level polygons, not field-level regions. The classification stage maps words to fields, but grouping accuracy depends on GPT-5 Mini correctly associating spatially separated text blocks (e.g., "GOVERNMENT WARNING:" header on one line and the warning body text on the next).
 
 **Security:**
+
 - No rate limiting in the prototype. A publicly exposed deployment could be abused for AI API cost attacks. The production mitigation is documented (`@upstash/ratelimit` + Upstash Redis) but not implemented.
 - Login credentials are simple passwords (`admin123`, `specialist123`) for demonstration purposes. Production would enforce complexity requirements and consider SSO integration.
 
 **Data:**
+
 - Seed data uses fabricated AI responses and pre-computed validation results -- not actual Cloud Vision or GPT-5 Mini output. Real model behavior may differ from seeded examples, particularly for edge cases.
 - The ~1,000 seeded labels reuse 100-150 unique images across multiple label records. This is realistic (same product submitted with different application data), but means the annotated image viewer shows the same images repeatedly.
 
 **Infrastructure:**
+
 - Lazy deadline expiration means the `status` column in the database may be temporarily stale between page loads. The application always computes the correct effective status at read time, but direct database queries (e.g., `SELECT * FROM labels WHERE status = 'needs_correction'`) may return labels whose deadlines have already expired.
 - No automated accessibility testing (Lighthouse audits are manual). The app targets WCAG 2.1 AA compliance through shadcn/ui's accessible primitives and semantic HTML, but automated coverage gaps may exist.
 

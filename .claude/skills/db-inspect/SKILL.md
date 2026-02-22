@@ -14,6 +14,7 @@ psql "$DATABASE_URL" -c "<query>"
 ```
 
 If `DATABASE_URL` is not set, check `.env.local`:
+
 ```bash
 source .env.local 2>/dev/null && psql "$DATABASE_URL" -c "<query>"
 ```

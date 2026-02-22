@@ -12,11 +12,13 @@ Verify the Vercel deployment is healthy using the Vercel MCP tools and CLI.
 ### 1. Find the Project
 
 Read `.vercel/project.json` to get the project ID and org ID:
+
 ```bash
 cat .vercel/project.json
 ```
 
 If that file doesn't exist, use the Vercel MCP:
+
 ```
 mcp__claude_ai_Vercel__list_teams()  → get teamId
 mcp__claude_ai_Vercel__list_projects(teamId)  → find the project
@@ -29,6 +31,7 @@ mcp__claude_ai_Vercel__list_deployments(projectId, teamId)
 ```
 
 Look at the most recent deployment. Check its `state`:
+
 - `READY` = deployed successfully
 - `ERROR` = build failed
 - `BUILDING` = still in progress
@@ -41,6 +44,7 @@ mcp__claude_ai_Vercel__get_deployment_build_logs(idOrUrl, teamId, limit: 200)
 ```
 
 Read the logs to identify:
+
 - TypeScript errors
 - Missing environment variables
 - Dependency installation failures
@@ -53,11 +57,13 @@ mcp__claude_ai_Vercel__web_fetch_vercel_url(url: "https://<deployment-url>/")
 ```
 
 Verify the page returns HTML, not an error page. Check for:
+
 - 200 status
 - Expected page content (login page or dashboard)
 - No "Application error" or "500 Internal Server Error"
 
 If you get a 403, generate a share link:
+
 ```
 mcp__claude_ai_Vercel__get_access_to_vercel_url(url: "https://<deployment-url>/")
 ```
@@ -75,6 +81,7 @@ mcp__claude_ai_Vercel__get_runtime_logs(
 ```
 
 Look for:
+
 - Database connection errors
 - OpenAI API failures
 - Auth errors
@@ -83,6 +90,7 @@ Look for:
 ### 6. Report
 
 Summarize findings:
+
 - Deployment status (ready/error/building)
 - Build time
 - Any errors found in build or runtime logs

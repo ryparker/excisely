@@ -72,16 +72,16 @@ TTB labeling specialists work within the excise tax framework daily. For them, "
 
 Over 50 names were explored across several rounds of iteration. The strongest contenders:
 
-| Name | Why it was considered | Why Excisely won |
-|------|----------------------|-----------------|
-| **LabelFlow** | Clean, modern, clear purpose | No alcohol or government heritage |
-| **ClearLabel** | Professional, government-friendly | Generic — could be any label tool |
-| **AutoCOLA** | TTB insiders know COLA instantly | Too literal, not creative |
-| **CaskMark** | Premium, alcohol-specific | "Cask" is narrow (wine/whiskey, not beer) |
-| **ProofRead** | Great pun, memorable | Could be confused with text editing |
-| **Labelwise** | Modern SaaS feel | No alcohol or Treasury connection |
-| **BondMark** | Bottled-in-Bond history + mark of approval | Doesn't carry the full Hamilton/Treasury weight |
-| **Excise** (standalone) | Perfect meaning, maximum density | Sounds like a policy, not software |
-| **ExciseAI** | Clear, professional, explicit about AI | "AI" suffix may age poorly |
+| Name                    | Why it was considered                      | Why Excisely won                                |
+| ----------------------- | ------------------------------------------ | ----------------------------------------------- |
+| **LabelFlow**           | Clean, modern, clear purpose               | No alcohol or government heritage               |
+| **ClearLabel**          | Professional, government-friendly          | Generic — could be any label tool               |
+| **AutoCOLA**            | TTB insiders know COLA instantly           | Too literal, not creative                       |
+| **CaskMark**            | Premium, alcohol-specific                  | "Cask" is narrow (wine/whiskey, not beer)       |
+| **ProofRead**           | Great pun, memorable                       | Could be confused with text editing             |
+| **Labelwise**           | Modern SaaS feel                           | No alcohol or Treasury connection               |
+| **BondMark**            | Bottled-in-Bond history + mark of approval | Doesn't carry the full Hamilton/Treasury weight |
+| **Excise** (standalone) | Perfect meaning, maximum density           | Sounds like a policy, not software              |
+| **ExciseAI**            | Clear, professional, explicit about AI     | "AI" suffix may age poorly                      |
 
 Excisely carries the historical density of "excise" with the modern phonetic energy of a software product. It is the name that best represents what this tool is: the U.S. Treasury's 235-year tradition of alcohol regulation, reimagined with AI.

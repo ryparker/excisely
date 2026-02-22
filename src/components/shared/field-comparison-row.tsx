@@ -1,0 +1,215 @@
+'use client'
+
+import { useState } from 'react'
+import { diffChars } from 'diff'
+import {
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  SearchX,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-react'
+
+import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
+
+const FIELD_DISPLAY_NAMES: Record<string, string> = {
+  brand_name: 'Brand Name',
+  fanciful_name: 'Fanciful Name',
+  class_type: 'Class/Type',
+  alcohol_content: 'Alcohol Content',
+  net_contents: 'Net Contents',
+  health_warning: 'Health Warning Statement',
+  name_and_address: 'Name and Address',
+  qualifying_phrase: 'Qualifying Phrase',
+  country_of_origin: 'Country of Origin',
+  grape_varietal: 'Grape Varietal',
+  appellation_of_origin: 'Appellation of Origin',
+  vintage_year: 'Vintage Year',
+  sulfite_declaration: 'Sulfite Declaration',
+  age_statement: 'Age Statement',
+  state_of_distillation: 'State of Distillation',
+  standards_of_fill: 'Standards of Fill',
+}
+
+const STATUS_ICON: Record<string, React.ReactNode> = {
+  match: <CheckCircle2 className="size-4 text-green-600 dark:text-green-400" />,
+  mismatch: <XCircle className="size-4 text-red-600 dark:text-red-400" />,
+  needs_correction: (
+    <AlertTriangle className="size-4 text-amber-600 dark:text-amber-400" />
+  ),
+  not_found: <SearchX className="size-4 text-muted-foreground" />,
+}
+
+const STATUS_BADGE_STYLE: Record<string, string> = {
+  match: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  mismatch: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  needs_correction:
+    'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  not_found: 'bg-secondary text-muted-foreground',
+}
+
+const STATUS_BORDER: Record<string, string> = {
+  match: 'border-green-200 dark:border-green-900/40',
+  mismatch: 'border-red-200 dark:border-red-900/40',
+  needs_correction: 'border-amber-200 dark:border-amber-900/40',
+  not_found: 'border-border',
+}
+
+interface FieldComparisonRowProps {
+  fieldName: string
+  expectedValue: string
+  extractedValue: string | null
+  status: string
+  confidence: number
+  reasoning: string | null
+  isActive: boolean
+  onClick: () => void
+}
+
+function DiffHighlight({
+  expected,
+  extracted,
+}: {
+  expected: string
+  extracted: string
+}) {
+  const changes = diffChars(expected, extracted)
+
+  return (
+    <span>
+      {changes.map((part, i) => {
+        if (part.added) {
+          return (
+            <span
+              key={i}
+              className="rounded-sm bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+            >
+              {part.value}
+            </span>
+          )
+        }
+        if (part.removed) {
+          return null
+        }
+        return (
+          <span key={i} className="text-green-700 dark:text-green-300">
+            {part.value}
+          </span>
+        )
+      })}
+    </span>
+  )
+}
+
+export function FieldComparisonRow({
+  fieldName,
+  expectedValue,
+  extractedValue,
+  status,
+  confidence,
+  reasoning,
+  isActive,
+  onClick,
+}: FieldComparisonRowProps) {
+  const [expanded, setExpanded] = useState(false)
+
+  const displayName =
+    FIELD_DISPLAY_NAMES[fieldName] ?? fieldName.replace(/_/g, ' ')
+  const confidencePercent = Math.round(confidence * 100)
+  const borderStyle = STATUS_BORDER[status] ?? 'border-border'
+  const badgeStyle = STATUS_BADGE_STYLE[status] ?? ''
+
+  return (
+    <div
+      className={cn(
+        'cursor-pointer rounded-lg border p-4 transition-all',
+        borderStyle,
+        isActive && 'ring-2 ring-primary ring-offset-2',
+      )}
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick()
+        }
+      }}
+    >
+      {/* Row header */}
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {STATUS_ICON[status]}
+          <span className="text-sm font-medium">{displayName}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-xs text-muted-foreground">
+            {confidencePercent}%
+          </span>
+          <Badge variant="secondary" className={cn('text-xs', badgeStyle)}>
+            {status === 'needs_correction'
+              ? 'Needs Correction'
+              : status === 'not_found'
+                ? 'Not Found'
+                : status.charAt(0).toUpperCase() + status.slice(1)}
+          </Badge>
+        </div>
+      </div>
+
+      {/* Two-column comparison */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <p className="mb-1 text-xs font-medium tracking-wider text-muted-foreground uppercase">
+            Application
+          </p>
+          <p className="text-sm break-words">{expectedValue}</p>
+        </div>
+        <div>
+          <p className="mb-1 text-xs font-medium tracking-wider text-muted-foreground uppercase">
+            Label (AI)
+          </p>
+          {extractedValue === null ? (
+            <p className="text-sm text-muted-foreground italic">Not found</p>
+          ) : status === 'mismatch' || status === 'needs_correction' ? (
+            <p className="text-sm break-words">
+              <DiffHighlight
+                expected={expectedValue}
+                extracted={extractedValue}
+              />
+            </p>
+          ) : (
+            <p className="text-sm break-words">{extractedValue}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Expandable reasoning */}
+      {reasoning && (
+        <div className="mt-3 border-t pt-2">
+          <button
+            type="button"
+            className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            onClick={(e) => {
+              e.stopPropagation()
+              setExpanded(!expanded)
+            }}
+          >
+            {expanded ? (
+              <ChevronDown className="size-3" />
+            ) : (
+              <ChevronRight className="size-3" />
+            )}
+            AI Reasoning
+          </button>
+          {expanded && (
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+              {reasoning}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}

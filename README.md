@@ -50,11 +50,11 @@ Open [http://localhost:3000](http://localhost:3000) and log in with a test accou
 
 ### Test Accounts
 
-| Role | Name | Email | Password |
-|------|------|-------|----------|
-| Admin | Sarah Chen | sarah.chen@ttb.gov | admin123 |
+| Role       | Name          | Email                 | Password      |
+| ---------- | ------------- | --------------------- | ------------- |
+| Admin      | Sarah Chen    | sarah.chen@ttb.gov    | admin123      |
 | Specialist | Dave Morrison | dave.morrison@ttb.gov | specialist123 |
-| Specialist | Jenny Park | jenny.park@ttb.gov | specialist123 |
+| Specialist | Jenny Park    | jenny.park@ttb.gov    | specialist123 |
 
 ## How It Works
 
@@ -67,10 +67,12 @@ A labeling specialist uploads 1-4 label images (front, back, neck, strip) and en
 The system processes each label through two stages:
 
 **Stage 1 — Google Cloud Vision OCR** (<1 second, $0.0015/image)
+
 - Extracts every word on the label with pixel-accurate bounding polygons (4 vertices per word)
 - Runs on each image in parallel
 
 **Stage 2 — GPT-5 Mini Classification** (~1-2 seconds, ~$0.0015/label)
+
 - Receives OCR text only (no image tokens — fast and cheap)
 - Classifies text blocks into TTB regulatory fields (brand name, alcohol content, health warning, etc.)
 - Each classified field inherits bounding box coordinates from Stage 1
@@ -81,19 +83,20 @@ Total: **~$0.003/label, 2-4 seconds.**
 
 Each extracted field is compared against the application data using field-appropriate strategies:
 
-| Field | Strategy | Example |
-|-------|----------|---------|
-| Health Warning | Exact match | Case-sensitive, word-for-word |
-| Brand Name | Fuzzy match | "STONE'S THROW" = "Stone's Throw" |
-| Alcohol Content | Normalized | "45% Alc./Vol. (90 Proof)" = "45%" |
-| Net Contents | Normalized | "750 mL" = "750ml" = "0.75L" |
-| Qualifying Phrase | Enum match | "Bottled by" = "BOTTLED BY" |
+| Field             | Strategy    | Example                            |
+| ----------------- | ----------- | ---------------------------------- |
+| Health Warning    | Exact match | Case-sensitive, word-for-word      |
+| Brand Name        | Fuzzy match | "STONE'S THROW" = "Stone's Throw"  |
+| Alcohol Content   | Normalized  | "45% Alc./Vol. (90 Proof)" = "45%" |
+| Net Contents      | Normalized  | "750 mL" = "750ml" = "0.75L"       |
+| Qualifying Phrase | Enum match  | "Bottled by" = "BOTTLED BY"        |
 
 ### 4. Annotated Results
 
 The results page shows the label image with color-coded bounding box overlays (green = match, red = mismatch, yellow = uncertain) alongside a field-by-field comparison table with character-level diff highlighting. Clicking a field in the comparison zooms the image to that region.
 
 Labels are assigned a TTB status:
+
 - **Approved** — all fields match
 - **Conditionally Approved** — minor discrepancies (7-day correction window)
 - **Needs Correction** — substantive mismatch (30-day correction window)
@@ -140,6 +143,7 @@ yarn knip               # Find unused code
 See [DECISIONS.md](./DECISIONS.md) for detailed rationale on all technical choices, scope decisions, known limitations, and assumptions.
 
 Key decisions:
+
 - **Hybrid AI pipeline** over single-model — Cloud Vision provides pixel-accurate bounding boxes (GPT-5.2 vision has mAP 1.5, worst frontier model), GPT-5 Mini handles text classification at 7x lower cost
 - **RSC-first** — server components for data loading, server actions for mutations, zero client-side waterfalls
 - **Lazy deadline expiration** — `getEffectiveStatus()` computes true status inline, no cron infrastructure needed

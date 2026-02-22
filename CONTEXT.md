@@ -17,17 +17,17 @@ A **Certificate of Label Approval (COLA)** is a federal certificate issued by th
 
 ## Volume & Scale
 
-| Metric | Value | Year |
-|--------|-------|------|
-| Label applications per year | ~190,000–193,000 | FY 2020–2022 |
-| Formula applications per year | ~27,000 | FY 2022 |
-| Total COLAs in registry (cumulative) | 2.6 million+ | All time |
-| Approved breweries | 14,597 | End 2023 |
-| Active wineries | ~11,000+ | Est. |
-| Active distilleries | ~2,700+ | Est. |
-| Label application error rate | 28% | FY 2023 |
-| Formula application error rate | 23% | FY 2023 |
-| Typical COLA processing time | 5–15 business days | Varies |
+| Metric                               | Value              | Year         |
+| ------------------------------------ | ------------------ | ------------ |
+| Label applications per year          | ~190,000–193,000   | FY 2020–2022 |
+| Formula applications per year        | ~27,000            | FY 2022      |
+| Total COLAs in registry (cumulative) | 2.6 million+       | All time     |
+| Approved breweries                   | 14,597             | End 2023     |
+| Active wineries                      | ~11,000+           | Est.         |
+| Active distilleries                  | ~2,700+            | Est.         |
+| Label application error rate         | 28%                | FY 2023      |
+| Formula application error rate       | 23%                | FY 2023      |
+| Typical COLA processing time         | 5–15 business days | Varies       |
 
 The 150,000 figure mentioned in the task doc is actually conservative — real volume is closer to **190,000+ per year**.
 
@@ -50,6 +50,7 @@ This makes our prototype **extremely timely** — TTB is literally looking for e
 ## The COLA Review Process
 
 ### Submission Flow
+
 1. Applicant must hold a valid TTB permit (Brewer's Notice, Basic Permit, or DSP)
 2. Register for COLAs Online (TTB Form 5013.2)
 3. Upload label images: JPEG or PNG, max 1.5 MB, 120–170 dpi recommended
@@ -58,6 +59,7 @@ This makes our prototype **extremely timely** — TTB is literally looking for e
 6. Submit — receives TTB ID number for tracking
 
 ### Application Statuses
+
 - **Received**: Initial submission accepted
 - **Approved**: Label meets all requirements
 - **Conditionally Approved**: Approval with noted conditions
@@ -65,6 +67,7 @@ This makes our prototype **extremely timely** — TTB is literally looking for e
 - **Rejected**: Final denial (if 30-day correction window lapses or fundamental issues)
 
 ### Common Rejection Reasons
+
 1. **Government Warning Statement errors** — wrong formatting, caps, bold, punctuation, type size
 2. **Net contents violations** — non-standard sizes, wrong units, wrong format for beverage type
 3. **Misleading information** — false origin claims, incorrect age statements
@@ -80,46 +83,46 @@ The 28% error rate means roughly **1 in 4 label applications has issues** — th
 
 Our app must use TTB's exact terminology to feel authentic. Key terms:
 
-| TTB Term | NOT This | Notes |
-|----------|----------|-------|
-| **Brand Name** | Trade Name | Form Item 6: "The name under which the product is sold" |
-| **Fanciful Name** | Product Name, Subtitle | Form Item 7: "A name that further identifies the product" — separate from Brand Name |
-| **Alcohol Content** | ABV, Proof | Expressed as "% alc/vol" on labels; "Alcohol Content" on the form |
-| **Net Contents** | Volume, Size | Form Item 12: "Total Bottle Capacity (Net Contents)" |
-| **Health Warning Statement** | Government Warning | The *requirement* is "Health Warning Statement" (27 CFR Part 16). The *label text* says "GOVERNMENT WARNING" |
-| **Name and Address** | Producer, Manufacturer | Must include a qualifying phrase: "Bottled by", "Distilled by", "Imported by", etc. |
-| **Class, Type, or Other Designation** | Category, Style | Shortened to "Class/Type" in data fields; uses numeric codes (0-999) |
-| **Type of Product** | Beverage Type | Form Item 5: Wine / Distilled Spirits / Malt Beverages |
-| **Labeling Specialist** | Agent, Reviewer, Examiner | Official TTB job title for the person who reviews COLAs |
-| **Applicant** | Submitter | The entity submitting the COLA application |
-| **Certificate Holder** | Permit Holder | The entity holding an approved COLA |
-| **TTB ID** | COLA Number | 14-character unique identifier per application |
-| **Serial Number** | Application Number | Applicant-assigned sequential number (Item 4, format: `YY-NNN`) |
-| **eApplication** | Online Application | TTB's term for electronically filed applications (lowercase 'e') |
-| **Needs Correction** | Returned, Pending Revision | Official intermediate status |
-| **Conditionally Approved** | Tentatively Approved | TTB proposes minor field corrections; 7-day accept/decline window |
+| TTB Term                              | NOT This                   | Notes                                                                                                        |
+| ------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| **Brand Name**                        | Trade Name                 | Form Item 6: "The name under which the product is sold"                                                      |
+| **Fanciful Name**                     | Product Name, Subtitle     | Form Item 7: "A name that further identifies the product" — separate from Brand Name                         |
+| **Alcohol Content**                   | ABV, Proof                 | Expressed as "% alc/vol" on labels; "Alcohol Content" on the form                                            |
+| **Net Contents**                      | Volume, Size               | Form Item 12: "Total Bottle Capacity (Net Contents)"                                                         |
+| **Health Warning Statement**          | Government Warning         | The _requirement_ is "Health Warning Statement" (27 CFR Part 16). The _label text_ says "GOVERNMENT WARNING" |
+| **Name and Address**                  | Producer, Manufacturer     | Must include a qualifying phrase: "Bottled by", "Distilled by", "Imported by", etc.                          |
+| **Class, Type, or Other Designation** | Category, Style            | Shortened to "Class/Type" in data fields; uses numeric codes (0-999)                                         |
+| **Type of Product**                   | Beverage Type              | Form Item 5: Wine / Distilled Spirits / Malt Beverages                                                       |
+| **Labeling Specialist**               | Agent, Reviewer, Examiner  | Official TTB job title for the person who reviews COLAs                                                      |
+| **Applicant**                         | Submitter                  | The entity submitting the COLA application                                                                   |
+| **Certificate Holder**                | Permit Holder              | The entity holding an approved COLA                                                                          |
+| **TTB ID**                            | COLA Number                | 14-character unique identifier per application                                                               |
+| **Serial Number**                     | Application Number         | Applicant-assigned sequential number (Item 4, format: `YY-NNN`)                                              |
+| **eApplication**                      | Online Application         | TTB's term for electronically filed applications (lowercase 'e')                                             |
+| **Needs Correction**                  | Returned, Pending Revision | Official intermediate status                                                                                 |
+| **Conditionally Approved**            | Tentatively Approved       | TTB proposes minor field corrections; 7-day accept/decline window                                            |
 
 ### Form 5100.31 Key Fields (Exact Item Labels)
 
-| Item # | Field Label | Notes |
-|--------|------------|-------|
-| 1 | REP. ID. NO. | Third-party representative ID |
-| 2 | PLANT REGISTRY/BASIC PERMIT/BREWER'S NO. | Permit/authorization number |
-| 3 | SOURCE | Domestic / Imported |
-| 4 | SERIAL NUMBER | Applicant-assigned, format `YY-NNN` |
-| 5 | TYPE OF PRODUCT | Wine / Distilled Spirits / Malt Beverages |
-| 6 | BRAND NAME | Name under which product is sold |
-| 7 | FANCIFUL NAME | Distinctive/descriptive name (optional for standard products) |
-| 8 | NAME AND ADDRESS OF APPLICANT | As shown on permit/notice |
-| 9 | EMAIL ADDRESS | Contact for TTB response |
-| 10 | GRAPE VARIETAL(S) | Wine only |
-| 11 | FORMULA | Pre-COLA product evaluation reference |
-| 12 | TOTAL BOTTLE CAPACITY (NET CONTENTS) | Container size(s) |
-| 13 | ALCOHOL CONTENT | As stated on label |
-| 14 | WINE APPELLATION OF ORIGIN | Wine only |
-| 15 | WINE VINTAGE DATE | Wine only |
-| 16-17 | PHONE / FAX NUMBER | Contact info |
-| 18 | TYPE OF APPLICATION | (a) COLA, (b) Exemption, (c) Distinctive Bottle, (d) Resubmission |
+| Item # | Field Label                              | Notes                                                             |
+| ------ | ---------------------------------------- | ----------------------------------------------------------------- |
+| 1      | REP. ID. NO.                             | Third-party representative ID                                     |
+| 2      | PLANT REGISTRY/BASIC PERMIT/BREWER'S NO. | Permit/authorization number                                       |
+| 3      | SOURCE                                   | Domestic / Imported                                               |
+| 4      | SERIAL NUMBER                            | Applicant-assigned, format `YY-NNN`                               |
+| 5      | TYPE OF PRODUCT                          | Wine / Distilled Spirits / Malt Beverages                         |
+| 6      | BRAND NAME                               | Name under which product is sold                                  |
+| 7      | FANCIFUL NAME                            | Distinctive/descriptive name (optional for standard products)     |
+| 8      | NAME AND ADDRESS OF APPLICANT            | As shown on permit/notice                                         |
+| 9      | EMAIL ADDRESS                            | Contact for TTB response                                          |
+| 10     | GRAPE VARIETAL(S)                        | Wine only                                                         |
+| 11     | FORMULA                                  | Pre-COLA product evaluation reference                             |
+| 12     | TOTAL BOTTLE CAPACITY (NET CONTENTS)     | Container size(s)                                                 |
+| 13     | ALCOHOL CONTENT                          | As stated on label                                                |
+| 14     | WINE APPELLATION OF ORIGIN               | Wine only                                                         |
+| 15     | WINE VINTAGE DATE                        | Wine only                                                         |
+| 16-17  | PHONE / FAX NUMBER                       | Contact info                                                      |
+| 18     | TYPE OF APPLICATION                      | (a) COLA, (b) Exemption, (c) Distinctive Bottle, (d) Resubmission |
 
 ### Name and Address Qualifying Phrases
 
@@ -149,6 +152,7 @@ The label must include one of these before the name and address:
 ```
 
 **Key statuses:**
+
 - **Received** — in queue awaiting specialist assignment
 - **Needs Correction** — returned with specific issues; 30-day correction window; corrected resubmissions get **priority processing**
 - **Conditionally Approved** — TTB proposes minor changes to 4 fields only (Brand Name, Fanciful Name, Appellation, Grape Variety); 7-day accept/decline window
@@ -175,6 +179,7 @@ TTB uses numeric codes (0-999) for product classification:
 ## Mandatory Label Elements by Beverage Type
 
 ### All Beverages (Common)
+
 - Brand name (Form Item 6)
 - Fanciful name (Form Item 7, when applicable)
 - Class/type designation (with numeric code)
@@ -185,6 +190,7 @@ TTB uses numeric codes (0-999) for product classification:
 - Country of origin (imports only)
 
 ### Distilled Spirits (27 CFR Part 5) — Additional
+
 - Age statement (required for certain spirits)
 - State of distillation
 - Neutral spirits disclosure
@@ -192,6 +198,7 @@ TTB uses numeric codes (0-999) for product classification:
 - Standards of fill (January 2025 final rule, expanded): 50mL, 100mL, 187mL, 200mL, 250mL, 331mL, 350mL, 355mL, 375mL, 475mL, 500mL, 570mL, 700mL, 710mL, 720mL, 750mL, 900mL, 945mL, 1L, 1.5L, 1.75L, 1.8L, 2L, 3L, 3.75L
 
 ### Wine (27 CFR Part 4) — Additional
+
 - Appellation of origin (conditional)
 - Vintage date (optional, but triggers appellation requirement)
 - Grape varietal (optional, triggers 75% minimum from named variety)
@@ -200,6 +207,7 @@ TTB uses numeric codes (0-999) for product classification:
 - Standards of fill (January 2025 final rule): 180mL, 187mL, 200mL, 250mL, 300mL, 330mL, 360mL, 375mL, 473mL, 500mL, 550mL, 568mL, 600mL, 620mL, 700mL, 720mL, 750mL, 1L, 1.5L, 1.8L, 2.25L, 3L
 
 ### Malt Beverages (27 CFR Part 7) — Additional
+
 - ABV required if alcohol from flavors or non-beverage ingredients
 - **No federal standard of fill** — any container size is permitted
 - 2023 rule change: strength claims like "strong" or "full strength" now permitted
@@ -213,6 +221,7 @@ TTB uses numeric codes (0-999) for product classification:
 > **GOVERNMENT WARNING**: (1) According to the Surgeon General, women should not drink alcoholic beverages during pregnancy because of the risk of birth defects. (2) Consumption of alcoholic beverages impairs your ability to drive a car or operate machinery, and may cause health problems.
 
 ### Formatting Requirements (27 CFR 16.22)
+
 - **"GOVERNMENT WARNING"** must be in **CAPITAL LETTERS** and **BOLD**
 - The rest of the text must **NOT** be bold
 - Must be a **continuous statement** (no line breaks splitting the meaning)
@@ -221,13 +230,15 @@ TTB uses numeric codes (0-999) for product classification:
 - Must be **separate and apart** from all other information
 
 ### Minimum Type Size by Container
-| Container Size | Min Type Size | Max Characters/Inch |
-|----------------|---------------|---------------------|
-| 237 mL (8 oz) or less | 1 mm | 40 |
-| 237 mL – 3 L | 2 mm | 25 |
-| Over 3 L | 3 mm | 12 |
+
+| Container Size        | Min Type Size | Max Characters/Inch |
+| --------------------- | ------------- | ------------------- |
+| 237 mL (8 oz) or less | 1 mm          | 40                  |
+| 237 mL – 3 L          | 2 mm          | 25                  |
+| Over 3 L              | 3 mm          | 12                  |
 
 ### Penalty
+
 Civil penalty of up to **$26,225 per day** for violations.
 
 ---
@@ -235,16 +246,19 @@ Civil penalty of up to **$26,225 per day** for violations.
 ## Type Size Requirements (General)
 
 ### Distilled Spirits
+
 - All mandatory info: minimum **1 mm**
 - Net contents: minimum **2 mm** for containers over 200 mL
 
 ### Wine
+
 - Up to 187 mL: minimum **1 mm**
 - 188 mL – 3 L: minimum **2 mm**
 - Over 3 L: minimum **3 mm**
 - ABV statement: not larger than 3 mm nor smaller than 1 mm (containers 5L or less)
 
 ### Malt Beverages
+
 - Similar minimums based on container size
 
 ---
@@ -252,6 +266,7 @@ Civil penalty of up to **$26,225 per day** for violations.
 ## Upcoming Regulatory Changes
 
 ### Proposed "Alcohol Facts" Panel (January 2025)
+
 Two major proposed rules would require an **"Alcohol Facts"** panel (like FDA Nutrition Facts) on all TTB-regulated beverages:
 
 **Required disclosures**: serving size, servings per container, ABV, fluid ounces of pure alcohol per serving, calories, carbohydrates, protein, fat
@@ -267,6 +282,7 @@ This is relevant because it means **label requirements are about to get more com
 ## Allowable Revisions (No New COLA Needed)
 
 Changes that do **NOT** require a new COLA:
+
 - Removing non-mandatory text/illustrations
 - Repositioning label information
 - Changing background color, text color, shape, font
@@ -277,6 +293,7 @@ Changes that do **NOT** require a new COLA:
 - Adding holiday-themed graphics
 
 Changes that **DO** require a new COLA:
+
 - New graphics, pictures, or representations
 - New wording, phrases, text, or certifications
 - Changes to any mandatory information (brand name, class/type, ABV, etc.)

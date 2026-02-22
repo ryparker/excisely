@@ -1,0 +1,11 @@
+{
+  "entry": [
+    "src/app/**/page.tsx",
+    "src/app/**/layout.tsx",
+    "src/app/api/**/route.ts",
+    "next.config.ts",
+    "proxy.ts"
+  ],
+  "project": ["src/**/*.{ts,tsx}"],
+  "ignore": ["src/components/_base/**"]
+}
