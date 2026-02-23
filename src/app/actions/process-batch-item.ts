@@ -14,12 +14,14 @@ import {
 import { extractLabelFields } from '@/lib/ai/extract-label'
 import { compareField } from '@/lib/ai/compare-fields'
 import { getSession } from '@/lib/auth/get-session'
+import { type BeverageType } from '@/config/beverage-types'
 import {
-  getMandatoryFields,
-  isValidSize,
-  type BeverageType,
-} from '@/config/beverage-types'
-import { HEALTH_WARNING_FULL } from '@/config/health-warning'
+  buildExpectedFields,
+  determineOverallStatus,
+  MINOR_DISCREPANCY_FIELDS,
+  addDays,
+  type ValidationItemStatus,
+} from '@/lib/labels/validation-helpers'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -28,174 +30,6 @@ import { HEALTH_WARNING_FULL } from '@/config/health-warning'
 type ProcessBatchItemResult =
   | { success: true; labelId: string; status: string }
   | { success: false; error: string }
-
-type LabelStatus =
-  | 'approved'
-  | 'conditionally_approved'
-  | 'needs_correction'
-  | 'rejected'
-
-type ValidationItemStatus =
-  | 'match'
-  | 'mismatch'
-  | 'not_found'
-  | 'needs_correction'
-
-const MINOR_DISCREPANCY_FIELDS = new Set([
-  'brand_name',
-  'fanciful_name',
-  'appellation_of_origin',
-  'grape_varietal',
-])
-
-const REJECTION_FIELDS = new Set(['health_warning'])
-
-const CONDITIONAL_DEADLINE_DAYS = 7
-const CORRECTION_DEADLINE_DAYS = 30
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function addDays(date: Date, days: number): Date {
-  const result = new Date(date)
-  result.setDate(result.getDate() + days)
-  return result
-}
-
-function buildExpectedFields(
-  data: Record<string, unknown>,
-  beverageType: BeverageType,
-): Map<string, string> {
-  const fields = new Map<string, string>()
-
-  const mapping: Record<string, string> = {
-    brandName: 'brand_name',
-    fancifulName: 'fanciful_name',
-    classType: 'class_type',
-    alcoholContent: 'alcohol_content',
-    netContents: 'net_contents',
-    healthWarning: 'health_warning',
-    nameAndAddress: 'name_and_address',
-    qualifyingPhrase: 'qualifying_phrase',
-    countryOfOrigin: 'country_of_origin',
-    grapeVarietal: 'grape_varietal',
-    appellationOfOrigin: 'appellation_of_origin',
-    vintageYear: 'vintage_year',
-    ageStatement: 'age_statement',
-    stateOfDistillation: 'state_of_distillation',
-  }
-
-  for (const [camelKey, fieldName] of Object.entries(mapping)) {
-    const value = data[camelKey]
-    if (typeof value === 'string' && value.trim() !== '') {
-      fields.set(fieldName, value.trim())
-    }
-  }
-
-  if (data.sulfiteDeclaration === true) {
-    fields.set('sulfite_declaration', 'Contains Sulfites')
-  }
-
-  if (!fields.has('health_warning')) {
-    fields.set('health_warning', HEALTH_WARNING_FULL)
-  }
-
-  const mandatory = new Set(getMandatoryFields(beverageType))
-  const result = new Map<string, string>()
-
-  for (const [fieldName, value] of fields) {
-    result.set(fieldName, value)
-  }
-
-  for (const fieldName of mandatory) {
-    if (!result.has(fieldName)) {
-      if (fieldName === 'health_warning') {
-        result.set(fieldName, HEALTH_WARNING_FULL)
-      }
-    }
-  }
-
-  return result
-}
-
-function determineOverallStatus(
-  itemStatuses: Array<{ fieldName: string; status: ValidationItemStatus }>,
-  beverageType: BeverageType,
-  containerSizeMl: number,
-): { status: LabelStatus; deadlineDays: number | null } {
-  if (!isValidSize(beverageType, containerSizeMl)) {
-    return { status: 'rejected', deadlineDays: null }
-  }
-
-  const mandatory = new Set(getMandatoryFields(beverageType))
-
-  let hasRejection = false
-  let hasSubstantiveMismatch = false
-  let hasMinorDiscrepancy = false
-
-  for (const item of itemStatuses) {
-    const isMandatory = mandatory.has(item.fieldName)
-    const isRejectionField = REJECTION_FIELDS.has(item.fieldName)
-    const isMinorField = MINOR_DISCREPANCY_FIELDS.has(item.fieldName)
-
-    if (item.status === 'match') {
-      continue
-    }
-
-    if (item.status === 'not_found' && isMandatory) {
-      if (isRejectionField) {
-        hasRejection = true
-      } else {
-        hasSubstantiveMismatch = true
-      }
-      continue
-    }
-
-    if (item.status === 'mismatch' || item.status === 'needs_correction') {
-      if (isRejectionField) {
-        hasRejection = true
-      } else if (isMinorField) {
-        hasMinorDiscrepancy = true
-      } else if (isMandatory) {
-        hasSubstantiveMismatch = true
-      } else {
-        hasMinorDiscrepancy = true
-      }
-    }
-  }
-
-  if (hasRejection) {
-    return { status: 'rejected', deadlineDays: null }
-  }
-
-  if (hasSubstantiveMismatch) {
-    return {
-      status: 'needs_correction',
-      deadlineDays: CORRECTION_DEADLINE_DAYS,
-    }
-  }
-
-  if (hasMinorDiscrepancy) {
-    return {
-      status: 'conditionally_approved',
-      deadlineDays: CONDITIONAL_DEADLINE_DAYS,
-    }
-  }
-
-  return { status: 'approved', deadlineDays: null }
-}
-
-// ---------------------------------------------------------------------------
-// Batch count column map
-// ---------------------------------------------------------------------------
-
-const STATUS_COUNT_COLUMN: Record<string, keyof typeof batches.$inferSelect> = {
-  approved: 'approvedCount',
-  conditionally_approved: 'conditionallyApprovedCount',
-  needs_correction: 'needsCorrectionCount',
-  rejected: 'rejectedCount',
-}
 
 // ---------------------------------------------------------------------------
 // Server Action
@@ -259,9 +93,22 @@ export async function processBatchItem(
     // Run AI pipeline
     const extraction = await extractLabelFields(imageUrls, label.beverageType)
 
+    // Update image types from AI classification
+    if (extraction.imageClassifications.length > 0) {
+      for (const ic of extraction.imageClassifications) {
+        const imageRecord = images[ic.imageIndex]
+        if (imageRecord && ic.confidence >= 60) {
+          await db
+            .update(labelImages)
+            .set({ imageType: ic.imageType })
+            .where(eq(labelImages.id, imageRecord.id))
+        }
+      }
+    }
+
     // Build expected fields
     const expectedFields = buildExpectedFields(
-      appData as unknown as Record<string, unknown>,
+      appData as Record<string, unknown>,
       label.beverageType as BeverageType,
     )
 
@@ -388,34 +235,25 @@ export async function processBatchItem(
       .where(eq(labels.id, labelId))
 
     // Update batch counts — increment processedCount and the appropriate status counter
-    const countColumn = STATUS_COUNT_COLUMN[overallStatus]
-
-    if (countColumn) {
-      // Use raw SQL to atomically increment the right column
-      const columnName =
-        overallStatus === 'approved'
-          ? 'approved_count'
-          : overallStatus === 'conditionally_approved'
-            ? 'conditionally_approved_count'
-            : overallStatus === 'needs_correction'
-              ? 'needs_correction_count'
-              : 'rejected_count'
-
-      await db.execute(
-        sql`UPDATE batches
-            SET processed_count = processed_count + 1,
-                ${sql.raw(columnName)} = ${sql.raw(columnName)} + 1,
-                updated_at = NOW()
-            WHERE id = ${label.batchId}`,
-      )
-    } else {
-      await db.execute(
-        sql`UPDATE batches
-            SET processed_count = processed_count + 1,
-                updated_at = NOW()
-            WHERE id = ${label.batchId}`,
-      )
+    const statusCountUpdates: Record<string, unknown> = {
+      processedCount: sql`${batches.processedCount} + 1`,
+      updatedAt: new Date(),
     }
+
+    if (overallStatus === 'approved') {
+      statusCountUpdates.approvedCount = sql`${batches.approvedCount} + 1`
+    } else if (overallStatus === 'conditionally_approved') {
+      statusCountUpdates.conditionallyApprovedCount = sql`${batches.conditionallyApprovedCount} + 1`
+    } else if (overallStatus === 'needs_correction') {
+      statusCountUpdates.needsCorrectionCount = sql`${batches.needsCorrectionCount} + 1`
+    } else if (overallStatus === 'rejected') {
+      statusCountUpdates.rejectedCount = sql`${batches.rejectedCount} + 1`
+    }
+
+    await db
+      .update(batches)
+      .set(statusCountUpdates)
+      .where(eq(batches.id, label.batchId))
 
     // Check if batch is complete
     const [updatedBatch] = await db

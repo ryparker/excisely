@@ -15,11 +15,7 @@ import { nanoid } from 'nanoid'
 // Enums
 // ---------------------------------------------------------------------------
 
-export const userRoleEnum = pgEnum('user_role', [
-  'admin',
-  'specialist',
-  'applicant',
-])
+export const userRoleEnum = pgEnum('user_role', ['specialist', 'applicant'])
 
 export const batchStatusEnum = pgEnum('batch_status', [
   'processing',
@@ -452,6 +448,7 @@ export const statusOverrides = pgTable('status_overrides', {
   previousStatus: labelStatusEnum('previous_status').notNull(),
   newStatus: labelStatusEnum('new_status').notNull(),
   justification: text('justification').notNull(),
+  reasonCode: text('reason_code'),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
     .$defaultFn(() => new Date()),

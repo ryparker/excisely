@@ -19,13 +19,23 @@ export interface LabelTestCase {
   netContents?: string
   /** Optional — fanciful name if known */
   fancifulName?: string
+  /** Playwright storage state file for the applicant who submits this label */
+  authState: string
 }
+
+const APPLICANT_AUTH_FILES = [
+  'e2e/.auth/applicant-old-tom.json',
+  'e2e/.auth/applicant-napa.json',
+  'e2e/.auth/applicant-cascade.json',
+]
 
 // ---------------------------------------------------------------------------
 // Local test-labels — data from extraction.json files
 // ---------------------------------------------------------------------------
 
-const BEER_LABELS: LabelTestCase[] = [
+type LabelData = Omit<LabelTestCase, 'authState'>
+
+const BEER_LABELS: LabelData[] = [
   {
     imagePaths: ['test-labels/beer/sierra-nevada/front.png'],
     brandName: 'Sierra Nevada',
@@ -37,7 +47,10 @@ const BEER_LABELS: LabelTestCase[] = [
     fancifulName: 'Trip Thru the Woods',
   },
   {
-    imagePaths: ['test-labels/beer/twisted-tea-light-lemon/front.png'],
+    imagePaths: [
+      'test-labels/beer/twisted-tea-light-lemon/front.png',
+      'test-labels/beer/twisted-tea-light-lemon/top.png',
+    ],
     brandName: 'Twisted Tea',
     beverageType: 'malt_beverage',
     containerSizeMl: 355,
@@ -47,7 +60,7 @@ const BEER_LABELS: LabelTestCase[] = [
   },
 ]
 
-const WINE_LABELS: LabelTestCase[] = [
+const WINE_LABELS: LabelData[] = [
   {
     imagePaths: [
       'test-labels/wine/cooper-ridge-malbec/front.png',
@@ -112,7 +125,7 @@ const WINE_LABELS: LabelTestCase[] = [
   },
 ]
 
-const WHISKEY_LABELS: LabelTestCase[] = [
+const WHISKEY_LABELS: LabelData[] = [
   {
     imagePaths: [
       'test-labels/whiskey/backbone-bourbon/front.png',
@@ -147,7 +160,10 @@ const WHISKEY_LABELS: LabelTestCase[] = [
     fancifulName: 'Frontier Whiskey',
   },
   {
-    imagePaths: ['test-labels/whiskey/bulleit-single-barrel/front.png'],
+    imagePaths: [
+      'test-labels/whiskey/bulleit-single-barrel/front.png',
+      'test-labels/whiskey/bulleit-single-barrel/neck.png',
+    ],
     brandName: 'Bulleit Bourbon',
     beverageType: 'distilled_spirits',
     containerSizeMl: 750,
@@ -231,7 +247,9 @@ const WHISKEY_LABELS: LabelTestCase[] = [
 // First 3 chosen for variety: wine (front+back), whiskey (front+back), beer (front only)
 // ---------------------------------------------------------------------------
 
-export const LABEL_TEST_CASES: LabelTestCase[] = [
+// Ordered for variety: wine, whiskey, beer, then the rest.
+// authState assigned round-robin across the 3 applicant accounts.
+const ORDERED_LABELS: LabelData[] = [
   WINE_LABELS[0], // Cooper Ridge (wine, front+back)
   WHISKEY_LABELS[4], // Knob Creek (whiskey, front+back)
   BEER_LABELS[0], // Sierra Nevada (beer, front only)
@@ -239,3 +257,10 @@ export const LABEL_TEST_CASES: LabelTestCase[] = [
   ...WINE_LABELS.filter((l) => l !== WINE_LABELS[0]),
   ...WHISKEY_LABELS.filter((l) => l !== WHISKEY_LABELS[4]),
 ]
+
+export const LABEL_TEST_CASES: LabelTestCase[] = ORDERED_LABELS.map(
+  (label, i) => ({
+    ...label,
+    authState: APPLICANT_AUTH_FILES[i % APPLICANT_AUTH_FILES.length],
+  }),
+)

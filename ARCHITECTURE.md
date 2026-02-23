@@ -157,11 +157,11 @@ The system handles three beverage types (distilled spirits, wine, malt beverages
     |                            |--- forward to RSC -------->                          |
     |<-- rendered page ----------|                                                      |
     |                                                                                   |
-    |--- GET /admin ------------>|                                                      |
+    |--- GET /settings --------->|                                                      |
     |                            |--- check session + role -->|                         |
-    |                            |<-- role: specialist --------|                         |
-    |<-- redirect /login --------|  (specialists blocked                                |
-    |                               from /admin, /settings)                             |
+    |                            |<-- role: applicant ---------|                         |
+    |<-- redirect / ------------|  (applicants blocked                                 |
+    |                               from /settings)                                    |
 ```
 
 ### File Upload Flow (Client-Side Direct-to-Blob)
@@ -241,7 +241,7 @@ excisely/
     |   |   |-- loading.tsx           # Suspense skeleton for protected routes
     |   |   |-- error.tsx             # Error boundary for protected routes
     |   |   |-- not-found.tsx         # 404 for invalid IDs
-    |   |   |-- page.tsx              # Dashboard (role-aware: admin vs specialist)
+    |   |   |-- page.tsx              # Dashboard (all labels for specialists)
     |   |   |
     |   |   |-- validate/
     |   |   |   +-- page.tsx          # Single label validation form
@@ -269,11 +269,8 @@ excisely/
     |   |   |-- reports/
     |   |   |   +-- page.tsx          # Reports dashboard (charts, stats)
     |   |   |
-    |   |   |-- admin/                # Admin-only routes
-    |   |   |   +-- page.tsx          # Admin dashboard (specialist table, flagged applicants)
-    |   |   |
     |   |   +-- settings/
-    |   |       +-- page.tsx          # Settings (admin-only: thresholds, strictness, variants)
+    |   |       +-- page.tsx          # Settings (specialist-only: thresholds, strictness, SLA targets)
     |   |
     |   |-- api/
     |   |   |-- auth/
@@ -307,7 +304,6 @@ excisely/
     |   |-- dashboard/                # Stats cards, recent activity, status charts
     |   |-- reports/                  # Trend charts, field accuracy, processing time
     |   |-- applicants/               # Search, table, stats cards
-    |   |-- admin/                    # Specialist summary, flagged applicants
     |   |-- shared/                   # Field comparison row, deadline badge, shortcuts bar
     |   +-- settings/                 # Threshold slider, strictness toggles, variant manager
     |
@@ -736,7 +732,7 @@ item_status:     match | mismatch | not_found | needs_correction
 
 image_type:      front | back | neck | strip | other
 
-user_role:       admin | specialist
+user_role:       specialist | applicant
 ```
 
 ---
@@ -795,7 +791,7 @@ These are separated into config files so regulatory changes can be applied witho
 All database mutations go through server actions. No API routes are exposed for data access. Every server action follows the same pattern:
 
 1. Call `getSession()` to authenticate the request; reject if no session.
-2. Check role if the action is admin-only (`session.user.role === 'admin'`).
+2. Check role if the action is specialist-only (`session.user.role === 'applicant'` guard).
 3. Validate input with Zod schemas (re-validates independently from client-side validation).
 4. Execute business logic (DB writes, AI calls, file operations).
 5. Call `revalidatePath()` or `revalidateTag()` to bust any cached data.
@@ -808,7 +804,7 @@ Key actions: `validate-label.ts` (the core validation pipeline), `submit-review.
 Next.js 16 renamed `middleware.ts` to `proxy.ts`. It runs on the Node.js runtime (not Edge, unlike the old middleware). Responsibilities:
 
 - **Auth check**: Redirects unauthenticated users to `/login` on all routes except `/login` and `/api/auth/*`.
-- **Role enforcement**: Redirects specialist-role users away from `/admin/*` and `/settings` routes.
+- **Role enforcement**: Redirects applicant-role users away from `/settings`.
 - **Security headers**: Strict CSP, X-Frame-Options DENY, X-Content-Type-Options nosniff, HSTS.
 
 ---
@@ -819,15 +815,15 @@ Next.js 16 renamed `middleware.ts` to `proxy.ts`. It runs on the Node.js runtime
 
 - **Better Auth v1.4** with email/password authentication.
 - Session-based with 30-day expiry and 1-day refresh window.
-- Two roles: `admin` (full access) and `specialist` (scoped access).
+- Two roles: `specialist` (full staff access) and `applicant` (submit/view own labels).
 - Login rate limiting: 3 attempts per minute per email address.
 - All auth state managed server-side; no JWT tokens exposed to client.
 
 ### Authorization
 
-- **Route-level**: `proxy.ts` enforces auth on all protected routes and blocks specialists from admin routes.
-- **Action-level**: Every server action calls `getSession()` as its first operation. Admin-only actions additionally check `session.user.role === 'admin'`.
-- **Data-level**: Specialists see their own workload by default. Admin sees team-wide data. Database queries are scoped by role in RSC data loading.
+- **Route-level**: `proxy.ts` enforces auth on all protected routes. Settings page redirects applicants.
+- **Action-level**: Every server action calls `getSession()` as its first operation. Specialist-only actions check `session.user.role === 'applicant'` to block applicants.
+- **Data-level**: Specialists see all labels. Applicants see only their own submissions. Database queries are scoped by role in RSC data loading.
 
 ### Input Validation
 

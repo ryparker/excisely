@@ -10,6 +10,7 @@ import {
   Send,
   Crosshair,
   MapPin,
+  X,
 } from 'lucide-react'
 
 import { submitReview } from '@/app/actions/submit-review'
@@ -49,6 +50,7 @@ interface ReviewFieldListProps {
   activeField: string | null
   onFieldClick: (fieldName: string) => void
   onMarkLocation?: (fieldName: string) => void
+  onClearAnnotation?: (fieldName: string) => void
   annotations?: Record<
     string,
     { x: number; y: number; width: number; height: number }
@@ -106,6 +108,7 @@ export function ReviewFieldList({
   activeField,
   onFieldClick,
   onMarkLocation,
+  onClearAnnotation,
   annotations,
 }: ReviewFieldListProps) {
   const router = useRouter()
@@ -244,15 +247,28 @@ export function ReviewFieldList({
                   {onMarkLocation && (
                     <div className="flex items-center gap-2">
                       {annotations?.[item.fieldName] ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-1.5 border-indigo-200 text-indigo-700 dark:border-indigo-800 dark:text-indigo-400"
-                          onClick={() => onMarkLocation(item.fieldName)}
-                        >
-                          <MapPin className="size-3.5" />
-                          Location Marked — Redo
-                        </Button>
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5 border-indigo-200 text-indigo-700 dark:border-indigo-800 dark:text-indigo-400"
+                            onClick={() => onMarkLocation(item.fieldName)}
+                          >
+                            <MapPin className="size-3.5" />
+                            Location Marked — Redo
+                          </Button>
+                          {onClearAnnotation && (
+                            <Button
+                              variant="ghost"
+                              className="size-7 p-0 text-muted-foreground hover:text-destructive"
+                              onClick={() => onClearAnnotation(item.fieldName)}
+                              aria-label="Clear annotation"
+                              title="Remove marker"
+                            >
+                              <X className="size-3.5" />
+                            </Button>
+                          )}
+                        </>
                       ) : (
                         <Button
                           variant="outline"

@@ -16,8 +16,15 @@ const classifiedFieldSchema = z.object({
   reasoning: z.string().nullable(),
 })
 
+const imageClassificationSchema = z.object({
+  imageIndex: z.number(),
+  imageType: z.enum(['front', 'back', 'neck', 'strip', 'other']),
+  confidence: z.number(),
+})
+
 const classificationResultSchema = z.object({
   fields: z.array(classifiedFieldSchema),
+  imageClassifications: z.array(imageClassificationSchema),
 })
 
 // ---------------------------------------------------------------------------

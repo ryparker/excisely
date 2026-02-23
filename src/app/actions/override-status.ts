@@ -23,6 +23,7 @@ const overrideStatusSchema = z.object({
   justification: z
     .string()
     .min(10, 'Justification must be at least 10 characters'),
+  reasonCode: z.string().nullish(),
 })
 
 // ---------------------------------------------------------------------------
@@ -55,7 +56,10 @@ export async function overrideStatus(
   }
 
   if (session.user.role === 'applicant') {
-    return { success: false, error: 'Applicants cannot override label status' }
+    return {
+      success: false,
+      error: 'Only specialists can override label status',
+    }
   }
 
   const parsed = overrideStatusSchema.safeParse(input)
@@ -67,7 +71,7 @@ export async function overrideStatus(
     }
   }
 
-  const { labelId, newStatus, justification } = parsed.data
+  const { labelId, newStatus, justification, reasonCode } = parsed.data
 
   try {
     // Fetch current label
@@ -112,6 +116,7 @@ export async function overrideStatus(
       previousStatus: label.status,
       newStatus,
       justification,
+      reasonCode: reasonCode ?? null,
     })
 
     // Update label
@@ -126,7 +131,6 @@ export async function overrideStatus(
 
     revalidatePath('/')
     revalidatePath(`/labels/${labelId}`)
-    revalidatePath(`/review/${labelId}`)
 
     return { success: true }
   } catch (error) {

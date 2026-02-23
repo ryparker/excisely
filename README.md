@@ -50,11 +50,9 @@ Open [http://localhost:3000](http://localhost:3000) and log in with a test accou
 
 ### Test Accounts
 
-| Role       | Name          | Email                 | Password      |
-| ---------- | ------------- | --------------------- | ------------- |
-| Admin      | Sarah Chen    | sarah.chen@ttb.gov    | admin123      |
-| Specialist | Dave Morrison | dave.morrison@ttb.gov | specialist123 |
-| Specialist | Jenny Park    | jenny.park@ttb.gov    | specialist123 |
+| Role       | Name       | Email              | Password      |
+| ---------- | ---------- | ------------------ | ------------- |
+| Specialist | Sarah Chen | sarah.chen@ttb.gov | specialist123 |
 
 ## How It Works
 
@@ -114,7 +112,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for system diagrams, data flow, databas
 - **Database:** Drizzle ORM + Neon Postgres
 - **Storage:** Vercel Blob (signed URLs, client-side direct uploads)
 - **AI:** Google Cloud Vision (OCR) + GPT-5 Mini via Vercel AI SDK v6
-- **Auth:** Better Auth v1.4 (admin + specialist roles)
+- **Auth:** Better Auth v1.4 (specialist + applicant roles)
 - **Forms:** React Hook Form v7 + Zod
 - **State:** Zustand v5 (client) + nuqs v2.8 (URL params)
 - **Testing:** Vitest + React Testing Library + Playwright
@@ -153,7 +151,7 @@ Key decisions:
 
 **MVP (implemented):** Auth, single label validation, annotated results, history, dashboard, keyboard shortcuts, communication reports.
 
-**Deferred:** Review queue, batch upload (300+ labels), applicant management, admin analytics, settings management, PDF export.
+**Deferred:** Review queue, batch upload (300+ labels), applicant management, PDF export.
 
 See [DECISIONS.md](./DECISIONS.md) for full scope rationale.
 

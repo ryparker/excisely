@@ -1,5 +1,9 @@
 import { BEVERAGE_TYPES, type BeverageType } from '@/config/beverage-types'
 
+function escapePromptValue(value: string): string {
+  return value.replace(/["""]/g, "'").slice(0, 500)
+}
+
 // ---------------------------------------------------------------------------
 // Field descriptions for the classification prompt
 // ---------------------------------------------------------------------------
@@ -135,14 +139,30 @@ ${
 The applicant submitted these expected values on their COLA application. Use this to help identify and disambiguate fields in the OCR text. The applicant knows their own product — trust their field assignments when the OCR text is ambiguous.
 
 ${Object.entries(applicationData)
-  .map(([field, value]) => `- **${field}**: "${value}"`)
+  .map(
+    ([field, value]) =>
+      `- **${escapePromptValue(field)}**: "${escapePromptValue(value)}"`,
+  )
   .join('\n')}
 
 **Important**: Your job is to find WHERE each expected value appears on the label (or confirm it's missing). The application data tells you WHAT to look for; the OCR text tells you what's actually ON the label.
 `
     : ''
 }
+## Image Type Classification
+
+For each image provided, classify which part of the label it shows:
+- **front**: The front/main label — brand name, product name, and class/type are prominently displayed
+- **back**: The back label — typically contains the health warning statement, ingredients, nutritional info, or UPC barcode
+- **neck**: A neck band or collar label — a small label wrapped around the neck of the bottle
+- **strip**: A side or connecting strip label — a narrow label on the side connecting front and back
+- **other**: Anything that doesn't fit the above categories (e.g., case packaging, closeup detail shots)
+
+Return an "imageClassifications" array with one entry per image. Each entry must have: imageIndex (0-based), imageType, confidence (0-100).
+
 ## Response Format
 
-Return a JSON object with a "fields" array. Each element must have: fieldName, value (string or null), confidence (0-100), wordIndices (array of integers), reasoning (string or null).`
+Return a JSON object with:
+1. A "fields" array. Each element must have: fieldName, value (string or null), confidence (0-100), wordIndices (array of integers), reasoning (string or null).
+2. An "imageClassifications" array. Each element must have: imageIndex (integer, 0-based), imageType (one of "front", "back", "neck", "strip", "other"), confidence (0-100).`
 }

@@ -62,7 +62,7 @@ scripts/sample-images/
 *.pem
 
 # local credentials
-config/
+/config/
 
 # next-agents-md
 .next-docs/

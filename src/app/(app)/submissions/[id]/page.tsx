@@ -236,7 +236,13 @@ export default async function SubmissionDetailPage({
       )}
 
       {/* Processing state — show animated pipeline progress */}
-      {label.status === 'processing' && <ProcessingPipelineCard />}
+      {label.status === 'processing' && (
+        <ProcessingPipelineCard
+          labelId={label.id}
+          imageCount={images.length}
+          imageNames={images.map((img) => img.imageFilename)}
+        />
+      )}
 
       {effectiveStatus === 'approved' && (
         <Card className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950">

@@ -52,8 +52,8 @@ export async function updateConfidenceThreshold(
     return { success: false, error: 'Authentication required' }
   }
 
-  if (session.user.role !== 'admin') {
-    return { success: false, error: 'Admin access required' }
+  if (session.user.role === 'applicant') {
+    return { success: false, error: 'Specialist access required' }
   }
 
   const parsed = updateConfidenceSchema.safeParse({
@@ -81,8 +81,8 @@ export async function updateFieldStrictness(
     return { success: false, error: 'Authentication required' }
   }
 
-  if (session.user.role !== 'admin') {
-    return { success: false, error: 'Admin access required' }
+  if (session.user.role === 'applicant') {
+    return { success: false, error: 'Specialist access required' }
   }
 
   const parsed = updateStrictnessSchema.safeParse({ fieldStrictness })
@@ -114,8 +114,8 @@ export async function updateSLATargets(targets: {
     return { success: false, error: 'Authentication required' }
   }
 
-  if (session.user.role !== 'admin') {
-    return { success: false, error: 'Admin access required' }
+  if (session.user.role === 'applicant') {
+    return { success: false, error: 'Specialist access required' }
   }
 
   const parsed = updateSLASchema.safeParse(targets)
@@ -126,7 +126,6 @@ export async function updateSLATargets(targets: {
   try {
     await upsertSetting('sla_targets', parsed.data)
     revalidatePath('/settings')
-    revalidatePath('/admin')
     return { success: true }
   } catch (error) {
     console.error('[updateSLATargets] Error:', error)

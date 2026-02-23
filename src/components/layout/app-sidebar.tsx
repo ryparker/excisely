@@ -11,7 +11,6 @@ import {
   Plus,
   Send,
   Settings,
-  Shield,
   Users,
 } from 'lucide-react'
 
@@ -25,6 +24,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { APP_NAME, APP_TAGLINE } from '@/config/constants'
+import { STATUS_DOT_COLORS, type SLAStatus } from '@/lib/sla/status'
 import { cn } from '@/lib/utils'
 
 const EXPANDED_WIDTH = 256
@@ -59,8 +59,9 @@ interface NavItem {
 }
 
 interface AppSidebarProps {
-  userRole: 'admin' | 'specialist' | 'applicant'
+  userRole: 'specialist' | 'applicant'
   reviewCount?: number
+  slaHealth?: SLAStatus
   user: {
     name: string
     email: string
@@ -71,6 +72,7 @@ interface AppSidebarProps {
 export function AppSidebar({
   userRole,
   reviewCount = 0,
+  slaHealth,
   user,
 }: AppSidebarProps) {
   const pathname = usePathname()
@@ -88,15 +90,10 @@ export function AppSidebar({
   }, [])
 
   const isApplicant = userRole === 'applicant'
-  const isAdmin = userRole === 'admin'
 
   const staffItems: NavItem[] = [
     { label: 'Labels', href: '/', icon: FileText, badge: reviewCount },
     { label: 'Applicants', href: '/applicants', icon: Users },
-  ]
-
-  const adminItems: NavItem[] = [
-    { label: 'Team', href: '/admin', icon: Shield },
     { label: 'Settings', href: '/settings', icon: Settings },
   ]
 
@@ -182,13 +179,15 @@ export function AppSidebar({
         {/* Header */}
         <div
           className={cn(
-            'flex h-14 shrink-0 items-center',
-            collapsed ? 'justify-center px-2' : 'justify-between px-4',
+            'flex shrink-0 items-center',
+            collapsed
+              ? 'h-14 justify-center px-2'
+              : 'h-14 justify-between px-4',
           )}
         >
           <div
             className={cn(
-              'flex items-center gap-2',
+              'flex items-center gap-2.5',
               collapsed && 'justify-center',
             )}
           >
@@ -205,16 +204,27 @@ export function AppSidebar({
                 {APP_NAME}
               </span>
             )}
+            {slaHealth && (
+              <motion.span
+                className={cn(
+                  'size-2 shrink-0 rounded-full',
+                  STATUS_DOT_COLORS[slaHealth],
+                )}
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+              />
+            )}
           </div>
           {!collapsed && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   onClick={toggle}
-                  className="flex size-8 items-center justify-center rounded-md text-sidebar-foreground/50 transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                  className="flex size-7 items-center justify-center rounded-md text-sidebar-foreground/40 transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                   aria-label="Collapse sidebar"
                 >
-                  <ChevronsLeft className="size-4" />
+                  <ChevronsLeft className="size-3.5" />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="right" sideOffset={4}>
@@ -226,7 +236,7 @@ export function AppSidebar({
 
         {/* Tagline */}
         {!collapsed && (
-          <p className="px-6 pb-4 text-xs whitespace-nowrap text-sidebar-foreground/60">
+          <p className="px-5 pb-4 text-[11px] whitespace-nowrap text-sidebar-foreground/40">
             {APP_TAGLINE}
           </p>
         )}
@@ -238,19 +248,9 @@ export function AppSidebar({
             collapsed ? 'px-2' : 'px-3',
           )}
         >
-          {isApplicant ? (
-            applicantItems.map(renderItem)
-          ) : (
-            <>
-              {staffItems.map(renderItem)}
-              {isAdmin && (
-                <>
-                  <div className="my-3 border-t border-sidebar-border" />
-                  {adminItems.map(renderItem)}
-                </>
-              )}
-            </>
-          )}
+          {isApplicant
+            ? applicantItems.map(renderItem)
+            : staffItems.map(renderItem)}
         </nav>
 
         {/* New Validation */}
@@ -275,7 +275,10 @@ export function AppSidebar({
                 </TooltipContent>
               </Tooltip>
             ) : (
-              <Button asChild className="w-full">
+              <Button
+                asChild
+                className="w-full bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
+              >
                 <Link href="/validate">
                   <Plus className="size-4" />
                   <span className="whitespace-nowrap">New Validation</span>

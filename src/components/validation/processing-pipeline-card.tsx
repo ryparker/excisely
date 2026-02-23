@@ -2,77 +2,65 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  Check,
-  FileSearch,
-  ImageUp,
-  ScanText,
-  Sparkles,
-  TextSearch,
-} from 'lucide-react'
+import { Check } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
+import {
+  getScaledTimings,
+  getStageCumulativeDelays,
+  getTimeEstimateLabel,
+} from '@/lib/processing-stages'
 
 // ---------------------------------------------------------------------------
-// Stage configuration
+// sessionStorage helpers
 // ---------------------------------------------------------------------------
 
-interface StageConfig {
-  id: string
-  label: string
-  description: string
-  icon: typeof ImageUp
+const STORAGE_PREFIX = 'excisely:pipeline:'
+const STALE_THRESHOLD_MS = 5 * 60 * 1000 // 5 minutes
+
+function getStorageKey(labelId: string) {
+  return `${STORAGE_PREFIX}${labelId}`
 }
 
-const STAGES: StageConfig[] = [
-  {
-    id: 'uploading',
-    label: 'Receiving images',
-    description: 'Label images stored in secure blob storage',
-    icon: ImageUp,
-  },
-  {
-    id: 'ocr',
-    label: 'Extracting text (OCR)',
-    description: 'Google Cloud Vision reads text and locates bounding boxes',
-    icon: ScanText,
-  },
-  {
-    id: 'classifying',
-    label: 'Classifying fields',
-    description: 'GPT-5 Mini identifies TTB label fields from extracted text',
-    icon: Sparkles,
-  },
-  {
-    id: 'comparing',
-    label: 'Comparing against application',
-    description: 'Matching extracted fields to Form 5100.31 data',
-    icon: TextSearch,
-  },
-  {
-    id: 'finalizing',
-    label: 'Generating report',
-    description: 'Building validation results and determining status',
-    icon: FileSearch,
-  },
-]
+function cleanStaleKeys() {
+  const now = Date.now()
+  for (let i = sessionStorage.length - 1; i >= 0; i--) {
+    const key = sessionStorage.key(i)
+    if (key?.startsWith(STORAGE_PREFIX)) {
+      const stored = Number(sessionStorage.getItem(key))
+      if (now - stored > STALE_THRESHOLD_MS) {
+        sessionStorage.removeItem(key)
+      }
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-/**
- * Shown on the history/submissions detail page when a label has
- * `status === 'processing'`. Displays an animated pipeline visualization
- * and auto-refreshes to detect when processing completes.
- */
-export function ProcessingPipelineCard() {
+interface ProcessingPipelineCardProps {
+  /** Unique label ID — used as sessionStorage key to survive remounts */
+  labelId: string
+  /** Number of images being processed (scales timing estimates) */
+  imageCount?: number
+  /** Filenames to display below progress bar */
+  imageNames?: string[]
+}
+
+export function ProcessingPipelineCard({
+  labelId,
+  imageCount = 1,
+  imageNames,
+}: ProcessingPipelineCardProps) {
   const router = useRouter()
+  const { stages } = getScaledTimings(imageCount)
   const [activeStage, setActiveStage] = useState(0)
   const [progress, setProgress] = useState(0)
   const stageStartRef = useRef(0)
+  const [initialized, setInitialized] = useState(false)
 
   // Auto-refresh to detect completion (every 3s)
   useEffect(() => {
@@ -82,26 +70,56 @@ export function ProcessingPipelineCard() {
     return () => clearInterval(interval)
   }, [router])
 
-  // Animate through stages on estimated timing
+  // Resume-aware stage progression via sessionStorage
   useEffect(() => {
-    const timings = [1500, 2700, 4700, 5300, 5700]
-    const timers: ReturnType<typeof setTimeout>[] = []
+    cleanStaleKeys()
 
-    for (let i = 0; i < timings.length; i++) {
-      timers.push(
-        setTimeout(() => {
-          setActiveStage(i)
-          stageStartRef.current = performance.now()
-        }, timings[i]),
-      )
+    const key = getStorageKey(labelId)
+    let startTime = Number(sessionStorage.getItem(key))
+
+    if (!startTime || isNaN(startTime)) {
+      startTime = Date.now()
+      sessionStorage.setItem(key, String(startTime))
+    }
+
+    const elapsed = Date.now() - startTime
+    const delays = getStageCumulativeDelays(imageCount)
+
+    // Determine which stage we should be on based on elapsed time
+    let resumeStage = 0
+    for (let i = delays.length - 1; i >= 0; i--) {
+      if (elapsed >= delays[i].delay) {
+        resumeStage = i
+        break
+      }
+    }
+
+    setActiveStage(resumeStage)
+    stageStartRef.current =
+      performance.now() - (elapsed - delays[resumeStage].delay)
+    setInitialized(true)
+
+    // Schedule remaining stage transitions
+    const timers: ReturnType<typeof setTimeout>[] = []
+    for (let i = resumeStage + 1; i < delays.length; i++) {
+      const remainingDelay = delays[i].delay - elapsed
+      if (remainingDelay > 0) {
+        timers.push(
+          setTimeout(() => {
+            setActiveStage(i)
+            stageStartRef.current = performance.now()
+          }, remainingDelay),
+        )
+      }
     }
 
     return () => timers.forEach(clearTimeout)
-  }, [])
+  }, [labelId, imageCount])
 
   // Smooth progress animation
   useEffect(() => {
-    stageStartRef.current = performance.now()
+    if (!initialized) return
+
     let raf: number
 
     function tick() {
@@ -109,7 +127,7 @@ export function ProcessingPipelineCard() {
       const elapsed = now - stageStartRef.current
 
       // Calculate base progress from completed stages
-      const stageWeight = 100 / STAGES.length
+      const stageWeight = 100 / stages.length
       const baseProgress = activeStage * stageWeight
 
       // Asymptotic progress within current stage
@@ -122,7 +140,17 @@ export function ProcessingPipelineCard() {
 
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [activeStage])
+  }, [activeStage, stages.length, initialized])
+
+  // Don't render until we've determined the resume state
+  if (!initialized) return null
+
+  const imageLabel =
+    imageNames && imageNames.length > 0
+      ? `Analyzing ${imageNames.length} image${imageNames.length > 1 ? 's' : ''}: ${imageNames.join(', ')}`
+      : imageCount > 1
+        ? `Analyzing ${imageCount} images`
+        : undefined
 
   return (
     <Card>
@@ -140,14 +168,19 @@ export function ProcessingPipelineCard() {
         <div className="space-y-2">
           <Progress value={progress} className="h-1.5" />
           <p className="text-xs text-muted-foreground">
-            This typically takes 3&ndash;5 seconds. The page will update
-            automatically when complete.
+            This typically takes {getTimeEstimateLabel(imageCount)}. The page
+            will update automatically when complete.
           </p>
+          {imageLabel && (
+            <p className="truncate text-xs font-medium text-muted-foreground">
+              {imageLabel}
+            </p>
+          )}
         </div>
 
         {/* Pipeline stages */}
         <div className="space-y-0.5">
-          {STAGES.map((stage, idx) => {
+          {stages.map((stage, idx) => {
             const isComplete = idx < activeStage
             const isActive = idx === activeStage
             const Icon = stage.icon
@@ -227,7 +260,7 @@ export function ProcessingPipelineCard() {
                         exit={{ opacity: 0, height: 0 }}
                         className="mt-0.5 text-xs text-muted-foreground"
                       >
-                        {stage.description}
+                        {stage.description(imageCount)}
                       </motion.p>
                     )}
                   </AnimatePresence>

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Loader2 } from 'lucide-react'
+import { ArrowRight, Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -52,14 +52,17 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <div className="space-y-1.5">
+        <Label htmlFor="email" className="text-[13px]">
+          Email
+        </Label>
         <Input
           id="email"
           type="email"
           placeholder="name@ttb.gov"
           autoComplete="email"
+          className="h-10"
           {...register('email')}
           aria-invalid={!!errors.email}
         />
@@ -68,13 +71,16 @@ export function LoginForm() {
         )}
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="password">Password</Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="password" className="text-[13px]">
+          Password
+        </Label>
         <Input
           id="password"
           type="password"
           placeholder="Enter your password"
           autoComplete="current-password"
+          className="h-10"
           {...register('password')}
           aria-invalid={!!errors.password}
         />
@@ -89,14 +95,21 @@ export function LoginForm() {
         </div>
       )}
 
-      <Button type="submit" className="w-full" disabled={isSubmitting}>
+      <Button
+        type="submit"
+        className="group mt-1 h-11 w-full text-[13px] font-semibold tracking-wide transition-all hover:shadow-lg hover:shadow-primary/20"
+        disabled={isSubmitting}
+      >
         {isSubmitting ? (
           <>
             <Loader2 className="animate-spin" />
             Signing in...
           </>
         ) : (
-          'Sign in'
+          <>
+            Sign in
+            <ArrowRight className="ml-1 h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+          </>
         )}
       </Button>
     </form>

@@ -19,7 +19,7 @@ AI-powered alcohol label verification tool for TTB labeling specialists. Compare
 - **AI:** Hybrid pipeline — Google Cloud Vision (`@google-cloud/vision`) for OCR + bounding boxes, GPT-5 Mini (`ai` + `@ai-sdk/openai`) for field classification via `generateText` + `Output.object()` + Zod schemas
 - **Forms:** React Hook Form v7 + `@hookform/resolvers` (Zod resolver)
 - **State:** Zustand v5 (client stores) + nuqs v2.8 (URL search params)
-- **Auth:** Better Auth v1.4 (admin + specialist roles, session-based)
+- **Auth:** Better Auth v1.4 (specialist + applicant roles, session-based)
 - **IDs:** nanoid (21-char, URL-friendly) — no UUIDs
 - **Analytics:** Vercel Analytics
 - **Theme:** next-themes (light/dark mode)
@@ -84,7 +84,7 @@ Use the `/db-inspect` skill for common queries — it has ready-made queries for
 2. **`'use client'` only for interactivity** — file upload dropzone, image annotations, form inputs, charts
 3. **All mutations via Server Actions** with Zod validation — no exposed API routes
 4. **Every server action starts with `getSession()`** — reject unauthenticated requests before any logic
-5. **Admin-only actions check `session.user.role === 'admin'`** — specialists are blocked from settings, admin dashboard
+5. **Specialist-only actions check `session.user.role === 'applicant'`** — applicants are blocked from settings, review overrides
 6. **No raw SQL** — all queries through Drizzle's parameterized query builder
 7. **`proxy.ts` (not middleware.ts)** — Next.js 16 renamed middleware to proxy, runs on Node.js runtime
 8. **File uploads validated** — MIME type + file extension + magic byte verification + 10MB size limit
@@ -121,15 +121,12 @@ Use TTB's exact terminology everywhere — UI, code, comments, variable names.
 
 ## User Roles & Test Accounts
 
-| Role                   | Name            | Email                   | Password      |
-| ---------------------- | --------------- | ----------------------- | ------------- |
-| Admin                  | Sarah Chen      | sarah.chen@ttb.gov      | admin123      |
-| Specialist (senior)    | Dave Morrison   | dave.morrison@ttb.gov   | specialist123 |
-| Specialist (junior)    | Jenny Park      | jenny.park@ttb.gov      | specialist123 |
-| Specialist             | Marcus Williams | marcus.williams@ttb.gov | specialist123 |
-| Specialist             | Janet Torres    | janet.torres@ttb.gov    | specialist123 |
-| Specialist             | Robert Kim      | robert.kim@ttb.gov      | specialist123 |
-| Specialist (part-time) | Lisa Chen       | lisa.chen@ttb.gov       | specialist123 |
+| Role      | Name              | Email                         | Password      |
+| --------- | ----------------- | ----------------------------- | ------------- |
+| Specialist| Sarah Chen        | sarah.chen@ttb.gov            | specialist123 |
+| Applicant | Thomas Blackwell  | labeling@oldtomdistillery.com | applicant123  |
+| Applicant | Catherine Moreau  | legal@napavalleyestate.com    | applicant123  |
+| Applicant | Mike Olsen        | labels@cascadehop.com         | applicant123  |
 
 ## Label Statuses
 

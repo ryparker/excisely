@@ -163,7 +163,7 @@ export async function submitApplication(
 
     // 8. Build expected fields from application data (needed for AI pipeline + comparison)
     const expectedFields = buildExpectedFields(
-      input as unknown as Record<string, unknown>,
+      input as Record<string, unknown>,
       input.beverageType,
     )
 
@@ -174,6 +174,19 @@ export async function submitApplication(
       input.beverageType,
       appDataForAI,
     )
+
+    // 9b. Update image types from AI classification
+    if (extraction.imageClassifications.length > 0) {
+      for (const ic of extraction.imageClassifications) {
+        const imageRecord = imageRecords[ic.imageIndex]
+        if (imageRecord && ic.confidence >= 60) {
+          await db
+            .update(labelImages)
+            .set({ imageType: ic.imageType })
+            .where(eq(labelImages.id, imageRecord.id))
+        }
+      }
+    }
 
     // 10. Compare each extracted field against application data
     const fieldComparisons: Array<{

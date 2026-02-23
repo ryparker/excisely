@@ -40,6 +40,8 @@ interface ValidationDetailPanelsProps {
 const IMAGE_TYPE_LABELS: Record<string, string> = {
   front: 'Front',
   back: 'Back',
+  neck: 'Neck',
+  strip: 'Strip',
   other: 'Other',
 }
 

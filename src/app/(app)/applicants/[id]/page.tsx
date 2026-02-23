@@ -15,9 +15,9 @@ import {
   applicants,
   labels,
   applicationData,
-  validationItems,
-  validationResults,
+  statusOverrides,
 } from '@/db/schema'
+import { REASON_CODE_LABELS } from '@/config/override-reasons'
 import { getSession } from '@/lib/auth/get-session'
 import { getEffectiveStatus } from '@/lib/labels/effective-status'
 import { PageHeader } from '@/components/layout/page-header'
@@ -44,25 +44,6 @@ const BEVERAGE_TYPE_LABELS: Record<string, string> = {
   distilled_spirits: 'Distilled Spirits',
   wine: 'Wine',
   malt_beverage: 'Malt Beverage',
-}
-
-const FIELD_NAME_LABELS: Record<string, string> = {
-  brand_name: 'Brand Name',
-  fanciful_name: 'Fanciful Name',
-  class_type: 'Class/Type',
-  alcohol_content: 'Alcohol Content',
-  net_contents: 'Net Contents',
-  health_warning: 'Health Warning Statement',
-  name_and_address: 'Name and Address',
-  qualifying_phrase: 'Qualifying Phrase',
-  country_of_origin: 'Country of Origin',
-  grape_varietal: 'Grape Varietal',
-  appellation_of_origin: 'Appellation of Origin',
-  vintage_year: 'Vintage Year',
-  sulfite_declaration: 'Sulfite Declaration',
-  age_statement: 'Age Statement',
-  state_of_distillation: 'State of Distillation',
-  standards_of_fill: 'Standards of Fill',
 }
 
 function formatDate(date: Date): string {
@@ -178,31 +159,28 @@ export default async function ApplicantDetailPage({
   const lastSubmission =
     labelsWithStatus.length > 0 ? labelsWithStatus[0].createdAt : null
 
-  // Find most common rejection reason via validation items
-  const rejectionReasonRows = await db
+  // Find most common override reason code for this applicant
+  const overrideReasonRows = await db
     .select({
-      fieldName: validationItems.fieldName,
+      reasonCode: statusOverrides.reasonCode,
       count: sql<number>`count(*)`,
     })
-    .from(validationItems)
-    .innerJoin(
-      validationResults,
-      eq(validationItems.validationResultId, validationResults.id),
-    )
-    .innerJoin(labels, eq(validationResults.labelId, labels.id))
+    .from(statusOverrides)
+    .innerJoin(labels, eq(statusOverrides.labelId, labels.id))
     .where(
       and(
         eq(labels.applicantId, id),
-        sql`${validationItems.status} IN ('mismatch', 'not_found', 'needs_correction')`,
+        sql`${statusOverrides.reasonCode} IS NOT NULL`,
+        sql`${statusOverrides.newStatus} IN ('rejected', 'needs_correction')`,
       ),
     )
-    .groupBy(validationItems.fieldName)
+    .groupBy(statusOverrides.reasonCode)
     .orderBy(sql`count(*) desc`)
     .limit(1)
 
-  const topRejectionReason = rejectionReasonRows[0]
-    ? (FIELD_NAME_LABELS[rejectionReasonRows[0].fieldName] ??
-      rejectionReasonRows[0].fieldName)
+  const topOverrideReason = overrideReasonRows[0]?.reasonCode
+    ? (REASON_CODE_LABELS[overrideReasonRows[0].reasonCode] ??
+      overrideReasonRows[0].reasonCode)
     : null
 
   // Apply status filter
@@ -289,15 +267,17 @@ export default async function ApplicantDetailPage({
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Top Issue</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Top Override Reason
+            </CardTitle>
             <Building2 className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="truncate text-2xl font-bold">
-              {topRejectionReason ?? 'None'}
+              {topOverrideReason ?? 'None'}
             </div>
             <p className="text-xs text-muted-foreground">
-              Most common flagged field
+              Most common specialist override reason
             </p>
           </CardContent>
         </Card>

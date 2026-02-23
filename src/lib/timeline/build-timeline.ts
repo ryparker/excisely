@@ -49,6 +49,7 @@ interface TimelineOverride {
   previousStatus: string
   newStatus: string
   justification: string
+  reasonCode: string | null
   createdAt: Date
   specialistName: string | null
 }
@@ -188,7 +189,10 @@ export function buildTimeline(input: BuildTimelineInput): TimelineEvent[] {
       description: override.justification,
       status: override.newStatus,
       actorName: override.specialistName ?? undefined,
-      metadata: { justification: override.justification },
+      metadata: {
+        justification: override.justification,
+        ...(override.reasonCode ? { reasonCode: override.reasonCode } : {}),
+      },
     })
 
     // Override email (if new status is applicant-facing)

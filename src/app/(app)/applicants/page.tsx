@@ -5,6 +5,7 @@ import { ArrowRight, Building2 } from 'lucide-react'
 import { db } from '@/db'
 import { applicants, labels } from '@/db/schema'
 import { getSession } from '@/lib/auth/get-session'
+import { REASON_CODE_LABELS } from '@/config/override-reasons'
 import { PageHeader } from '@/components/layout/page-header'
 import { SearchInput } from '@/components/shared/search-input'
 import { Badge } from '@/components/ui/badge'
@@ -92,6 +93,16 @@ export default async function ApplicantsPage({
       totalLabels: count(labels.id),
       approvedCount: sql<number>`count(case when ${labels.status} = 'approved' then 1 end)`,
       lastSubmission: sql<Date | null>`max(${labels.createdAt})`,
+      topOverrideReason: sql<string | null>`(
+        SELECT so.reason_code FROM status_overrides so
+        INNER JOIN labels l ON so.label_id = l.id
+        WHERE l.applicant_id = ${applicants.id}
+        AND so.reason_code IS NOT NULL
+        AND so.new_status IN ('rejected', 'needs_correction')
+        GROUP BY so.reason_code
+        ORDER BY count(*) DESC
+        LIMIT 1
+      )`,
     })
     .from(applicants)
     .leftJoin(labels, eq(applicants.id, labels.applicantId))
@@ -108,7 +119,10 @@ export default async function ApplicantsPage({
       row.totalLabels > 0
         ? Math.round((row.approvedCount / row.totalLabels) * 100)
         : null
-    return { ...row, approvalRate }
+    const topReason = row.topOverrideReason
+      ? (REASON_CODE_LABELS[row.topOverrideReason] ?? row.topOverrideReason)
+      : null
+    return { ...row, approvalRate, topReason }
   })
 
   return (
@@ -125,7 +139,6 @@ export default async function ApplicantsPage({
       {/* Search */}
       <SearchInput
         paramKey="search"
-        basePath="/applicants"
         placeholder="Search by company name..."
         className="max-w-sm"
       />
@@ -155,6 +168,7 @@ export default async function ApplicantsPage({
                 <TableHead className="text-right">Total Labels</TableHead>
                 <TableHead className="text-right">Approval Rate</TableHead>
                 <TableHead>Risk</TableHead>
+                <TableHead>Top Reason</TableHead>
                 <TableHead>Last Submission</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -174,6 +188,9 @@ export default async function ApplicantsPage({
                       : '--'}
                   </TableCell>
                   <TableCell>{getRiskBadge(applicant.approvalRate)}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {applicant.topReason ?? '--'}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">
                     {applicant.lastSubmission
                       ? formatDate(new Date(applicant.lastSubmission))

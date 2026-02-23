@@ -2,19 +2,39 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 export default function AppLoading() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Page header */}
       <div className="space-y-2">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-4 w-72" />
       </div>
 
-      {/* Stats cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Skeleton className="h-32 rounded-xl" />
-        <Skeleton className="h-32 rounded-xl" />
-        <Skeleton className="h-32 rounded-xl" />
-        <Skeleton className="h-32 rounded-xl" />
+      {/* SLA metric cards */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="space-y-3 rounded-xl border bg-card p-5 shadow-sm"
+          >
+            {/* Icon + label */}
+            <div className="flex items-center gap-2">
+              <Skeleton className="size-3.5 rounded" />
+              <Skeleton className="h-3.5 w-32" />
+            </div>
+            {/* Value + target */}
+            <div className="flex items-baseline gap-1.5">
+              <Skeleton className="h-7 w-14" />
+              <Skeleton className="h-3 w-10" />
+            </div>
+            {/* Progress bar */}
+            <Skeleton className="h-1.5 w-full rounded-full" />
+            {/* Status label */}
+            <div className="flex items-center gap-1.5">
+              <Skeleton className="size-1.5 rounded-full" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Search + filter pills */}

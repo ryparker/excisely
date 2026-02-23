@@ -130,10 +130,13 @@ export function buildExpectedFields(
 export function determineOverallStatus(
   itemStatuses: Array<{ fieldName: string; status: ValidationItemStatus }>,
   beverageType: BeverageType,
-  containerSizeMl: number,
+  containerSizeMl?: number,
 ): { status: LabelStatus; deadlineDays: number | null } {
-  // Check container size validity first
-  if (!isValidSize(beverageType, containerSizeMl)) {
+  // Check container size validity first (skipped when not provided, e.g. during review)
+  if (
+    containerSizeMl !== undefined &&
+    !isValidSize(beverageType, containerSizeMl)
+  ) {
     return { status: 'rejected', deadlineDays: null }
   }
 

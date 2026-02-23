@@ -42,6 +42,8 @@ interface ReviewDetailPanelsProps {
 const IMAGE_TYPE_LABELS: Record<string, string> = {
   front: 'Front',
   back: 'Back',
+  neck: 'Neck',
+  strip: 'Strip',
   other: 'Other',
 }
 
@@ -105,6 +107,16 @@ export function ReviewDetailPanels({
 
   const handleDrawingCancel = useCallback(() => {
     setDrawingFieldName(null)
+  }, [])
+
+  const handleClearAnnotation = useCallback((fieldName: string) => {
+    setAnnotationsMap((prev) => {
+      const next = { ...prev }
+      delete next[fieldName]
+      return next
+    })
+    // Cancel drawing if active for this field
+    setDrawingFieldName((prev) => (prev === fieldName ? null : prev))
   }, [])
 
   // Only show bounding boxes for items belonging to the selected image
@@ -193,6 +205,7 @@ export function ReviewDetailPanels({
             activeField={activeField}
             onFieldClick={handleFieldClick}
             onMarkLocation={handleMarkLocation}
+            onClearAnnotation={handleClearAnnotation}
             annotations={annotationsMap}
           />
         </div>

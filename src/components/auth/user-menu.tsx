@@ -41,7 +41,7 @@ export function UserMenu({
   const email = session?.user.email ?? ''
   const role = session?.user.role ?? fallbackRole
   const initials = getInitials(name)
-  const roleName = role === 'admin' ? 'Admin' : 'Specialist'
+  const roleName = role === 'applicant' ? 'Applicant' : 'Specialist'
 
   async function handleSignOut() {
     await signOut()

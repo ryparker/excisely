@@ -19,6 +19,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { FIELD_DISPLAY_NAMES } from '@/config/field-display-names'
 import { FIELD_TOOLTIPS } from '@/config/field-tooltips'
 import { cn } from '@/lib/utils'
 
@@ -77,25 +78,6 @@ const STATUS_BADGE_STYLE: Record<string, string> = {
   needs_correction:
     'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
   not_found: 'bg-secondary text-muted-foreground',
-}
-
-const FIELD_DISPLAY_NAMES: Record<string, string> = {
-  brand_name: 'Brand Name',
-  fanciful_name: 'Fanciful Name',
-  class_type: 'Class/Type',
-  alcohol_content: 'Alcohol Content',
-  net_contents: 'Net Contents',
-  health_warning: 'Health Warning',
-  name_and_address: 'Name & Address',
-  qualifying_phrase: 'Qualifying Phrase',
-  country_of_origin: 'Country of Origin',
-  grape_varietal: 'Grape Varietal',
-  appellation_of_origin: 'Appellation',
-  vintage_year: 'Vintage Year',
-  sulfite_declaration: 'Sulfite Decl.',
-  age_statement: 'Age Statement',
-  state_of_distillation: 'State of Dist.',
-  standards_of_fill: 'Standards of Fill',
 }
 
 type ResizeHandle = 'nw' | 'n' | 'ne' | 'w' | 'e' | 'sw' | 's' | 'se'
@@ -185,6 +167,8 @@ function ImageViewerContent({
   onRedrawPending,
   annotations,
   onImageLoad,
+  onImageError,
+  imageError,
 }: {
   imageUrl: string
   boxesWithCoords: ValidationItemBox[]
@@ -212,6 +196,8 @@ function ImageViewerContent({
   onRedrawPending?: () => void
   annotations?: SpecialistAnnotation[]
   onImageLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void
+  onImageError?: () => void
+  imageError?: boolean
 }) {
   return (
     <div
@@ -237,14 +223,21 @@ function ImageViewerContent({
           transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale}) rotate(${rotation}deg)`,
         }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={imageUrl}
-          alt="Label image"
-          className="block h-auto w-full"
-          draggable={false}
-          onLoad={onImageLoad}
-        />
+        {imageError ? (
+          <div className="flex h-64 items-center justify-center bg-muted text-muted-foreground">
+            Image failed to load
+          </div>
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={imageUrl}
+            alt="Label image"
+            className="block h-auto w-full"
+            draggable={false}
+            onLoad={onImageLoad}
+            onError={onImageError}
+          />
+        )}
 
         {/* Specialist-drawn annotations */}
         {showOverlays &&
@@ -298,6 +291,8 @@ function ImageViewerContent({
             {HANDLE_POSITIONS.map(({ handle, x, y }) => (
               <div
                 key={handle}
+                aria-label={`Resize ${handle}`}
+                tabIndex={0}
                 className="absolute z-10 size-2 rounded-sm border border-indigo-600 bg-white shadow-sm"
                 style={{
                   left: `${x * 100}%`,
@@ -837,6 +832,7 @@ export function AnnotatedImage({
   }, [])
 
   // Fit image once it loads (naturalWidth/Height are 0 before load)
+  const [imageError, setImageError] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageAspect, setImageAspect] = useState(1) // width / height
 
@@ -844,6 +840,7 @@ export function AnnotatedImage({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing imageLoaded with imageUrl prop
     setImageLoaded(false)
+    setImageError(false)
   }, [imageUrl])
 
   // Also check for already-cached images on mount / URL change
@@ -1066,6 +1063,8 @@ export function AnnotatedImage({
             onConfirmPending={handleConfirmPending}
             onRedrawPending={handleRedrawPending}
             annotations={annotations}
+            imageError={imageError}
+            onImageError={() => setImageError(true)}
             onImageLoad={(e: React.SyntheticEvent<HTMLImageElement>) => {
               const img = e.currentTarget
               if (img.naturalWidth && img.naturalHeight) {

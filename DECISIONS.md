@@ -64,7 +64,7 @@ This document explains the major engineering decisions, scope choices, known lim
 - Clerk (SaaS vendor lock-in, overkill for prototype)
 - Roll-our-own JWT auth
 
-**Reasoning:** Better Auth is simpler to configure, self-hosted (no vendor dependency), and integrates directly with Drizzle ORM. For a prototype with 7 pre-provisioned test accounts and two roles (admin/specialist), we need reliable session management without the configuration overhead of NextAuth or the cost/lock-in of Clerk. Sessions use 30-day expiry with 1-day refresh, and every server action validates the session before executing.
+**Reasoning:** Better Auth is simpler to configure, self-hosted (no vendor dependency), and integrates directly with Drizzle ORM. For a prototype with 6 pre-provisioned test accounts and two roles (specialist/applicant), we need reliable session management without the configuration overhead of NextAuth or the cost/lock-in of Clerk. Sessions use 30-day expiry with 1-day refresh, and every server action validates the session before executing.
 
 ### Vercel AI SDK (Not Raw OpenAI SDK)
 
@@ -168,12 +168,12 @@ This document explains the major engineering decisions, scope choices, known lim
 
 The MVP delivers a complete, end-to-end label verification workflow:
 
-- **Authentication** -- Login/logout with role-based access (admin and specialist roles)
+- **Authentication** -- Login/logout with role-based access (specialist and applicant roles)
 - **Single label validation** -- Upload label image(s), enter Form 5100.31 application data, run hybrid AI pipeline, get field-by-field comparison results
 - **Annotated image viewer** -- Bounding box overlays from Cloud Vision OCR, color-coded by match status, zoom/pan interaction, click-to-highlight from comparison checklist
 - **Side-by-side field comparison** -- Application data vs. AI-extracted values with character-level diff highlighting, confidence scores, and AI reasoning
 - **Validation history** -- Filterable, sortable table of all processed labels with status badges and deadline countdowns
-- **Role-aware dashboard** -- Specialists see their own metrics and queue; admin sees team-wide stats
+- **Role-aware dashboard** -- Specialists see all labels with SLA metrics; applicants see their own submissions
 - **Quick Approve** -- One-click approval for labels where all fields match at high confidence
 - **Communication reports** -- Auto-generated approval/rejection notices with copy-to-clipboard, ready to paste into email
 - **Keyboard shortcuts** -- Queue processing shortcuts (A/R/C/J/K/N/P) for high-throughput review
@@ -187,9 +187,7 @@ These features add depth but are not required for a complete demonstration:
 | **Review queue & specialist assignment**         | The validation detail page already shows flagged fields -- a dedicated queue page adds workflow optimization, not core functionality |
 | **Batch upload (300+ labels)**                   | Single-label validation proves the AI pipeline works; batch is a scaling concern                                                     |
 | **Applicant management & compliance reputation** | Useful for institutional memory, but not required to demonstrate AI verification                                                     |
-| **Admin dashboard with analytics**               | The role-aware home dashboard covers basic metrics; a dedicated admin page adds depth                                                |
 | **Reports page with charts**                     | Validation results are visible on detail pages; aggregate reporting is a nice-to-have                                                |
-| **Settings management**                          | Confidence thresholds and match strictness are configured in code with sensible defaults                                             |
 | **Revalidation & resubmission linking**          | Demonstrates workflow maturity but not core AI accuracy                                                                              |
 
 ### What We Explicitly Excluded
@@ -218,7 +216,7 @@ These features add depth but are not required for a complete demonstration:
 **Security:**
 
 - No rate limiting in the prototype. A publicly exposed deployment could be abused for AI API cost attacks. The production mitigation is documented (`@upstash/ratelimit` + Upstash Redis) but not implemented.
-- Login credentials are simple passwords (`admin123`, `specialist123`) for demonstration purposes. Production would enforce complexity requirements and consider SSO integration.
+- Login credentials are simple passwords (`specialist123`, `applicant123`) for demonstration purposes. Production would enforce complexity requirements and consider SSO integration.
 
 **Data:**
 

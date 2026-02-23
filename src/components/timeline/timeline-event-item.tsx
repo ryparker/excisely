@@ -14,6 +14,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 
 import type { TimelineEvent } from '@/lib/timeline/types'
 import { getDeadlineInfo } from '@/lib/labels/effective-status'
+import { REASON_CODE_LABELS } from '@/config/override-reasons'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { TimelineEmailPreview } from './timeline-email-preview'
@@ -198,6 +199,16 @@ export function TimelineEventItem({
         <p className="mt-1.5 text-sm text-muted-foreground">
           {event.description}
         </p>
+
+        {/* Reason code badge for overrides */}
+        {event.metadata?.reasonCode && (
+          <div className="mt-1.5">
+            <Badge variant="secondary" className="text-xs">
+              {REASON_CODE_LABELS[event.metadata.reasonCode] ??
+                event.metadata.reasonCode}
+            </Badge>
+          </div>
+        )}
 
         {/* Notes from reviews/overrides */}
         {event.metadata?.notes && (

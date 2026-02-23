@@ -60,10 +60,12 @@ import {
   assessImageQuality,
   type ImageQualityResult,
 } from '@/lib/validators/image-quality'
+import { ProcessingProgress } from '@/components/validation/processing-progress'
+import type { ImageInfo } from '@/components/validation/image-processing-summary'
 import {
-  ProcessingProgress,
   type ProcessingStage,
-} from '@/components/validation/processing-progress'
+  getStageCumulativeDelays,
+} from '@/lib/processing-stages'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -112,26 +114,31 @@ export function LabelUploadForm({ mode = 'validate' }: LabelUploadFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [processingStage, setProcessingStage] =
     useState<ProcessingStage | null>(null)
+  const [uploadingFileIndex, setUploadingFileIndex] = useState<number>(0)
   const stageTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
 
   /** Start timed progression through AI pipeline stages after upload completes */
-  function startPipelineStages() {
+  function startPipelineStages(imageCount: number) {
     // Clear any previous timers
     for (const t of stageTimersRef.current) clearTimeout(t)
     stageTimersRef.current = []
 
-    // Transition: ocr → classifying → comparing → finalizing
-    // These are estimated times based on typical pipeline performance
+    // Use shared stage config with image-count-scaled delays
+    const delays = getStageCumulativeDelays(imageCount)
+
+    // Start at ocr (upload stage is already handled during file upload)
     setProcessingStage('ocr')
-    const stages: Array<{ stage: ProcessingStage; delayMs: number }> = [
-      { stage: 'classifying', delayMs: 1200 },
-      { stage: 'comparing', delayMs: 3200 },
-      { stage: 'finalizing', delayMs: 3800 },
-    ]
-    for (const { stage, delayMs } of stages) {
-      stageTimersRef.current.push(
-        setTimeout(() => setProcessingStage(stage), delayMs),
-      )
+    // Schedule transitions for classifying, comparing, finalizing
+    // Offset by the ocr delay since we start at ocr
+    const ocrDelay = delays.find((d) => d.stageId === 'ocr')?.delay ?? 0
+    for (const { stageId, delay } of delays) {
+      if (stageId === 'uploading' || stageId === 'ocr') continue
+      const relativeDelay = delay - ocrDelay
+      if (relativeDelay > 0) {
+        stageTimersRef.current.push(
+          setTimeout(() => setProcessingStage(stageId), relativeDelay),
+        )
+      }
     }
   }
 
@@ -306,6 +313,7 @@ export function LabelUploadForm({ mode = 'validate' }: LabelUploadFormProps) {
       }
 
       updated[i] = { ...fileEntry, status: 'uploading' }
+      setUploadingFileIndex(i)
       setFiles([...updated])
 
       try {
@@ -359,7 +367,7 @@ export function LabelUploadForm({ mode = 'validate' }: LabelUploadFormProps) {
       const imageUrls = await uploadFiles()
 
       // 2. Start timed AI pipeline progression
-      startPipelineStages()
+      startPipelineStages(files.length)
 
       // 3. Build FormData for server action
       const formData = new FormData()
@@ -917,7 +925,19 @@ export function LabelUploadForm({ mode = 'validate' }: LabelUploadFormProps) {
       </div>
 
       {/* Multi-stage processing progress overlay */}
-      {processingStage && <ProcessingProgress stage={processingStage} />}
+      {processingStage && (
+        <ProcessingProgress
+          stage={processingStage}
+          imageCount={files.length}
+          images={files.map(
+            (f): ImageInfo => ({
+              name: f.file.name,
+              thumbnailUrl: f.preview,
+            }),
+          )}
+          uploadingIndex={uploadingFileIndex}
+        />
+      )}
     </form>
   )
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Fraunces, JetBrains_Mono, Space_Grotesk } from 'next/font/google'
 import { ThemeProvider } from 'next-themes'
+import { NuqsAdapter } from 'nuqs/adapters/next/app'
 import { Toaster } from 'sonner'
 import { Analytics } from '@vercel/analytics/react'
 
@@ -53,7 +54,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <TooltipProvider>{children}</TooltipProvider>
+          <NuqsAdapter>
+            <TooltipProvider>{children}</TooltipProvider>
+          </NuqsAdapter>
           <Toaster />
           <Analytics />
         </ThemeProvider>

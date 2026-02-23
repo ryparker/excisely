@@ -4,7 +4,7 @@ const cspDirectives = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://*.blob.vercel-storage.com",
+  "img-src 'self' data: blob: https://*.blob.vercel-storage.com https://www.ttb.gov",
   "font-src 'self' https://fonts.gstatic.com",
   "connect-src 'self' https://va.vercel-scripts.com https://*.blob.vercel-storage.com",
   "frame-ancestors 'none'",
@@ -26,6 +26,10 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: '*.blob.vercel-storage.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'www.ttb.gov',
       },
     ],
   },

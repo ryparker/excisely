@@ -1,11 +1,21 @@
 import { put } from '@vercel/blob'
 import { NextResponse } from 'next/server'
 
+import { getSession } from '@/lib/auth/get-session'
+
 const ALLOWED_CONTENT_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
 const MAX_SIZE = 10 * 1024 * 1024 // 10MB
 
 export async function POST(request: Request): Promise<NextResponse> {
+  const session = await getSession()
+  if (!session?.user) {
+    return NextResponse.json(
+      { error: 'Authentication required' },
+      { status: 401 },
+    )
+  }
+
   try {
     const formData = await request.formData()
     const file = formData.get('file') as File | null

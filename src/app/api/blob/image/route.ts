@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+import { getSession } from '@/lib/auth/get-session'
+
 /**
  * Image proxy for private Vercel Blob store.
  * Fetches the blob server-side using BLOB_READ_WRITE_TOKEN and streams it to the client.
  * Usage: /api/blob/image?url=<encoded-blob-url>
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  const session = await getSession()
+  if (!session?.user) {
+    return NextResponse.json(
+      { error: 'Authentication required' },
+      { status: 401 },
+    )
+  }
+
   const url = request.nextUrl.searchParams.get('url')
 
   if (!url) {
@@ -15,7 +25,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     )
   }
 
-  if (!url.includes('.blob.vercel-storage.com')) {
+  try {
+    const parsed = new URL(url)
+    if (!parsed.hostname.endsWith('.blob.vercel-storage.com')) {
+      return NextResponse.json({ error: 'Invalid blob URL' }, { status: 400 })
+    }
+  } catch {
     return NextResponse.json({ error: 'Invalid blob URL' }, { status: 400 })
   }
 

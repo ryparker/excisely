@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 /** Minimum dimension (either axis) to allow processing. Below this = hard block. */
-export const MIN_DIMENSION_PX = 200
+export const MIN_DIMENSION_PX = 100
 
 /** Recommended dimension (either axis). Below this = soft warning. */
 export const RECOMMENDED_DIMENSION_PX = 500
@@ -37,7 +37,7 @@ export interface ImageQualityResult {
  * Assesses image quality based on dimensions and compression ratio.
  * Returns a result with level ('pass' | 'warning' | 'error') and any issues found.
  *
- * - Error (hard block): either axis < 200px
+ * - Error (hard block): either axis < 100px
  * - Warning (soft): either axis < 500px, or JPEG bytes/pixel < 0.05
  * - Pass: no issues detected
  */

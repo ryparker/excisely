@@ -4,34 +4,37 @@ import { cn } from '@/lib/utils'
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   approved: {
     label: 'Approved',
-    className: 'bg-success text-success-foreground hover:bg-success/90',
+    className:
+      'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-400',
   },
   conditionally_approved: {
     label: 'Conditionally Approved',
-    className: 'bg-warning text-warning-foreground hover:bg-warning/90',
+    className:
+      'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-400',
   },
   needs_correction: {
     label: 'Needs Correction',
     className:
-      'bg-orange-500 text-white hover:bg-orange-500/90 dark:bg-orange-600',
+      'border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-400',
   },
   rejected: {
     label: 'Rejected',
     className:
-      'bg-destructive text-white hover:bg-destructive/90 dark:bg-destructive/60',
+      'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/50 dark:text-red-400',
   },
   pending_review: {
     label: 'Pending Review',
     className:
-      'bg-indigo-500 text-white hover:bg-indigo-500/90 dark:bg-indigo-600',
+      'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-400',
   },
   processing: {
     label: 'Processing',
-    className: 'bg-blue-500 text-white hover:bg-blue-500/90 dark:bg-blue-600',
+    className:
+      'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-400',
   },
   pending: {
     label: 'Pending',
-    className: 'bg-secondary text-secondary-foreground hover:bg-secondary/90',
+    className: 'border-border bg-secondary text-secondary-foreground',
   },
 }
 
@@ -44,6 +47,11 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
   const config = STATUS_CONFIG[status] ?? STATUS_CONFIG.pending
 
   return (
-    <Badge className={cn(config.className, className)}>{config.label}</Badge>
+    <Badge
+      variant="outline"
+      className={cn('font-medium', config.className, className)}
+    >
+      {config.label}
+    </Badge>
   )
 }

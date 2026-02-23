@@ -1,33 +1,51 @@
 import { test as setup } from '@playwright/test'
 
-const APPLICANT_AUTH_FILE = 'e2e/.auth/applicant.json'
+const APPLICANT_ACCOUNTS = [
+  {
+    email: 'labeling@oldtomdistillery.com',
+    password: 'applicant123',
+    file: 'e2e/.auth/applicant-old-tom.json',
+  },
+  {
+    email: 'legal@napavalleyestate.com',
+    password: 'applicant123',
+    file: 'e2e/.auth/applicant-napa.json',
+  },
+  {
+    email: 'labels@cascadehop.com',
+    password: 'applicant123',
+    file: 'e2e/.auth/applicant-cascade.json',
+  },
+]
+
 const SPECIALIST_AUTH_FILE = 'e2e/.auth/specialist.json'
 
-setup('authenticate as applicant', async ({ page }) => {
-  await page.goto('/login')
+for (const account of APPLICANT_ACCOUNTS) {
+  setup(`authenticate as applicant (${account.email})`, async ({ page }) => {
+    await page.goto('/login', { waitUntil: 'networkidle' })
 
-  await page.getByLabel('Email').fill('labeling@oldtomdistillery.com')
-  await page.getByLabel('Password').fill('applicant123')
-  await page.getByRole('button', { name: /sign in/i }).click()
+    await page.getByLabel('Email').fill(account.email)
+    await page.getByLabel('Password').fill(account.password)
+    await page.getByRole('button', { name: /sign in/i }).click()
 
-  // Wait for redirect to app
-  await page.waitForURL((url) => !url.pathname.includes('/login'), {
-    timeout: 15000,
+    // Wait for navigation away from login (Neon cold starts can be slow)
+    await page.waitForURL((url) => !url.pathname.includes('/login'), {
+      timeout: 60000,
+    })
+
+    await page.context().storageState({ path: account.file })
   })
-
-  await page.context().storageState({ path: APPLICANT_AUTH_FILE })
-})
+}
 
 setup('authenticate as specialist', async ({ page }) => {
-  await page.goto('/login')
+  await page.goto('/login', { waitUntil: 'networkidle' })
 
   await page.getByLabel('Email').fill('dave.morrison@ttb.gov')
   await page.getByLabel('Password').fill('specialist123')
   await page.getByRole('button', { name: /sign in/i }).click()
 
-  // Wait for redirect to app
   await page.waitForURL((url) => !url.pathname.includes('/login'), {
-    timeout: 15000,
+    timeout: 60000,
   })
 
   await page.context().storageState({ path: SPECIALIST_AUTH_FILE })

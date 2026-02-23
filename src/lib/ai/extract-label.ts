@@ -37,8 +37,15 @@ export interface PipelineMetrics {
   totalTokens: number
 }
 
+export interface ImageClassification {
+  imageIndex: number
+  imageType: 'front' | 'back' | 'neck' | 'strip' | 'other'
+  confidence: number
+}
+
 export interface ExtractionResult {
   fields: ExtractedField[]
+  imageClassifications: ImageClassification[]
   processingTimeMs: number
   modelUsed: string
   rawResponse: unknown
@@ -280,6 +287,7 @@ export async function extractLabelFieldsFromBuffers(
 
   return {
     fields,
+    imageClassifications: classification.imageClassifications ?? [],
     processingTimeMs: totalTimeMs,
     modelUsed: 'gpt-5-mini',
     rawResponse: { classification, usage, metrics },

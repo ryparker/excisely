@@ -16,7 +16,7 @@ export default async function SettingsPage() {
   const session = await getSession()
   if (!session) return null
 
-  if (session.user.role !== 'admin') {
+  if (session.user.role === 'applicant') {
     redirect('/')
   }
 

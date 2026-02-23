@@ -1,81 +1,22 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import {
-  Check,
-  FileSearch,
-  ImageUp,
-  ScanText,
-  Sparkles,
-  TextSearch,
-} from 'lucide-react'
+import { Check } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { Progress } from '@/components/ui/progress'
+import {
+  type ProcessingStage,
+  getScaledTimings,
+  getTimeEstimateLabel,
+} from '@/lib/processing-stages'
+import {
+  ImageProcessingSummary,
+  type ImageInfo,
+} from '@/components/validation/image-processing-summary'
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export type ProcessingStage =
-  | 'uploading'
-  | 'ocr'
-  | 'classifying'
-  | 'comparing'
-  | 'finalizing'
-
-interface StageConfig {
-  id: ProcessingStage
-  label: string
-  description: string
-  icon: typeof ImageUp
-  /** Estimated duration in ms (used for progress interpolation) */
-  estimatedMs: number
-}
-
-// ---------------------------------------------------------------------------
-// Stage configuration
-// ---------------------------------------------------------------------------
-
-const STAGES: StageConfig[] = [
-  {
-    id: 'uploading',
-    label: 'Uploading images',
-    description: 'Sending label images to secure storage',
-    icon: ImageUp,
-    estimatedMs: 1500,
-  },
-  {
-    id: 'ocr',
-    label: 'Reading label text',
-    description: 'Google Cloud Vision is extracting text and bounding boxes',
-    icon: ScanText,
-    estimatedMs: 1200,
-  },
-  {
-    id: 'classifying',
-    label: 'Classifying fields',
-    description: 'GPT-5 Mini is identifying label fields from OCR text',
-    icon: Sparkles,
-    estimatedMs: 2000,
-  },
-  {
-    id: 'comparing',
-    label: 'Comparing against application',
-    description: 'Matching extracted fields to Form 5100.31 data',
-    icon: TextSearch,
-    estimatedMs: 600,
-  },
-  {
-    id: 'finalizing',
-    label: 'Generating report',
-    description: 'Building validation results and status determination',
-    icon: FileSearch,
-    estimatedMs: 400,
-  },
-]
-
-const TOTAL_ESTIMATED_MS = STAGES.reduce((s, st) => s + st.estimatedMs, 0)
+// Re-export the type so existing imports from this module still work
+export type { ProcessingStage }
 
 // ---------------------------------------------------------------------------
 // Component
@@ -84,10 +25,22 @@ const TOTAL_ESTIMATED_MS = STAGES.reduce((s, st) => s + st.estimatedMs, 0)
 interface ProcessingProgressProps {
   /** Current stage the pipeline is in */
   stage: ProcessingStage
+  /** Number of images being processed (scales timing estimates) */
+  imageCount?: number
+  /** Thumbnail data for the image strip */
+  images?: ImageInfo[]
+  /** Index of the file currently being uploaded */
+  uploadingIndex?: number
 }
 
-export function ProcessingProgress({ stage }: ProcessingProgressProps) {
-  const currentIdx = STAGES.findIndex((s) => s.id === stage)
+export function ProcessingProgress({
+  stage,
+  imageCount = 1,
+  images,
+  uploadingIndex,
+}: ProcessingProgressProps) {
+  const { stages, totalEstimatedMs } = getScaledTimings(imageCount)
+  const currentIdx = stages.findIndex((s) => s.id === stage)
   const [smoothProgress, setSmoothProgress] = useState(0)
   const stageStartRef = useRef<number>(0)
 
@@ -107,11 +60,11 @@ export function ProcessingProgress({ stage }: ProcessingProgressProps) {
       // Calculate completed stages progress
       let completedMs = 0
       for (let i = 0; i < currentIdx; i++) {
-        completedMs += STAGES[i].estimatedMs
+        completedMs += stages[i].estimatedMs
       }
 
       // Calculate progress within current stage (asymptotic — never reaches 100%)
-      const currentStage = STAGES[currentIdx]
+      const currentStage = stages[currentIdx]
       if (currentStage) {
         const elapsed = now - stageStartRef.current
         // Ease out — approaches but never reaches estimated time
@@ -120,14 +73,19 @@ export function ProcessingProgress({ stage }: ProcessingProgressProps) {
         completedMs += currentStage.estimatedMs * stageRatio * 0.95
       }
 
-      const pct = Math.min((completedMs / TOTAL_ESTIMATED_MS) * 100, 97)
+      const pct = Math.min((completedMs / totalEstimatedMs) * 100, 97)
       setSmoothProgress(pct)
       raf = requestAnimationFrame(tick)
     }
 
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [currentIdx])
+  }, [currentIdx, stages, totalEstimatedMs])
+
+  const headerText =
+    imageCount > 1
+      ? `Analyzing your ${imageCount} labels`
+      : 'Analyzing your label'
 
   return (
     <div
@@ -142,20 +100,28 @@ export function ProcessingProgress({ stage }: ProcessingProgressProps) {
       >
         {/* Header */}
         <div className="mb-6 text-center">
-          <h3 className="font-heading text-lg font-semibold">
-            Analyzing your label
-          </h3>
+          <h3 className="font-heading text-lg font-semibold">{headerText}</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            This typically takes 3&ndash;5 seconds
+            This typically takes {getTimeEstimateLabel(imageCount)}
           </p>
         </div>
+
+        {/* Image strip */}
+        {images && images.length > 0 && (
+          <div className="flex justify-center">
+            <ImageProcessingSummary
+              images={images}
+              activeIndex={stage === 'uploading' ? uploadingIndex : undefined}
+            />
+          </div>
+        )}
 
         {/* Progress bar */}
         <Progress value={smoothProgress} className="mb-6 h-1.5" />
 
         {/* Stage list */}
         <div className="space-y-1">
-          {STAGES.map((s, idx) => {
+          {stages.map((s, idx) => {
             const isComplete = idx < currentIdx
             const isActive = idx === currentIdx
             const Icon = s.icon
@@ -235,7 +201,7 @@ export function ProcessingProgress({ stage }: ProcessingProgressProps) {
                           exit={{ opacity: 0, height: 0 }}
                           className="mt-0.5 text-xs text-muted-foreground"
                         >
-                          {s.description}
+                          {s.description(imageCount)}
                         </motion.p>
                       )}
                     </AnimatePresence>

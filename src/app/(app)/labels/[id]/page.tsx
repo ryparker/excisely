@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { eq, and, desc } from 'drizzle-orm'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Building2 } from 'lucide-react'
 
 import { db } from '@/db'
 import {
@@ -21,28 +21,36 @@ import { getSignedImageUrl } from '@/lib/storage/blob'
 import { buildTimeline } from '@/lib/timeline/build-timeline'
 import { PageHeader } from '@/components/layout/page-header'
 import { StatusBadge } from '@/components/shared/status-badge'
+import { ReanalyzeButton } from '@/components/shared/reanalyze-button'
 import { StatusOverrideDialog } from '@/components/shared/status-override-dialog'
 import { ValidationSummary } from '@/components/validation/validation-summary'
 import { ValidationDetailPanels } from '@/components/validation/validation-detail-panels'
+import { ReviewDetailPanels } from '@/components/review/review-detail-panels'
 import { ProcessingPipelineCard } from '@/components/validation/processing-pipeline-card'
 import { CorrespondenceTimeline } from '@/components/timeline/correspondence-timeline'
 import { Button } from '@/components/ui/button'
 
 export const dynamic = 'force-dynamic'
 
-interface ValidationDetailPageProps {
+const REVIEWABLE_STATUSES = new Set([
+  'pending_review',
+  'needs_correction',
+  'conditionally_approved',
+])
+
+interface LabelDetailPageProps {
   params: Promise<{ id: string }>
 }
 
-export default async function ValidationDetailPage({
+export default async function LabelDetailPage({
   params,
-}: ValidationDetailPageProps) {
+}: LabelDetailPageProps) {
   const session = await getSession()
   if (!session) return null
 
   const { id } = await params
 
-  // Fetch label with all related data
+  // Fetch label
   const [label] = await db
     .select()
     .from(labels)
@@ -53,6 +61,7 @@ export default async function ValidationDetailPage({
     notFound()
   }
 
+  // Fetch all related data in parallel
   const [appData, images, results, applicant, overrides, reviews] =
     await Promise.all([
       db
@@ -91,6 +100,7 @@ export default async function ValidationDetailPage({
           previousStatus: statusOverrides.previousStatus,
           newStatus: statusOverrides.newStatus,
           justification: statusOverrides.justification,
+          reasonCode: statusOverrides.reasonCode,
           createdAt: statusOverrides.createdAt,
           specialistName: users.name,
         })
@@ -133,6 +143,10 @@ export default async function ValidationDetailPage({
     deadlineExpired: label.deadlineExpired,
   })
 
+  const isReviewable =
+    REVIEWABLE_STATUSES.has(effectiveStatus) &&
+    session.user.role !== 'applicant'
+
   // Compute field counts
   const fieldCounts = items.reduce(
     (acc, item) => {
@@ -156,6 +170,21 @@ export default async function ValidationDetailPage({
     ? Number(label.overallConfidence)
     : null
 
+  const mappedItems = items.map((item) => ({
+    id: item.id,
+    fieldName: item.fieldName,
+    expectedValue: item.expectedValue,
+    extractedValue: item.extractedValue,
+    status: item.status,
+    confidence: item.confidence,
+    matchReasoning: item.matchReasoning,
+    bboxX: item.bboxX,
+    bboxY: item.bboxY,
+    bboxWidth: item.bboxWidth,
+    bboxHeight: item.bboxHeight,
+    labelImageId: item.labelImageId,
+  }))
+
   return (
     <div className="space-y-6">
       {/* Back link + header */}
@@ -163,7 +192,7 @@ export default async function ValidationDetailPage({
         <Button variant="ghost" size="sm" asChild>
           <Link href="/">
             <ArrowLeft className="size-4" />
-            Back to Dashboard
+            Back to Labels
           </Link>
         </Button>
 
@@ -179,17 +208,49 @@ export default async function ValidationDetailPage({
           {session.user.role !== 'applicant' &&
             effectiveStatus !== 'pending' &&
             effectiveStatus !== 'processing' && (
-              <StatusOverrideDialog
-                labelId={label.id}
-                currentStatus={effectiveStatus}
-              />
+              <>
+                <ReanalyzeButton labelId={label.id} />
+                <StatusOverrideDialog
+                  labelId={label.id}
+                  currentStatus={effectiveStatus}
+                />
+              </>
             )}
         </PageHeader>
+
+        {/* Applicant info */}
+        {applicant && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Building2 className="size-4 shrink-0" />
+            <Link
+              href={`/applicants/${applicant.id}`}
+              className="font-medium text-foreground hover:underline"
+            >
+              {applicant.companyName}
+            </Link>
+            {applicant.contactName && (
+              <>
+                <span className="text-muted-foreground/50">·</span>
+                <span>{applicant.contactName}</span>
+              </>
+            )}
+            {applicant.contactEmail && (
+              <>
+                <span className="text-muted-foreground/50">·</span>
+                <span>{applicant.contactEmail}</span>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Processing state — show pipeline card instead of empty results */}
       {label.status === 'pending' || label.status === 'processing' ? (
-        <ProcessingPipelineCard />
+        <ProcessingPipelineCard
+          labelId={label.id}
+          imageCount={images.length}
+          imageNames={images.map((img) => img.imageFilename)}
+        />
       ) : (
         <>
           {/* Summary bar */}
@@ -199,27 +260,23 @@ export default async function ValidationDetailPage({
             processingTimeMs={results?.processingTimeMs ?? null}
             modelUsed={results?.modelUsed ?? null}
             fieldCounts={fieldCounts}
+            aiProposedStatus={label.aiProposedStatus}
           />
 
-          {/* Two-panel layout: image + field comparisons */}
+          {/* Two-panel layout: image + field list */}
           {signedImages.length > 0 && items.length > 0 ? (
-            <ValidationDetailPanels
-              images={signedImages}
-              validationItems={items.map((item) => ({
-                id: item.id,
-                fieldName: item.fieldName,
-                expectedValue: item.expectedValue,
-                extractedValue: item.extractedValue,
-                status: item.status,
-                confidence: item.confidence,
-                matchReasoning: item.matchReasoning,
-                bboxX: item.bboxX,
-                bboxY: item.bboxY,
-                bboxWidth: item.bboxWidth,
-                bboxHeight: item.bboxHeight,
-                labelImageId: item.labelImageId,
-              }))}
-            />
+            isReviewable ? (
+              <ReviewDetailPanels
+                labelId={label.id}
+                images={signedImages}
+                validationItems={mappedItems}
+              />
+            ) : (
+              <ValidationDetailPanels
+                images={signedImages}
+                validationItems={mappedItems}
+              />
+            )
           ) : (
             <div className="flex items-center justify-center rounded-lg border py-24 text-sm text-muted-foreground">
               No validation data available for this label.
@@ -228,7 +285,7 @@ export default async function ValidationDetailPage({
         </>
       )}
 
-      {/* Correspondence timeline — replaces communication report + override history */}
+      {/* Correspondence timeline */}
       <CorrespondenceTimeline
         events={buildTimeline({
           label: {
@@ -266,6 +323,7 @@ export default async function ValidationDetailPage({
             previousStatus: o.previousStatus,
             newStatus: o.newStatus,
             justification: o.justification,
+            reasonCode: o.reasonCode,
             createdAt: o.createdAt,
             specialistName: o.specialistName,
           })),

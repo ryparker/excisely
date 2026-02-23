@@ -42,6 +42,7 @@
     "next": "16.1.6",
     "next-themes": "^0.4.6",
     "nuqs": "^2.8.8",
+    "p-limit": "^7.3.0",
     "pg": "^8.18.0",
     "radix-ui": "^1.4.3",
     "react": "19.2.3",
@@ -49,9 +50,10 @@
     "react-dropzone": "^15.0.0",
     "react-hook-form": "^7.71.2",
     "recharts": "2.15.4",
+    "sharp": "^0.33.5",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
-    "sharp": "^0.33.5",
+    "zod": "^3.25",
     "zustand": "^5.0.11"
   },
   "devDependencies": {
@@ -67,6 +69,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^5.1.4",
+    "@vitest/coverage-v8": "^4.0.18",
     "dotenv": "^17.3.1",
     "drizzle-kit": "^0.31.9",
     "eslint": "^9",

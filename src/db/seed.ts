@@ -56,6 +56,7 @@ async function clearAllData(db: Db) {
   console.log('\n--- Clearing existing data ---')
 
   // Delete in reverse FK order
+  await db.delete(schema.statusOverrides)
   await db.delete(schema.humanReviews)
   await db.delete(schema.validationItems)
   await db.delete(schema.validationResults)
@@ -181,10 +182,6 @@ async function main() {
   console.log(`  Applicant users: ${applicantUserCount}`)
   console.log(`  Companies:       ${SEED_APPLICANTS.length}`)
   console.log(`  Settings:        ${SEED_SETTINGS.length}`)
-  console.log('')
-  console.log(
-    'Labels will be created via the applicant portal (E2E tests or manual submission).',
-  )
   console.log('')
 }
 

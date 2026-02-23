@@ -160,7 +160,7 @@ export async function validateLabel(
 
     // 7. Build expected fields from application data (needed for AI pipeline + comparison)
     const expectedFields = buildExpectedFields(
-      input as unknown as Record<string, unknown>,
+      input as Record<string, unknown>,
       input.beverageType,
     )
 
@@ -171,6 +171,19 @@ export async function validateLabel(
       input.beverageType,
       appDataForAI,
     )
+
+    // 8b. Update image types from AI classification
+    if (extraction.imageClassifications.length > 0) {
+      for (const ic of extraction.imageClassifications) {
+        const imageRecord = imageRecords[ic.imageIndex]
+        if (imageRecord && ic.confidence >= 60) {
+          await db
+            .update(labelImages)
+            .set({ imageType: ic.imageType })
+            .where(eq(labelImages.id, imageRecord.id))
+        }
+      }
+    }
 
     // 9. Compare each extracted field against application data
     const fieldComparisons: Array<{

@@ -1,10 +1,12 @@
 import { redirect } from 'next/navigation'
-import { sql } from 'drizzle-orm'
+import { count, eq, sql } from 'drizzle-orm'
 
 import { db } from '@/db'
 import { labels } from '@/db/schema'
-import { AppSidebar } from '@/components/layout/app-sidebar'
 import { getSession } from '@/lib/auth/get-session'
+import { getSLATargets } from '@/lib/settings/get-settings'
+import { getSLAStatus, worstSLAStatus, type SLAStatus } from '@/lib/sla/status'
+import { AppSidebar } from '@/components/layout/app-sidebar'
 
 export default async function AppLayout({
   children,
@@ -18,18 +20,31 @@ export default async function AppLayout({
   }
 
   const { user } = session
-  const userRole = user.role as 'admin' | 'specialist' | 'applicant'
+  const userRole = user.role as 'specialist' | 'applicant'
 
-  // Pending review count for sidebar badge
+  // Pending review count for sidebar badge + lightweight SLA health check
   let reviewCount = 0
+  let slaHealth: SLAStatus = 'green'
+
   if (userRole !== 'applicant') {
-    const result = await db
-      .select({ total: sql<number>`count(*)::int` })
-      .from(labels)
-      .where(
-        sql`${labels.status} IN ('pending_review', 'needs_correction', 'conditionally_approved')`,
-      )
-    reviewCount = result[0]?.total ?? 0
+    const [pendingResult, queueResult, slaTargets] = await Promise.all([
+      db
+        .select({ total: sql<number>`count(*)::int` })
+        .from(labels)
+        .where(
+          sql`${labels.status} IN ('pending_review', 'needs_correction', 'conditionally_approved')`,
+        ),
+      db
+        .select({ total: count() })
+        .from(labels)
+        .where(eq(labels.status, 'pending_review')),
+      getSLATargets(),
+    ])
+
+    reviewCount = pendingResult[0]?.total ?? 0
+    const queueDepth = queueResult[0]?.total ?? 0
+    const queueStatus = getSLAStatus(queueDepth, slaTargets.maxQueueDepth)
+    slaHealth = worstSLAStatus([queueStatus])
   }
 
   return (
@@ -37,13 +52,14 @@ export default async function AppLayout({
       <AppSidebar
         userRole={userRole}
         reviewCount={reviewCount}
+        slaHealth={slaHealth}
         user={{
           name: user.name,
           email: user.email,
           role: userRole,
         }}
       />
-      <main className="flex-1 overflow-y-auto p-6">{children}</main>
+      <main className="flex-1 overflow-y-auto px-8 py-6">{children}</main>
     </div>
   )
 }

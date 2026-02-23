@@ -1,7 +1,7 @@
 'use client'
 
-import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, useReducedMotion } from 'motion/react'
+import { useQueryState, parseAsString } from 'nuqs'
 
 import { cn } from '@/lib/utils'
 
@@ -13,38 +13,25 @@ interface FilterOption {
 interface FilterBarProps {
   /** URL search param key (default: "status") */
   paramKey?: string
-  /** Base path to navigate to (default: current path) */
-  basePath?: string
   options: FilterOption[]
   className?: string
 }
 
 export function FilterBar({
   paramKey = 'status',
-  basePath,
   options,
   className,
 }: FilterBarProps) {
-  const router = useRouter()
-  const searchParams = useSearchParams()
   const shouldReduceMotion = useReducedMotion()
-  const activeValue = searchParams.get(paramKey) ?? ''
+  const [, setPage] = useQueryState('page', parseAsString)
+  const [activeValue, setActiveValue] = useQueryState(
+    paramKey,
+    parseAsString.withDefault('').withOptions({ shallow: false }),
+  )
 
   function handleSelect(value: string) {
-    const params = new URLSearchParams(searchParams.toString())
-
-    // Reset page on filter change
-    params.delete('page')
-
-    if (value) {
-      params.set(paramKey, value)
-    } else {
-      params.delete(paramKey)
-    }
-
-    const qs = params.toString()
-    const path = basePath ?? window.location.pathname
-    router.push(qs ? `${path}?${qs}` : path)
+    void setPage(null) // Reset pagination on filter change
+    void setActiveValue(value || null)
   }
 
   return (
@@ -63,10 +50,10 @@ export function FilterBar({
             aria-checked={isActive}
             onClick={() => handleSelect(option.value)}
             className={cn(
-              'ease relative cursor-pointer rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors duration-150',
+              'ease relative cursor-pointer rounded-full px-3 py-1 text-xs font-medium transition-colors duration-150',
               isActive
                 ? 'text-primary-foreground'
-                : 'border border-border text-foreground hover:bg-accent hover:text-accent-foreground',
+                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
             )}
           >
             {/* Animated pill background */}

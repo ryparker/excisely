@@ -9,7 +9,7 @@ export default defineConfig({
   reporter: 'html',
   timeout: 120_000, // 2 min per test — AI pipeline runs during submission
   use: {
-    baseURL: 'http://localhost:3001',
+    baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:3000',
     trace: 'on-first-retry',
   },
   projects: [
@@ -27,8 +27,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'yarn dev --port 3001',
-    url: 'http://localhost:3001',
-    reuseExistingServer: !process.env.CI,
+    command: 'yarn dev',
+    url: process.env.E2E_BASE_URL ?? 'http://localhost:3000',
+    reuseExistingServer: true,
   },
 })
