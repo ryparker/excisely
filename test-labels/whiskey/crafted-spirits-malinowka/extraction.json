@@ -1,0 +1,120 @@
+{
+  "labelName": "crafted-spirits-malinowka",
+  "beverageType": "distilled_spirits",
+  "images": [
+    {
+      "filename": "front.png",
+      "imageType": "front"
+    },
+    {
+      "filename": "back.png",
+      "imageType": "back"
+    }
+  ],
+  "fields": {
+    "brand_name": "Crafted Spirits by Arkadius",
+    "class_type": "LIQUEUR",
+    "alcohol_content": "30% ALC. BY VOL.",
+    "net_contents": "VOL. 750 ML",
+    "health_warning": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE OF THE RISK OF BIRTH DEFECTS. (2) CONSUMPTION OF ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY TO DRIVE A CAR OR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+    "name_and_address": "MANUFACTURED BY: INDIANA NATURAL INFUSIONS LLC, LOVELL, IN 46385",
+    "qualifying_phrase": "MANUFACTURED BY:",
+    "fanciful_name": "Malinówka",
+    "country_of_origin": null,
+    "age_statement": null,
+    "state_of_distillation": null,
+    "standards_of_fill": null
+  },
+  "fieldDetails": [
+    {
+      "fieldName": "brand_name",
+      "value": "Crafted Spirits by Arkadius",
+      "confidence": 90,
+      "reasoning": "Top of front label displays the prominent text 'Crafted Spirits by Arkadius' as the brand/house name.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "class_type",
+      "value": "LIQUEUR",
+      "confidence": 80,
+      "reasoning": "Front label near bottom shows the product class/type as 'liqueur' (printed near alcohol content).",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "alcohol_content",
+      "value": "30% ALC. BY VOL.",
+      "confidence": 95,
+      "reasoning": "Front label lower text reads '30% ALC. BY VOL.' next to the volume and class information.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "net_contents",
+      "value": "VOL. 750 ML",
+      "confidence": 90,
+      "reasoning": "Front label lower text shows the net contents as 'VOL. 750 ML'.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "health_warning",
+      "value": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE OF THE RISK OF BIRTH DEFECTS. (2) CONSUMPTION OF ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY TO DRIVE A CAR OR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+      "confidence": 95,
+      "reasoning": "Back label contains the mandatory boxed government warning beginning with 'GOVERNMENT WARNING:' followed by the two standard numbered statements.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "name_and_address",
+      "value": "MANUFACTURED BY: INDIANA NATURAL INFUSIONS LLC, LOVELL, IN 46385",
+      "confidence": 90,
+      "reasoning": "Back label below the warning/beside the barcode lists the manufacturer name and address: 'MANUFACTURED BY: INDIANA NATURAL INFUSIONS LLC, LOVELL, IN 46385'.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "qualifying_phrase",
+      "value": "MANUFACTURED BY:",
+      "confidence": 90,
+      "reasoning": "The phrase preceding the name and address on the back label is 'MANUFACTURED BY:'.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "fanciful_name",
+      "value": "Malinówka",
+      "confidence": 95,
+      "reasoning": "Front label shows the product/fanciful name prominently in red script as 'Malinówka'.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "country_of_origin",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No 'Product of ...' or country of origin statement is visible on the front or back labels.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "age_statement",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No age or maturation statement (e.g., 'Aged X Years') is visible on the label images.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "state_of_distillation",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No statement indicating the U.S. state of distillation (e.g., 'Distilled in ...') is visible.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "standards_of_fill",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No explicit statement about standards of fill is present on the visible label images.",
+      "sourceImage": null
+    }
+  ],
+  "metadata": {
+    "modelUsed": "gpt-5-mini",
+    "processingTimeMs": 41852,
+    "extractedAt": "2026-02-23T00:30:30.177Z",
+    "totalTokens": 3442
+  }
+}

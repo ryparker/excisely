@@ -43,17 +43,43 @@ export interface ClassificationResponse {
 /**
  * Classifies OCR-extracted text into TTB-regulated label fields
  * using GPT-5 Mini with structured output.
+ *
+ * When image buffers are provided, the model receives both the OCR text
+ * and the original images so it can visually verify extracted values —
+ * especially numeric fields like alcohol content where OCR can misread digits.
  */
 export async function classifyFields(
   ocrText: string,
   beverageType: string,
   wordList: Array<{ index: number; text: string }>,
+  applicationData?: Record<string, string>,
+  imageBuffers?: Buffer[],
 ): Promise<ClassificationResponse> {
-  const prompt = buildClassificationPrompt(ocrText, beverageType, wordList)
+  const prompt = buildClassificationPrompt(
+    ocrText,
+    beverageType,
+    wordList,
+    applicationData,
+  )
+
+  // Build multimodal messages: images first (so the model "sees" them),
+  // then the text prompt with OCR data and instructions.
+  const content: Array<
+    | { type: 'image'; image: Buffer; mimeType: 'image/png' | 'image/jpeg' }
+    | { type: 'text'; text: string }
+  > = []
+
+  if (imageBuffers && imageBuffers.length > 0) {
+    for (const buf of imageBuffers) {
+      content.push({ type: 'image', image: buf, mimeType: 'image/jpeg' })
+    }
+  }
+
+  content.push({ type: 'text', text: prompt })
 
   const { experimental_output, usage } = await generateText({
     model: openai('gpt-5-mini'),
-    prompt,
+    messages: [{ role: 'user', content }],
     experimental_output: Output.object({
       schema: classificationResultSchema,
     }),

@@ -1,0 +1,136 @@
+{
+  "labelName": "jourdan-croix-boissee",
+  "beverageType": "wine",
+  "images": [
+    {
+      "filename": "front.png",
+      "imageType": "front"
+    },
+    {
+      "filename": "back.png",
+      "imageType": "back"
+    }
+  ],
+  "fields": {
+    "brand_name": "DOMAINE JOURDAN",
+    "class_type": "WHITE WINE",
+    "alcohol_content": "ALCOHOL 13.5 % BY VOLUME",
+    "net_contents": "750ML",
+    "health_warning": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE OF THE RISK OF BIRTH DEFECTS. (2) CONSUMPTION OF ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY TO DRIVE A CAR OR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+    "name_and_address": "DOMAINE JOURDAN 37500 CRAVANT",
+    "qualifying_phrase": "ESTATE BOTTLED BY",
+    "grape_varietal": "Chenin Blanc",
+    "appellation_of_origin": "APPELLATION CHINON CONTRÔLÉE",
+    "sulfite_declaration": "CONTAINS SULFITES",
+    "fanciful_name": "CROIX BOISSÉE",
+    "country_of_origin": "PRODUCT OF FRANCE",
+    "vintage_year": "2021",
+    "standards_of_fill": null
+  },
+  "fieldDetails": [
+    {
+      "fieldName": "brand_name",
+      "value": "DOMAINE JOURDAN",
+      "confidence": 88,
+      "reasoning": "The producer/brand name appears at the top of the front label as 'DOMAINE JOURDAN'. This matches the product identifier and the provided product filename.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "class_type",
+      "value": "WHITE WINE",
+      "confidence": 94,
+      "reasoning": "Back label shows the designation 'PRODUCT OF FRANCE; WHITE WINE' indicating the class/type as 'WHITE WINE'.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "alcohol_content",
+      "value": "ALCOHOL 13.5 % BY VOLUME",
+      "confidence": 92,
+      "reasoning": "Back label lists the alcohol statement as 'ALCOHOL 13.5 % BY VOLUME' near the bottom of the panel.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "net_contents",
+      "value": "750ML",
+      "confidence": 94,
+      "reasoning": "Back label shows the bottle capacity as '750ML' immediately before the alcohol statement.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "health_warning",
+      "value": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE OF THE RISK OF BIRTH DEFECTS. (2) CONSUMPTION OF ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY TO DRIVE A CAR OR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+      "confidence": 98,
+      "reasoning": "Back label contains the required federally mandated block beginning with 'GOVERNMENT WARNING:' followed by the two numbered statements; text is all-caps on the label.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "name_and_address",
+      "value": "DOMAINE JOURDAN 37500 CRAVANT",
+      "confidence": 90,
+      "reasoning": "Back label includes the bottler/producer identification 'ESTATE BOTTLED BY DOMAINE JOURDAN 37500 CRAVANT'. The name and town/postal appear as shown; qualifying phrase is extracted separately.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "qualifying_phrase",
+      "value": "ESTATE BOTTLED BY",
+      "confidence": 92,
+      "reasoning": "The back label uses the qualifying phrase 'ESTATE BOTTLED BY' immediately before the producer name.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "grape_varietal",
+      "value": "Chenin Blanc",
+      "confidence": 90,
+      "reasoning": "Back label prose describes 'this Chenin Blanc is dry...' indicating the grape variety as Chenin Blanc.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "appellation_of_origin",
+      "value": "APPELLATION CHINON CONTRÔLÉE",
+      "confidence": 96,
+      "reasoning": "Front label explicitly shows the appellation text 'APPELLATION CHINON CONTRÔLÉE' underneath the prominent 'CHINON' text.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "sulfite_declaration",
+      "value": "CONTAINS SULFITES",
+      "confidence": 98,
+      "reasoning": "The sulfite declaration 'CONTAINS SULFITES' appears on the back label within/adjacent to the government warning box.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "fanciful_name",
+      "value": "CROIX BOISSÉE",
+      "confidence": 88,
+      "reasoning": "The front label displays 'CROIX BOISSÉE' under the appellation; this is the vineyard/fanciful name used to identify the bottling.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "country_of_origin",
+      "value": "PRODUCT OF FRANCE",
+      "confidence": 95,
+      "reasoning": "Back label begins with 'PRODUCT OF FRANCE; WHITE WINE' indicating the country of origin as France.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "vintage_year",
+      "value": "2021",
+      "confidence": 95,
+      "reasoning": "Front label shows the vintage year '2021' under 'CROIX BOISSÉE'.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "standards_of_fill",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No explicit statement about standards of fill is visible on the provided label images.",
+      "sourceImage": null
+    }
+  ],
+  "metadata": {
+    "modelUsed": "gpt-5-mini",
+    "processingTimeMs": 61620,
+    "extractedAt": "2026-02-23T00:32:32.716Z",
+    "totalTokens": 5121
+  }
+}

@@ -24,11 +24,25 @@ export interface ExtractedField {
   imageIndex: number // which image this field was found on
 }
 
+export interface PipelineMetrics {
+  fetchTimeMs: number
+  ocrTimeMs: number
+  classificationTimeMs: number
+  mergeTimeMs: number
+  totalTimeMs: number
+  wordCount: number
+  imageCount: number
+  inputTokens: number
+  outputTokens: number
+  totalTokens: number
+}
+
 export interface ExtractionResult {
   fields: ExtractedField[]
   processingTimeMs: number
   modelUsed: string
   rawResponse: unknown
+  metrics: PipelineMetrics
 }
 
 // ---------------------------------------------------------------------------
@@ -131,14 +145,39 @@ function buildCombinedWordList(ocrResults: OcrResult[]): IndexedWord[] {
 export async function extractLabelFields(
   imageUrls: string[],
   beverageType: string,
+  applicationData?: Record<string, string>,
 ): Promise<ExtractionResult> {
   const startTime = performance.now()
 
   // Fetch image bytes from private blob storage
+  const fetchStart = performance.now()
   const imageBuffers = await Promise.all(imageUrls.map(fetchImageBytes))
+  const fetchTimeMs = Math.round(performance.now() - fetchStart)
 
+  return extractLabelFieldsFromBuffers(
+    imageBuffers,
+    beverageType,
+    startTime,
+    fetchTimeMs,
+    applicationData,
+  )
+}
+
+/**
+ * Same pipeline as extractLabelFields, but accepts pre-fetched image buffers.
+ * Useful for scripts that already have the image bytes in memory.
+ */
+export async function extractLabelFieldsFromBuffers(
+  imageBuffers: Buffer[],
+  beverageType: string,
+  startTime = performance.now(),
+  fetchTimeMs = 0,
+  applicationData?: Record<string, string>,
+): Promise<ExtractionResult> {
   // Stage 1: OCR all images in parallel
+  const ocrStart = performance.now()
   const ocrResults = await extractTextMultiImage(imageBuffers)
+  const ocrTimeMs = Math.round(performance.now() - ocrStart)
 
   // Build combined word list for classification
   const combinedWords = buildCombinedWordList(ocrResults)
@@ -152,14 +191,21 @@ export async function extractLabelFields(
     .map((r, i) => `--- Image ${i + 1} ---\n${r.fullText}`)
     .join('\n\n')
 
-  // Stage 2: Classification via GPT-5 Mini
+  // Stage 2: Classification via GPT-5 Mini (multimodal — text + images)
+  const classificationStart = performance.now()
   const { result: classification, usage } = await classifyFields(
     combinedFullText,
     beverageType,
     wordListForPrompt,
+    applicationData,
+    imageBuffers,
+  )
+  const classificationTimeMs = Math.round(
+    performance.now() - classificationStart,
   )
 
   // Stage 3: Map classified fields to bounding boxes
+  const mergeStart = performance.now()
   const fields: ExtractedField[] = classification.fields.map((classified) => {
     // Collect the OCR words referenced by this field
     const referencedWords = classified.wordIndices
@@ -211,12 +257,32 @@ export async function extractLabelFields(
     }
   })
 
-  const processingTimeMs = Math.round(performance.now() - startTime)
+  const mergeTimeMs = Math.round(performance.now() - mergeStart)
+  const totalTimeMs = Math.round(performance.now() - startTime)
+
+  const metrics: PipelineMetrics = {
+    fetchTimeMs,
+    ocrTimeMs,
+    classificationTimeMs,
+    mergeTimeMs,
+    totalTimeMs,
+    wordCount: combinedWords.length,
+    imageCount: imageBuffers.length,
+    inputTokens: usage.inputTokens,
+    outputTokens: usage.outputTokens,
+    totalTokens: usage.totalTokens,
+  }
+
+  // Log metrics to server console for debugging
+  console.log(
+    `[AI Pipeline] ${beverageType} | OCR: ${ocrTimeMs}ms | Classification: ${classificationTimeMs}ms | Total: ${totalTimeMs}ms | Words: ${combinedWords.length} | Tokens: ${usage.inputTokens}in/${usage.outputTokens}out`,
+  )
 
   return {
     fields,
-    processingTimeMs,
+    processingTimeMs: totalTimeMs,
     modelUsed: 'gpt-5-mini',
-    rawResponse: { classification, usage },
+    rawResponse: { classification, usage, metrics },
+    metrics,
   }
 }

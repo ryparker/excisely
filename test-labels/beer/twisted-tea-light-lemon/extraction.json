@@ -1,0 +1,104 @@
+{
+  "labelName": "twisted-tea-light-lemon",
+  "beverageType": "malt_beverage",
+  "images": [
+    {
+      "filename": "front.png",
+      "imageType": "front"
+    },
+    {
+      "filename": "top.png",
+      "imageType": "top"
+    }
+  ],
+  "fields": {
+    "brand_name": "TWISTED TEA",
+    "class_type": "HARD ICED TEA",
+    "net_contents": null,
+    "health_warning": null,
+    "name_and_address": null,
+    "qualifying_phrase": null,
+    "fanciful_name": "Light",
+    "alcohol_content": "4% ALC./VOL.",
+    "country_of_origin": null,
+    "standards_of_fill": null
+  },
+  "fieldDetails": [
+    {
+      "fieldName": "brand_name",
+      "value": "TWISTED TEA",
+      "confidence": 95,
+      "reasoning": "The most prominent text on the front label is the large blue uppercase 'TWISTED TEA' logo.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "class_type",
+      "value": "HARD ICED TEA",
+      "confidence": 90,
+      "reasoning": "Above the logo on the front label the words 'HARD ICED TEA' appear in uppercase.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "net_contents",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No net contents (e.g., '12 FL OZ', '750 mL') are visible on the provided front or top label images.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "health_warning",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "The federally mandated 'GOVERNMENT WARNING:' statement is not visible on the provided label images.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "name_and_address",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No clear bottler/importer/producer name and address text is readable on the provided front or top images.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "qualifying_phrase",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No qualifying phrase such as 'Bottled by' or 'Distilled by' is visible on the supplied images.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "fanciful_name",
+      "value": "Light",
+      "confidence": 90,
+      "reasoning": "The front label shows the stylized word 'Light' beneath the TWISTED TEA logo, indicating the product variant/fanciful name.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "alcohol_content",
+      "value": "4% ALC./VOL.",
+      "confidence": 95,
+      "reasoning": "Below the product name on the front label the alcohol content is printed as '4% ALC./VOL.' followed by 'CONTAINS ALCOHOL'.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "country_of_origin",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No country-of-origin or 'Product of ...' statement is visible on the provided images.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "standards_of_fill",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No statement about standards of fill is visible on the provided front or top label images.",
+      "sourceImage": null
+    }
+  ],
+  "metadata": {
+    "modelUsed": "gpt-5-mini",
+    "processingTimeMs": 22578,
+    "extractedAt": "2026-02-23T00:31:15.833Z",
+    "totalTokens": 2590
+  }
+}

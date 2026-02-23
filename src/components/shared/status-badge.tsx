@@ -20,6 +20,11 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
     className:
       'bg-destructive text-white hover:bg-destructive/90 dark:bg-destructive/60',
   },
+  pending_review: {
+    label: 'Pending Review',
+    className:
+      'bg-indigo-500 text-white hover:bg-indigo-500/90 dark:bg-indigo-600',
+  },
   processing: {
     label: 'Processing',
     className: 'bg-blue-500 text-white hover:bg-blue-500/90 dark:bg-blue-600',

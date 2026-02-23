@@ -2,7 +2,15 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { CheckCircle2, XCircle, SearchX, Loader2, Send } from 'lucide-react'
+import {
+  CheckCircle2,
+  XCircle,
+  SearchX,
+  Loader2,
+  Send,
+  Crosshair,
+  MapPin,
+} from 'lucide-react'
 
 import { submitReview } from '@/app/actions/submit-review'
 import { FieldComparisonRow } from '@/components/shared/field-comparison-row'
@@ -40,6 +48,11 @@ interface ReviewFieldListProps {
   validationItems: ValidationItemData[]
   activeField: string | null
   onFieldClick: (fieldName: string) => void
+  onMarkLocation?: (fieldName: string) => void
+  annotations?: Record<
+    string,
+    { x: number; y: number; width: number; height: number }
+  >
 }
 
 // ---------------------------------------------------------------------------
@@ -92,6 +105,8 @@ export function ReviewFieldList({
   validationItems,
   activeField,
   onFieldClick,
+  onMarkLocation,
+  annotations,
 }: ReviewFieldListProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -143,6 +158,7 @@ export function ReviewFieldList({
         originalStatus: item.status,
         resolvedStatus: overrides[item.id].resolvedStatus,
         reviewerNotes: overrides[item.id].reviewerNotes || undefined,
+        annotationData: annotations?.[item.fieldName] ?? null,
       }))
 
     if (overrideEntries.length === 0) {
@@ -158,7 +174,7 @@ export function ReviewFieldList({
       const result = await submitReview(formData)
 
       if (result.success) {
-        router.push('/review')
+        router.push('/')
       } else {
         setError(result.error)
       }
@@ -224,6 +240,33 @@ export function ReviewFieldList({
                     })}
                   </div>
 
+                  {/* Mark Location on Image */}
+                  {onMarkLocation && (
+                    <div className="flex items-center gap-2">
+                      {annotations?.[item.fieldName] ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5 border-indigo-200 text-indigo-700 dark:border-indigo-800 dark:text-indigo-400"
+                          onClick={() => onMarkLocation(item.fieldName)}
+                        >
+                          <MapPin className="size-3.5" />
+                          Location Marked — Redo
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                          onClick={() => onMarkLocation(item.fieldName)}
+                        >
+                          <Crosshair className="size-3.5" />
+                          Mark Location on Image
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
                   {override?.resolvedStatus !== undefined && (
                     <Textarea
                       placeholder="Optional reviewer notes..."
@@ -277,7 +320,7 @@ export function ReviewFieldList({
       <div className="sticky bottom-0 border-t bg-background pt-4 pb-2">
         <Button
           size="lg"
-          className="w-full"
+          className="w-full active:scale-[0.98]"
           disabled={!allFlaggedResolved || isPending}
           onClick={handleSubmit}
         >
@@ -291,7 +334,7 @@ export function ReviewFieldList({
               <Send className="size-4" />
               Complete Review
               {!allFlaggedResolved && (
-                <span className="text-xs opacity-70">
+                <span className="text-xs tabular-nums opacity-70">
                   ({flaggedItems.length - Object.keys(overrides).length}{' '}
                   remaining)
                 </span>

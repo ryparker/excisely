@@ -1,0 +1,136 @@
+{
+  "labelName": "three-fox-viognier",
+  "beverageType": "wine",
+  "images": [
+    {
+      "filename": "front.png",
+      "imageType": "front"
+    },
+    {
+      "filename": "back.png",
+      "imageType": "back"
+    }
+  ],
+  "fields": {
+    "brand_name": "THREE FOX VINEYARDS",
+    "class_type": "VIOGNIER RESERVE",
+    "alcohol_content": "ALC. 12.5% BY VOL.",
+    "net_contents": "750ML",
+    "health_warning": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE OF THE RISK OF BIRTH DEFECTS. (2) CONSUMPTION OF ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY TO DRIVE A CAR OR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+    "name_and_address": "PRODUCED & BOTTLED BY THREE FOX VINEYARDS DELAPLANE, VA",
+    "qualifying_phrase": "PRODUCED & BOTTLED BY",
+    "grape_varietal": "VIOGNIER",
+    "appellation_of_origin": "VIRGINIA",
+    "sulfite_declaration": "CONTAINS SULFITES",
+    "fanciful_name": null,
+    "country_of_origin": null,
+    "vintage_year": "2020",
+    "standards_of_fill": null
+  },
+  "fieldDetails": [
+    {
+      "fieldName": "brand_name",
+      "value": "THREE FOX VINEYARDS",
+      "confidence": 98,
+      "reasoning": "Prominent all-caps text at top of both front and back labels identifying the brand.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "class_type",
+      "value": "VIOGNIER RESERVE",
+      "confidence": 95,
+      "reasoning": "The wine designation appears under the brand on the front label as 'VIOGNIER RESERVE'.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "alcohol_content",
+      "value": "ALC. 12.5% BY VOL.",
+      "confidence": 85,
+      "reasoning": "Alcohol content shown in small type on the back label as 'ALC. 12.5% BY VOL.'",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "net_contents",
+      "value": "750ML",
+      "confidence": 85,
+      "reasoning": "Bottle volume appears on the back label in the line with producer info as '750ML'.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "health_warning",
+      "value": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE OF THE RISK OF BIRTH DEFECTS. (2) CONSUMPTION OF ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY TO DRIVE A CAR OR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+      "confidence": 95,
+      "reasoning": "The federally mandated GOVERNMENT WARNING block in all caps is present on the back label; transcribed fully including both numbered statements.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "name_and_address",
+      "value": "PRODUCED & BOTTLED BY THREE FOX VINEYARDS DELAPLANE, VA",
+      "confidence": 90,
+      "reasoning": "Back label line begins with the qualifying phrase and lists the producer and location: 'PRODUCED & BOTTLED BY THREE FOX VINEYARDS DELAPLANE, VA'.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "qualifying_phrase",
+      "value": "PRODUCED & BOTTLED BY",
+      "confidence": 95,
+      "reasoning": "The phrase preceding the producer name on the back label is 'PRODUCED & BOTTLED BY'.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "grape_varietal",
+      "value": "VIOGNIER",
+      "confidence": 95,
+      "reasoning": "The varietal is indicated on the front label as 'VIOGNIER' (part of 'VIOGNIER RESERVE').",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "appellation_of_origin",
+      "value": "VIRGINIA",
+      "confidence": 95,
+      "reasoning": "The front label lists the geographic origin as 'VIRGINIA'.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "sulfite_declaration",
+      "value": "CONTAINS SULFITES",
+      "confidence": 90,
+      "reasoning": "Back label includes the sulfite statement 'CONTAINS SULFITES' in the producer/volume line.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "fanciful_name",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No separate fanciful name distinct from the brand and class/type is visible on the label.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "country_of_origin",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No 'Product of ...' or similar country-of-origin statement visible on the label.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "vintage_year",
+      "value": "2020",
+      "confidence": 95,
+      "reasoning": "The front label shows the year '2020' beneath 'VIRGINIA', indicating the vintage.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "standards_of_fill",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No explicit statement about standards of fill is present on the label images.",
+      "sourceImage": null
+    }
+  ],
+  "metadata": {
+    "modelUsed": "gpt-5-mini",
+    "processingTimeMs": 46562,
+    "extractedAt": "2026-02-23T00:32:32.716Z",
+    "totalTokens": 4351
+  }
+}

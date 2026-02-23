@@ -1,0 +1,120 @@
+{
+  "labelName": "bulleit-single-barrel",
+  "beverageType": "distilled_spirits",
+  "images": [
+    {
+      "filename": "front.png",
+      "imageType": "front"
+    },
+    {
+      "filename": "neck.png",
+      "imageType": "neck"
+    }
+  ],
+  "fields": {
+    "brand_name": "BULLEIT BOURBON",
+    "class_type": "KENTUCKY STRAIGHT BOURBON WHISKEY",
+    "alcohol_content": "45% ALC. BY VOL.",
+    "net_contents": "750 mL",
+    "health_warning": "GOVERNMENT WARNING: (1) According to the Surgeon General, women should not drink alcoholic beverages during pregnancy because of birth defects. (2) Consumption of alcoholic beverages impairs your ability to drive a car or operate machinery, and may cause health problems.",
+    "name_and_address": "BULLEIT FRONTIER WHISKEY SHELBYVILLE, KENTUCKY",
+    "qualifying_phrase": "DISTILLED BY",
+    "fanciful_name": "SINGLE BARREL",
+    "country_of_origin": null,
+    "age_statement": null,
+    "state_of_distillation": "SHELBYVILLE, KENTUCKY",
+    "standards_of_fill": null
+  },
+  "fieldDetails": [
+    {
+      "fieldName": "brand_name",
+      "value": "BULLEIT BOURBON",
+      "confidence": 90,
+      "reasoning": "Prominent large text on the main/front label reads 'BULLEIT BOURBON' under the 'HAND SELECTED' banner.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "class_type",
+      "value": "KENTUCKY STRAIGHT BOURBON WHISKEY",
+      "confidence": 90,
+      "reasoning": "The lower portion of the front label clearly shows the class/type text 'KENTUCKY STRAIGHT BOURBON WHISKEY'.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "alcohol_content",
+      "value": "45% ALC. BY VOL.",
+      "confidence": 75,
+      "reasoning": "The right-side panel on the front label shows an alcohol strength value including '45%'. Exact formatting is somewhat small/partially obscured, so confidence is moderate.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "net_contents",
+      "value": "750 mL",
+      "confidence": 95,
+      "reasoning": "The front label displays the bottle size '750 mL' near the lower/right area of the label.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "health_warning",
+      "value": "GOVERNMENT WARNING: (1) According to the Surgeon General, women should not drink alcoholic beverages during pregnancy because of birth defects. (2) Consumption of alcoholic beverages impairs your ability to drive a car or operate machinery, and may cause health problems.",
+      "confidence": 85,
+      "reasoning": "The mandatory federal health warning beginning with 'GOVERNMENT WARNING:' appears in the small-print panel on the front/right portion of the label; the standard two-statement warning text is visible.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "name_and_address",
+      "value": "BULLEIT FRONTIER WHISKEY SHELBYVILLE, KENTUCKY",
+      "confidence": 80,
+      "reasoning": "The identifying bottler/distiller/name and city/state appear on the panel as 'BULLEIT FRONTIER WHISKEY SHELBYVILLE, KENTUCKY' following the qualifying phrase.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "qualifying_phrase",
+      "value": "DISTILLED BY",
+      "confidence": 85,
+      "reasoning": "The label panel containing the name/address begins with the phrase 'DISTILLED BY'.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "fanciful_name",
+      "value": "SINGLE BARREL",
+      "confidence": 95,
+      "reasoning": "The orange banner on the main/front label prominently shows the descriptive/fanciful name 'SINGLE BARREL'.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "country_of_origin",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No explicit country-of-origin or 'Product of ...' statement is visible on the provided images.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "age_statement",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No age or maturation statement (e.g., 'Aged X Years') is visible on the label images.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "state_of_distillation",
+      "value": "SHELBYVILLE, KENTUCKY",
+      "confidence": 80,
+      "reasoning": "The name/address panel specifies the location 'SHELBYVILLE, KENTUCKY', which indicates the state where it was distilled.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "standards_of_fill",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "There is no explicit statement about standards of fill on the visible portions of the labels.",
+      "sourceImage": null
+    }
+  ],
+  "metadata": {
+    "modelUsed": "gpt-5-mini",
+    "processingTimeMs": 44893,
+    "extractedAt": "2026-02-23T00:29:56.577Z",
+    "totalTokens": 4178
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "labelName": "bulleit-rye",
+  "beverageType": "distilled_spirits",
+  "images": [
+    {
+      "filename": "front.png",
+      "imageType": "front"
+    }
+  ],
+  "fields": {
+    "brand_name": "BULLEIT 95 RYE",
+    "class_type": "FRONTIER WHISKEY",
+    "alcohol_content": "45% alc./vol.",
+    "net_contents": "750 mL",
+    "health_warning": "GOVERNMENT WARNING: (1) According to the Surgeon General, women should not drink alcoholic beverages during pregnancy because of the risk of birth defects. (2) Consumption of alcoholic beverages impairs your ability to drive a car or operate machinery, and may cause health problems.",
+    "name_and_address": "DISTILLED IN LAWRENCEBURG, INDIANA BOTTLED BY BFW SPIRITS, BARDSTOWN, KENTUCKY",
+    "qualifying_phrase": "BOTTLED BY",
+    "fanciful_name": null,
+    "country_of_origin": null,
+    "age_statement": null,
+    "state_of_distillation": "DISTILLED IN LAWRENCEBURG, INDIANA",
+    "standards_of_fill": null
+  },
+  "fieldDetails": [
+    {
+      "fieldName": "brand_name",
+      "value": "BULLEIT 95 RYE",
+      "confidence": 95,
+      "reasoning": "Large, prominent centered text on the label reads 'BULLEIT 95 RYE'.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "class_type",
+      "value": "FRONTIER WHISKEY",
+      "confidence": 90,
+      "reasoning": "Directly under the brand name the label reads 'FRONTIER WHISKEY', indicating the class/type.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "alcohol_content",
+      "value": "45% alc./vol.",
+      "confidence": 85,
+      "reasoning": "The alcohol strength appears on the label as '45% alc./vol.' (also shows '90 PROOF' nearby). Exact capitalization preserved as read on the label.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "net_contents",
+      "value": "750 mL",
+      "confidence": 95,
+      "reasoning": "The net contents '750 mL' are visible on the front panel to the right of the brand text.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "health_warning",
+      "value": "GOVERNMENT WARNING: (1) According to the Surgeon General, women should not drink alcoholic beverages during pregnancy because of the risk of birth defects. (2) Consumption of alcoholic beverages impairs your ability to drive a car or operate machinery, and may cause health problems.",
+      "confidence": 90,
+      "reasoning": "The standard federally required 'GOVERNMENT WARNING:' block is present on the label (small print on the right panel). The full standard two-statement warning is readable.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "name_and_address",
+      "value": "DISTILLED IN LAWRENCEBURG, INDIANA BOTTLED BY BFW SPIRITS, BARDSTOWN, KENTUCKY",
+      "confidence": 60,
+      "reasoning": "The right-side text includes a combined distillation/bottling statement. The line reads as shown, but small-print acronym for the bottler (BFW) is somewhat unclear, so confidence is moderate.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "qualifying_phrase",
+      "value": "BOTTLED BY",
+      "confidence": 70,
+      "reasoning": "The label contains the phrase 'BOTTLED BY' immediately before the bottler name/address on the right panel. (The label also contains 'DISTILLED IN' for the distillation location.)",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "fanciful_name",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No separate fanciful name distinct from the brand is visible on the label.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "country_of_origin",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No 'Product of ...' or other country-of-origin/import statement is visible on the front label.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "age_statement",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No age or maturation statement (e.g., 'Aged X Years') is visible on the label.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "state_of_distillation",
+      "value": "DISTILLED IN LAWRENCEBURG, INDIANA",
+      "confidence": 80,
+      "reasoning": "The label explicitly states the distillation location as 'DISTILLED IN LAWRENCEBURG, INDIANA' on the right panel.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "standards_of_fill",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "The label does not state whether the container size conforms to TTB standards of fill.",
+      "sourceImage": null
+    }
+  ],
+  "metadata": {
+    "modelUsed": "gpt-5-mini",
+    "processingTimeMs": 52998,
+    "extractedAt": "2026-02-23T00:30:53.251Z",
+    "totalTokens": 4569
+  }
+}

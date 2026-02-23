@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Inter, JetBrains_Mono, Source_Serif_4 } from 'next/font/google'
+import { Fraunces, JetBrains_Mono, Space_Grotesk } from 'next/font/google'
 import { ThemeProvider } from 'next-themes'
 import { Toaster } from 'sonner'
 import { Analytics } from '@vercel/analytics/react'
@@ -8,13 +8,14 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 
 import './globals.css'
 
-const sourceSerif = Source_Serif_4({
+const fraunces = Fraunces({
   variable: '--font-heading',
   subsets: ['latin'],
   display: 'swap',
+  axes: ['SOFT', 'WONK', 'opsz'],
 })
 
-const inter = Inter({
+const spaceGrotesk = Space_Grotesk({
   variable: '--font-body',
   subsets: ['latin'],
   display: 'swap',
@@ -44,7 +45,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${sourceSerif.variable} ${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}
+        className={`${fraunces.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} font-sans antialiased`}
       >
         <ThemeProvider
           attribute="class"

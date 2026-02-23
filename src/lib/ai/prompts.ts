@@ -6,35 +6,35 @@ import { BEVERAGE_TYPES, type BeverageType } from '@/config/beverage-types'
 
 const FIELD_DESCRIPTIONS: Record<string, string> = {
   brand_name:
-    'The brand name under which the product is sold (Form Item 6). Usually the most prominent text.',
+    'The brand name under which the product is sold (Form Item 6). Usually the most prominent, largest text on the front label. This is the trademarked name consumers know the product by (e.g., "Bulleit", "Rainy Day", "Knob Creek").',
   fanciful_name:
-    'A distinctive or descriptive name that further identifies the product (Form Item 7). Separate from the brand name.',
+    'A distinctive or imaginative secondary name that further identifies this specific product VARIANT (Form Item 7). NOT the brand name, NOT the class/type. This is an optional creative/marketing name like "Old Fashioned", "Frontier Whiskey", "Single Barrel Select". A grape varietal name (like "Albariño", "Viognier") is NOT a fanciful name — it belongs in grape_varietal.',
   class_type:
-    'The class, type, or other designation of the product (e.g., "Bourbon Whisky", "Cabernet Sauvignon", "India Pale Ale").',
+    'The regulatory class, type, or designation of the product as defined by TTB regulations. For spirits: "Bourbon Whisky", "Kentucky Straight Bourbon Whiskey", "Rye Whiskey", "Vodka", "Gin". For wine: "Table Wine", "Red Wine", "White Wine", "Sparkling Wine". For malt beverages: "Ale", "Lager", "India Pale Ale", "Hard Seltzer". This is the LEGAL product category, not a marketing name.',
   alcohol_content:
-    'The alcohol content as shown on the label, typically expressed as "XX% Alc./Vol." or "XX% Alc/Vol" or "XX Proof".',
+    'The alcohol content as shown on the label, typically expressed as "XX% Alc./Vol." or "XX% Alc/Vol" or "XX% ABV" or "XX Proof". Include the full expression with units.',
   net_contents:
-    'The total bottle capacity / net contents (e.g., "750 mL", "1 L", "12 FL OZ").',
+    'The total bottle capacity / net contents (e.g., "750 mL", "1 L", "12 FL OZ", "355 mL"). Include units.',
   health_warning:
-    'The federally mandated health warning statement. Must begin with "GOVERNMENT WARNING:" in all capital letters, followed by two numbered statements about pregnancy and impaired driving.',
+    'The federally mandated GOVERNMENT WARNING statement. Must begin with "GOVERNMENT WARNING:" in all capital letters, followed by two numbered statements about pregnancy risks and impaired driving/health problems. This is a long block of small text, typically on the back label.',
   name_and_address:
-    'The name and address of the bottler, distiller, importer, or producer. Includes the qualifying phrase (e.g., "Bottled by", "Distilled by").',
+    'The name and address of the bottler, distiller, importer, or producer (Form Item 8). Typically formatted as "Company Name, City, State" or "Company Name, City, State, Country". Do NOT include the qualifying phrase prefix here.',
   qualifying_phrase:
-    'The phrase preceding the name and address (e.g., "Bottled by", "Distilled by", "Imported by", "Produced by", "Brewed by").',
+    'The specific phrase that precedes the name and address: "Bottled by", "Distilled by", "Imported by", "Produced by", "Produced and Bottled by", "Cellared and Bottled by", "Brewed by", "Vinted and Bottled by". Extract ONLY this phrase, not the name/address that follows.',
   country_of_origin:
-    'The country of origin statement for imported products (e.g., "Product of Scotland", "Imported from France").',
+    'The country of origin statement for imported products (e.g., "Product of France", "Imported from Scotland", "Product of USA"). Only present on imported products.',
   grape_varietal:
-    'The grape variety or varieties used (wine only, e.g., "Cabernet Sauvignon", "Chardonnay").',
+    'The grape variety or varieties used (wine only). Examples: "Cabernet Sauvignon", "Chardonnay", "Albariño", "Viognier", "Malbec", "Pinot Noir". This is the GRAPE NAME, not a fanciful name.',
   appellation_of_origin:
-    'The geographic origin of the grapes (wine only, e.g., "Napa Valley", "Sonoma Coast", "American").',
+    'The geographic origin of the grapes (wine only). Examples: "Napa Valley", "Sonoma Coast", "Willamette Valley", "American", "California", "Columbia Valley".',
   vintage_year:
-    'The year the grapes were harvested (wine only, e.g., "2021", "2022").',
+    'The year the grapes were harvested (wine only). A standalone 4-digit year like "2019", "2021", "2022".',
   sulfite_declaration:
-    'A sulfite content declaration (wine only, e.g., "Contains Sulfites").',
+    'A sulfite content declaration (wine only): "Contains Sulfites" or "Contains Sulfites."',
   age_statement:
-    'An age or maturation statement (spirits only, e.g., "Aged 12 Years", "8 Year Old").',
+    'An age or maturation statement (spirits only, e.g., "Aged 10 Years", "8 Year Old", "Aged a Minimum of 4 Years").',
   state_of_distillation:
-    'The state where the spirit was distilled (spirits only, e.g., "Distilled in Kentucky").',
+    'The state where the spirit was distilled (spirits only, e.g., "Distilled in Kentucky", "Kentucky Straight").',
   standards_of_fill:
     'Whether the container size conforms to TTB standards of fill for the beverage type.',
 }
@@ -51,6 +51,7 @@ export function buildClassificationPrompt(
   ocrText: string,
   beverageType: string,
   wordList: Array<{ index: number; text: string }>,
+  applicationData?: Record<string, string>,
 ): string {
   const config = BEVERAGE_TYPES[beverageType as BeverageType]
   if (!config) {
@@ -70,7 +71,7 @@ export function buildClassificationPrompt(
     .map((w) => `[${w.index}] "${w.text}"`)
     .join('\n')
 
-  return `You are classifying text extracted from an alcohol beverage label image via OCR.
+  return `You are an expert at classifying text extracted from alcohol beverage labels via OCR. Your job is to map OCR words to TTB-regulated label fields with high accuracy.
 
 ## Task
 
@@ -85,16 +86,39 @@ Given the OCR-extracted text from a **${config.label}** label, identify and extr
 
 ${fieldListText}
 
+## Critical Disambiguation Rules
+
+**brand_name vs. fanciful_name vs. class_type**: These are commonly confused. Follow this hierarchy:
+- **brand_name**: The PRIMARY trademarked product name. Largest/most prominent text. The name consumers use to refer to the product. Examples: "Bulleit", "Knob Creek", "Rainy Day", "Cooper Ridge".
+- **fanciful_name**: A SECONDARY creative name for a specific product variant. NOT the brand, NOT the grape, NOT the product type. Examples: "Frontier Whiskey" (variant of Bulleit), "Single Barrel Select", "Old Fashioned". If in doubt, leave null.
+- **class_type**: The LEGAL product designation per TTB regulations. Examples: "Kentucky Straight Bourbon Whiskey", "Table Wine", "India Pale Ale". This describes WHAT the product IS, not what it's called.
+
+**grape_varietal vs. fanciful_name**: For wine, the grape name (Albariño, Viognier, Cabernet Sauvignon, Malbec) is ALWAYS grape_varietal, NEVER fanciful_name.
+
+**name_and_address vs. qualifying_phrase**: The qualifying phrase is ONLY the prefix like "Bottled by" or "Produced by". The name_and_address is ONLY the company name and location that follows.
+
 ## Important Rules
 
-1. **"GOVERNMENT WARNING:" prefix must be in ALL CAPS** — the health warning statement always begins with "GOVERNMENT WARNING:" followed by two numbered statements.
-2. **The health warning is a specific federally mandated text**: "GOVERNMENT WARNING: (1) According to the Surgeon General, women should not drink alcoholic beverages during pregnancy because of the risk of birth defects. (2) Consumption of alcoholic beverages impairs your ability to drive a car or operate machinery, and may cause health problems."
-3. **Word indices must be exact** — only reference indices from the provided word list.
-4. **If a field is not found**, still include it with a null value and 0 confidence.
-5. **Qualifying phrase** is the prefix before the name/address (e.g., "Bottled by") — extract it separately from name_and_address.
-6. **Alcohol content** should include the full expression (e.g., "45% Alc./Vol." not just "45").
-7. **Net contents** should include units (e.g., "750 mL" not just "750").
-8. **Reconstruct multi-word values** by joining the words at the referenced indices in order.
+1. **"GOVERNMENT WARNING:" must be in ALL CAPS** — health warning always begins with "GOVERNMENT WARNING:" followed by two numbered statements.
+2. **Word indices must be exact** — only reference indices from the provided word list.
+3. **If a field is not found**, include it with null value and 0 confidence.
+4. **Alcohol content** should include the full expression with units (e.g., "12.5% Alc./Vol." not just "12.5").
+5. **Net contents** should include units (e.g., "750 mL" not just "750").
+6. **Reconstruct multi-word values** by joining the words at the referenced indices in order.
+7. **Do not assign the same words to multiple fields** — each word index should ideally belong to only one field.
+
+## Visual Verification (CRITICAL)
+
+If label images are provided, you MUST visually verify ALL numeric values against the actual image. OCR commonly misreads digits — especially with stylized, embossed, or curved text. Common OCR digit confusions:
+- "5" ↔ "1" (e.g., "52%" misread as "12%")
+- "8" ↔ "3" or "6"
+- "0" ↔ "O" or "D"
+- "7" ↔ "1"
+
+**Always trust what you see in the image over what the OCR text says.** If the OCR word list says "12%" but you can clearly see "52%" in the image, use "52%" as the value. This is especially critical for:
+- **Alcohol content** (a misread percentage changes the entire validation)
+- **Net contents** (volume/weight figures)
+- **Vintage year** (wine labels)
 
 ## OCR Full Text
 
@@ -103,7 +127,21 @@ ${ocrText}
 ## Numbered Word List
 
 ${wordListText}
+${
+  applicationData && Object.keys(applicationData).length > 0
+    ? `
+## Application Data (Form 5100.31)
 
+The applicant submitted these expected values on their COLA application. Use this to help identify and disambiguate fields in the OCR text. The applicant knows their own product — trust their field assignments when the OCR text is ambiguous.
+
+${Object.entries(applicationData)
+  .map(([field, value]) => `- **${field}**: "${value}"`)
+  .join('\n')}
+
+**Important**: Your job is to find WHERE each expected value appears on the label (or confirm it's missing). The application data tells you WHAT to look for; the OCR text tells you what's actually ON the label.
+`
+    : ''
+}
 ## Response Format
 
 Return a JSON object with a "fields" array. Each element must have: fieldName, value (string or null), confidence (0-100), wordIndices (array of integers), reasoning (string or null).`

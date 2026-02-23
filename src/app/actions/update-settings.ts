@@ -19,6 +19,13 @@ const updateStrictnessSchema = z.object({
   ),
 })
 
+const updateSLASchema = z.object({
+  reviewResponseHours: z.number().min(1).max(168),
+  totalTurnaroundHours: z.number().min(1).max(168),
+  autoApprovalRateTarget: z.number().min(0).max(100),
+  maxQueueDepth: z.number().min(1).max(1000),
+})
+
 type UpdateSettingsResult =
   | { success: true }
   | { success: false; error: string }
@@ -93,5 +100,36 @@ export async function updateFieldStrictness(
   } catch (error) {
     console.error('[updateFieldStrictness] Error:', error)
     return { success: false, error: 'Failed to save field strictness' }
+  }
+}
+
+export async function updateSLATargets(targets: {
+  reviewResponseHours: number
+  totalTurnaroundHours: number
+  autoApprovalRateTarget: number
+  maxQueueDepth: number
+}): Promise<UpdateSettingsResult> {
+  const session = await getSession()
+  if (!session?.user) {
+    return { success: false, error: 'Authentication required' }
+  }
+
+  if (session.user.role !== 'admin') {
+    return { success: false, error: 'Admin access required' }
+  }
+
+  const parsed = updateSLASchema.safeParse(targets)
+  if (!parsed.success) {
+    return { success: false, error: 'Invalid SLA target values' }
+  }
+
+  try {
+    await upsertSetting('sla_targets', parsed.data)
+    revalidatePath('/settings')
+    revalidatePath('/admin')
+    return { success: true }
+  } catch (error) {
+    console.error('[updateSLATargets] Error:', error)
+    return { success: false, error: 'Failed to save SLA targets' }
   }
 }

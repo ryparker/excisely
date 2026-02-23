@@ -1,0 +1,116 @@
+{
+  "labelName": "bulleit-old-fashioned",
+  "beverageType": "distilled_spirits",
+  "images": [
+    {
+      "filename": "front.png",
+      "imageType": "front"
+    }
+  ],
+  "fields": {
+    "brand_name": "BULLEIT",
+    "class_type": "KENTUCKY STRAIGHT BOURBON WHISKEY",
+    "alcohol_content": "37.5% ALC BY VOL (75 PROOF)",
+    "net_contents": "100 mL",
+    "health_warning": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE OF THE RISK OF BIRTH DEFECTS. (2) CONSUMPTION OF ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY TO DRIVE A CAR OR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+    "name_and_address": "BULLEIT COCKTAIL CO., NEW YORK, NY, CANNED BY VGM, FORT WORTH, TX",
+    "qualifying_phrase": "FINISHED FOR",
+    "fanciful_name": "OLD FASHIONED",
+    "country_of_origin": null,
+    "age_statement": null,
+    "state_of_distillation": null,
+    "standards_of_fill": null
+  },
+  "fieldDetails": [
+    {
+      "fieldName": "brand_name",
+      "value": "BULLEIT",
+      "confidence": 95,
+      "reasoning": "Prominent, large uppercase text at center top of the label reading 'BULLEIT'.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "class_type",
+      "value": "KENTUCKY STRAIGHT BOURBON WHISKEY",
+      "confidence": 85,
+      "reasoning": "Appears in the line 'MADE WITH KENTUCKY STRAIGHT BOURBON WHISKEY AND ORANGE BITTERS' beneath the product name; the phrase 'KENTUCKY STRAIGHT BOURBON WHISKEY' is the class/type printed on the label.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "alcohol_content",
+      "value": "37.5% ALC BY VOL (75 PROOF)",
+      "confidence": 95,
+      "reasoning": "Alcohol content and proof are printed at the lower right of the label as '37.5% ALC BY VOL' with '(75 PROOF)'.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "net_contents",
+      "value": "100 mL",
+      "confidence": 95,
+      "reasoning": "Net contents '100 mL' is printed at the lower right of the label near the alcohol content/proof.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "health_warning",
+      "value": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE OF THE RISK OF BIRTH DEFECTS. (2) CONSUMPTION OF ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY TO DRIVE A CAR OR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+      "confidence": 95,
+      "reasoning": "Full federally mandated warning appears in all caps on the upper left panel of the label starting with 'GOVERNMENT WARNING:' followed by the two numbered statements.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "name_and_address",
+      "value": "BULLEIT COCKTAIL CO., NEW YORK, NY, CANNED BY VGM, FORT WORTH, TX",
+      "confidence": 85,
+      "reasoning": "Name and locations appear in the upper left panel in the line 'FINISHED FOR BULLEIT COCKTAIL CO., NEW YORK, NY, CANNED BY VGM, FORT WORTH, TX'. The qualifying phrase was separated out.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "qualifying_phrase",
+      "value": "FINISHED FOR",
+      "confidence": 90,
+      "reasoning": "The label text begins the name/address block with 'FINISHED FOR' (serves as the qualifying phrase).",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "fanciful_name",
+      "value": "OLD FASHIONED",
+      "confidence": 95,
+      "reasoning": "Product designation/name 'OLD FASHIONED' is prominently printed under the brand and serves as the product/fanciful name.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "country_of_origin",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No explicit country-of-origin statement (e.g., 'Product of ...') is visible on the provided front label image.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "age_statement",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No age or maturation statement (e.g., 'Aged X Years') is visible on the label.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "state_of_distillation",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "Although the label states 'KENTUCKY STRAIGHT BOURBON WHISKEY', there is no explicit phrase like 'Distilled in Kentucky' or 'Distilled and bottled in ...' printed; therefore no explicit state-of-distillation statement to extract.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "standards_of_fill",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No statement about standards of fill is visible on the provided label image.",
+      "sourceImage": null
+    }
+  ],
+  "metadata": {
+    "modelUsed": "gpt-5-mini",
+    "processingTimeMs": 52460,
+    "extractedAt": "2026-02-23T00:31:10.929Z",
+    "totalTokens": 4506
+  }
+}

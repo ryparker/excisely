@@ -239,7 +239,7 @@ export default async function BatchDetailPage({
                     {label.status !== 'pending' &&
                       label.status !== 'processing' && (
                         <Button variant="ghost" size="sm" asChild>
-                          <Link href={`/history/${label.id}`}>View</Link>
+                          <Link href={`/labels/${label.id}`}>View</Link>
                         </Button>
                       )}
                   </TableCell>

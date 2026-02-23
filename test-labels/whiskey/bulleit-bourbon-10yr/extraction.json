@@ -1,0 +1,116 @@
+{
+  "labelName": "bulleit-bourbon-10yr",
+  "beverageType": "distilled_spirits",
+  "images": [
+    {
+      "filename": "front.png",
+      "imageType": "front"
+    }
+  ],
+  "fields": {
+    "brand_name": "BULLEIT 95 RYE",
+    "class_type": "AMERICAN STRAIGHT RYE WHISKEY",
+    "alcohol_content": "45% alc./vol.",
+    "net_contents": "750 mL",
+    "health_warning": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE OF THE RISK OF BIRTH DEFECTS. (2) CONSUMPTION OF ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY TO DRIVE A CAR OR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+    "name_and_address": "BOTTLED BY BULLEIT DISTILLING CO., LOUISVILLE, KY",
+    "qualifying_phrase": "BOTTLED BY",
+    "fanciful_name": "FRONTIER WHISKEY",
+    "country_of_origin": null,
+    "age_statement": null,
+    "state_of_distillation": "DISTILLED IN LAWRENCEBURG, INDIANA",
+    "standards_of_fill": null
+  },
+  "fieldDetails": [
+    {
+      "fieldName": "brand_name",
+      "value": "BULLEIT 95 RYE",
+      "confidence": 95,
+      "reasoning": "Large, prominent text on the left panel reads 'BULLEIT 95 RYE' (all caps). This is the obvious brand/product name on the label.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "class_type",
+      "value": "AMERICAN STRAIGHT RYE WHISKEY",
+      "confidence": 95,
+      "reasoning": "Directly printed under the product name on the left panel: 'AMERICAN STRAIGHT RYE WHISKEY'.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "alcohol_content",
+      "value": "45% alc./vol.",
+      "confidence": 90,
+      "reasoning": "Small text on the lower-left portion of the label shows the alcohol content as '45% alc./vol.' (appears in lowercase 'alc./vol.').",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "net_contents",
+      "value": "750 mL",
+      "confidence": 95,
+      "reasoning": "The lower-right area of the left panel clearly shows the bottle size '750 mL'.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "health_warning",
+      "value": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE OF THE RISK OF BIRTH DEFECTS. (2) CONSUMPTION OF ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY TO DRIVE A CAR OR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+      "confidence": 90,
+      "reasoning": "The standard federal warning block is present on the right panel beginning with 'GOVERNMENT WARNING:' followed by the two numbered statements about pregnancy and impaired driving.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "name_and_address",
+      "value": "BOTTLED BY BULLEIT DISTILLING CO., LOUISVILLE, KY",
+      "confidence": 60,
+      "reasoning": "Small back/right-panel text includes bottler information. The label text for bottling appears to read 'BOTTLED BY' followed by the Bulleit bottling company and Louisville, KY. The exact punctuation/spacing is small and partially dense, so confidence is moderate.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "qualifying_phrase",
+      "value": "BOTTLED BY",
+      "confidence": 80,
+      "reasoning": "The label contains the phrase 'BOTTLED BY' immediately preceding the bottler name/address on the right panel.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "fanciful_name",
+      "value": "FRONTIER WHISKEY",
+      "confidence": 90,
+      "reasoning": "Beneath the main brand text on the left panel the words 'FRONTIER WHISKEY' are printed and act as a distinctive descriptive/fanciful designation.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "country_of_origin",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No explicit 'Product of ...' or imported-country statement is visible on the provided label image.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "age_statement",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No age or maturation statement (e.g., 'Aged X Years') is visible on the label.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "state_of_distillation",
+      "value": "DISTILLED IN LAWRENCEBURG, INDIANA",
+      "confidence": 85,
+      "reasoning": "Upper right panel text includes a line that reads 'DISTILLED IN LAWRENCEBURG, INDIANA'. This is visible on the right panel of the label.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "standards_of_fill",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No explicit statement about TTB standards of fill (conformance statement) is present on the visible label artwork.",
+      "sourceImage": null
+    }
+  ],
+  "metadata": {
+    "modelUsed": "gpt-5-mini",
+    "processingTimeMs": 40322,
+    "extractedAt": "2026-02-23T00:29:13.619Z",
+    "totalTokens": 4067
+  }
+}

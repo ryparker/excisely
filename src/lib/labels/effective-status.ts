@@ -1,6 +1,7 @@
 type LabelStatus =
   | 'pending'
   | 'processing'
+  | 'pending_review'
   | 'approved'
   | 'conditionally_approved'
   | 'needs_correction'

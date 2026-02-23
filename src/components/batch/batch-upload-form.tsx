@@ -55,6 +55,11 @@ import { getCodesByBeverageType } from '@/config/class-type-codes'
 import { HEALTH_WARNING_FULL } from '@/config/health-warning'
 import { QUALIFYING_PHRASES } from '@/config/qualifying-phrases'
 import { MAX_FILE_SIZE } from '@/lib/validators/file-schema'
+import { decodeImageDimensions } from '@/lib/validators/decode-image-dimensions'
+import {
+  assessImageQuality,
+  type ImageQualityResult,
+} from '@/lib/validators/image-quality'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -66,6 +71,7 @@ interface FileWithPreview {
   status: 'pending' | 'uploading' | 'uploaded' | 'error'
   url?: string
   error?: string
+  quality?: ImageQualityResult
 }
 
 // ---------------------------------------------------------------------------
@@ -203,6 +209,9 @@ export function BatchUploadForm() {
   // -------------------------------------------------------------------------
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
+    // Track new entries so we can quality-check them after state update
+    const added: FileWithPreview[] = []
+
     setFiles((prev) => {
       const remaining = MAX_FILES - prev.length
       if (remaining <= 0) {
@@ -222,9 +231,54 @@ export function BatchUploadForm() {
         preview: URL.createObjectURL(file),
         status: 'pending' as const,
       }))
+      added.push(...newFiles)
 
       return [...prev, ...newFiles]
     })
+
+    // Async quality check for each newly added file
+    // Runs after setFiles so entries are in state before we update them
+    setTimeout(() => {
+      for (const entry of added) {
+        decodeImageDimensions(entry.preview)
+          .then(({ width, height }) => {
+            const result = assessImageQuality(
+              width,
+              height,
+              entry.file.size,
+              entry.file.type,
+            )
+
+            if (result.level === 'error') {
+              setFiles((prev) => {
+                const idx = prev.findIndex((f) => f.preview === entry.preview)
+                if (idx === -1) return prev
+                URL.revokeObjectURL(entry.preview)
+                return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
+              })
+              toast.error(
+                `${entry.file.name} rejected — ${result.issues[0]?.message}`,
+              )
+            } else if (result.level === 'warning') {
+              setFiles((prev) =>
+                prev.map((f) =>
+                  f.preview === entry.preview ? { ...f, quality: result } : f,
+                ),
+              )
+              toast.warning(`${entry.file.name}: ${result.issues[0]?.message}`)
+            } else {
+              setFiles((prev) =>
+                prev.map((f) =>
+                  f.preview === entry.preview ? { ...f, quality: result } : f,
+                ),
+              )
+            }
+          })
+          .catch(() => {
+            // Could not decode — leave as-is
+          })
+      }
+    }, 0)
   }, [])
 
   const removeFile = useCallback((index: number) => {
@@ -345,6 +399,13 @@ export function BatchUploadForm() {
   async function onSubmit(data: BatchFormInput) {
     if (files.length === 0) {
       toast.error('Please upload at least one label image')
+      return
+    }
+
+    if (files.some((f) => f.quality?.level === 'error')) {
+      toast.error(
+        'Remove images that do not meet the minimum quality requirements',
+      )
       return
     }
 
@@ -661,6 +722,12 @@ export function BatchUploadForm() {
                       )}
                     </div>
                   </div>
+                  {fileEntry.quality?.level === 'warning' && (
+                    <span className="absolute top-0.5 left-0.5 flex items-center gap-0.5 rounded-full bg-amber-500/90 px-1 py-px text-[9px] font-medium text-white">
+                      <AlertTriangle className="size-2.5" />
+                      Low quality
+                    </span>
+                  )}
                   {!isSubmitting && (
                     <button
                       type="button"

@@ -24,6 +24,20 @@ const DEFAULT_FIELD_STRICTNESS: Record<string, string> = {
   standards_of_fill: 'strict',
 }
 
+export interface SLATargets {
+  reviewResponseHours: number
+  totalTurnaroundHours: number
+  autoApprovalRateTarget: number
+  maxQueueDepth: number
+}
+
+const DEFAULT_SLA_TARGETS: SLATargets = {
+  reviewResponseHours: 48,
+  totalTurnaroundHours: 72,
+  autoApprovalRateTarget: 70,
+  maxQueueDepth: 50,
+}
+
 async function getSettingValue<T>(key: string): Promise<T | null> {
   const [row] = await db
     .select({ value: settings.value })
@@ -59,4 +73,9 @@ export async function getFieldStrictness(): Promise<Record<string, string>> {
   const value =
     await getSettingValue<Record<string, string>>('field_strictness')
   return value ?? { ...DEFAULT_FIELD_STRICTNESS }
+}
+
+export async function getSLATargets(): Promise<SLATargets> {
+  const value = await getSettingValue<SLATargets>('sla_targets')
+  return value ?? { ...DEFAULT_SLA_TARGETS }
 }

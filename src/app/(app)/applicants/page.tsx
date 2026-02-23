@@ -1,15 +1,15 @@
 import Link from 'next/link'
 import { desc, eq, sql, count } from 'drizzle-orm'
-import { ArrowRight, Building2, Search } from 'lucide-react'
+import { ArrowRight, Building2 } from 'lucide-react'
 
 import { db } from '@/db'
 import { applicants, labels } from '@/db/schema'
 import { getSession } from '@/lib/auth/get-session'
 import { PageHeader } from '@/components/layout/page-header'
+import { SearchInput } from '@/components/shared/search-input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import {
   Table,
   TableBody,
@@ -123,25 +123,12 @@ export default async function ApplicantsPage({
       </PageHeader>
 
       {/* Search */}
-      <form className="flex items-center gap-2">
-        <div className="relative max-w-sm flex-1">
-          <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            name="search"
-            placeholder="Search by company name..."
-            defaultValue={searchTerm}
-            className="pl-9"
-          />
-        </div>
-        <Button type="submit" variant="secondary" size="sm">
-          Search
-        </Button>
-        {searchTerm && (
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/applicants">Clear</Link>
-          </Button>
-        )}
-      </form>
+      <SearchInput
+        paramKey="search"
+        basePath="/applicants"
+        placeholder="Search by company name..."
+        className="max-w-sm"
+      />
 
       {applicantsWithStats.length === 0 ? (
         <Card>
@@ -153,9 +140,9 @@ export default async function ApplicantsPage({
                 : 'No applicants yet. Applicants are created when submitting labels for verification.'}
             </p>
             {searchTerm && (
-              <Button variant="ghost" size="sm" className="mt-2" asChild>
-                <Link href="/applicants">Clear search</Link>
-              </Button>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Try a different search term or clear the search field.
+              </p>
             )}
           </CardContent>
         </Card>

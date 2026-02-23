@@ -1,0 +1,100 @@
+{
+  "labelName": "sierra-nevada",
+  "beverageType": "malt_beverage",
+  "images": [
+    {
+      "filename": "front.png",
+      "imageType": "front"
+    }
+  ],
+  "fields": {
+    "brand_name": "SIERRA NEVADA",
+    "class_type": "STOUT AGED IN BOURBON BARRELS, RUM BARRELS AND PORT BARRELS",
+    "net_contents": "1 PT. 9.4 FL. OZ.",
+    "health_warning": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE OF THE RISK OF BIRTH DEFECTS. (2) CONSUMPTION OF ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY TO DRIVE A CAR OR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+    "name_and_address": "SIERRA NEVADA BREWING CO., CHICO, CA & MILLS RIVER, NC",
+    "qualifying_phrase": null,
+    "fanciful_name": "TRIP THRU THE WOODS",
+    "alcohol_content": "ALC. 13.8% BY VOL.",
+    "country_of_origin": null,
+    "standards_of_fill": null
+  },
+  "fieldDetails": [
+    {
+      "fieldName": "brand_name",
+      "value": "SIERRA NEVADA",
+      "confidence": 95,
+      "reasoning": "Prominent banner at top of label reads 'SIERRA NEVADA'.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "class_type",
+      "value": "STOUT AGED IN BOURBON BARRELS, RUM BARRELS AND PORT BARRELS",
+      "confidence": 90,
+      "reasoning": "Bottom center of label states 'STOUT AGED IN BOURBON BARRELS, RUM BARRELS AND PORT BARRELS' — this provides the product class/description.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "net_contents",
+      "value": "1 PT. 9.4 FL. OZ.",
+      "confidence": 80,
+      "reasoning": "Right-side vertical panel near the top reads '1 PT. 9.4 FL. OZ.' (net contents).",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "health_warning",
+      "value": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE OF THE RISK OF BIRTH DEFECTS. (2) CONSUMPTION OF ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY TO DRIVE A CAR OR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+      "confidence": 85,
+      "reasoning": "Right-side vertical panel contains the standard 'GOVERNMENT WARNING:' block with the two numbered statements; text is legible on the front label image.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "name_and_address",
+      "value": "SIERRA NEVADA BREWING CO., CHICO, CA & MILLS RIVER, NC",
+      "confidence": 90,
+      "reasoning": "Bottom center of the label lists the producer/address as 'SIERRA NEVADA BREWING CO., CHICO, CA & MILLS RIVER, NC'.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "qualifying_phrase",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No qualifying phrase such as 'Bottled by', 'Distilled by', or 'Imported by' is visible on the provided label image.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "fanciful_name",
+      "value": "TRIP THRU THE WOODS",
+      "confidence": 95,
+      "reasoning": "Large central decorative text reads 'TRIP THRU THE WOODS', a distinctive product name separate from the brand.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "alcohol_content",
+      "value": "ALC. 13.8% BY VOL.",
+      "confidence": 85,
+      "reasoning": "Top-right vertical area of the label shows the alcohol content as 'ALC. 13.8% BY VOL.'",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "country_of_origin",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No explicit 'Product of ...' or country of origin statement is visible on the provided front label image.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "standards_of_fill",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "The label does not state whether the container size conforms to a specific TTB standards-of-fill category; no such statement is visible.",
+      "sourceImage": "front"
+    }
+  ],
+  "metadata": {
+    "modelUsed": "gpt-5-mini",
+    "processingTimeMs": 60914,
+    "extractedAt": "2026-02-23T00:31:31.094Z",
+    "totalTokens": 3842
+  }
+}

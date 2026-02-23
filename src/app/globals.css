@@ -181,6 +181,7 @@
   }
   body {
     @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
   }
   h1,
   h2,
@@ -189,5 +190,26 @@
   h5,
   h6 {
     font-family: var(--font-heading), serif;
+    font-variation-settings:
+      'WONK' 1,
+      'SOFT' 0;
+    text-wrap: balance;
+  }
+
+  /* Prevent iOS zoom on input focus */
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+
+  /* Respect reduced motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-spin,
+    .animate-pulse {
+      animation: none;
+    }
   }
 }

@@ -3,7 +3,6 @@
 import { useRouter } from 'next/navigation'
 import { LogOut } from 'lucide-react'
 
-import { Badge } from '@/components/ui/badge'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { signOut, useSession } from '@/lib/auth/auth-client'
+import { cn } from '@/lib/utils'
 
 function getInitials(name: string): string {
   return name
@@ -26,9 +26,14 @@ function getInitials(name: string): string {
 interface UserMenuProps {
   fallbackName: string
   fallbackRole: string
+  collapsed?: boolean
 }
 
-export function UserMenu({ fallbackName, fallbackRole }: UserMenuProps) {
+export function UserMenu({
+  fallbackName,
+  fallbackRole,
+  collapsed = false,
+}: UserMenuProps) {
   const router = useRouter()
   const { data: session } = useSession()
 
@@ -45,19 +50,33 @@ export function UserMenu({ fallbackName, fallbackRole }: UserMenuProps) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none hover:bg-accent">
-        <div className="flex size-7 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+      <DropdownMenuTrigger
+        className={cn(
+          'flex items-center rounded-md text-sm transition-colors outline-none hover:bg-sidebar-accent/50',
+          collapsed
+            ? 'w-full justify-center p-1.5'
+            : 'w-full gap-2 px-2 py-1.5',
+        )}
+      >
+        <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-sidebar-primary text-xs font-medium text-sidebar-primary-foreground">
           {initials}
         </div>
-        <span className="hidden font-medium sm:inline-block">{name}</span>
-        <Badge
-          variant="secondary"
-          className="hidden text-[10px] sm:inline-flex"
-        >
-          {roleName}
-        </Badge>
+        {!collapsed && (
+          <div className="flex min-w-0 flex-1 flex-col text-left">
+            <span className="truncate text-sm font-medium text-sidebar-foreground">
+              {name}
+            </span>
+            <span className="truncate text-[11px] text-sidebar-foreground/60">
+              {roleName}
+            </span>
+          </div>
+        )}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
+      <DropdownMenuContent
+        align="start"
+        side={collapsed ? 'right' : 'top'}
+        className="w-48"
+      >
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium">{name}</p>

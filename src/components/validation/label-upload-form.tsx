@@ -1,10 +1,9 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { upload } from '@vercel/blob/client'
 import {
   CheckCircle,
   Loader2,
@@ -20,6 +19,7 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
+import { submitApplication } from '@/app/actions/submit-application'
 import { validateLabel } from '@/app/actions/validate-label'
 import { Button } from '@/components/ui/button'
 import {
@@ -55,6 +55,15 @@ import {
   type ValidateLabelInput,
 } from '@/lib/validators/label-schema'
 import { MAX_FILE_SIZE } from '@/lib/validators/file-schema'
+import { decodeImageDimensions } from '@/lib/validators/decode-image-dimensions'
+import {
+  assessImageQuality,
+  type ImageQualityResult,
+} from '@/lib/validators/image-quality'
+import {
+  ProcessingProgress,
+  type ProcessingStage,
+} from '@/components/validation/processing-progress'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -66,6 +75,7 @@ interface FileWithPreview {
   status: 'pending' | 'uploading' | 'uploaded' | 'error'
   url?: string
   error?: string
+  quality?: ImageQualityResult
 }
 
 // ---------------------------------------------------------------------------
@@ -92,10 +102,44 @@ const ACCEPT_MAP = {
 // Component
 // ---------------------------------------------------------------------------
 
-export function LabelUploadForm() {
+interface LabelUploadFormProps {
+  mode?: 'validate' | 'submit'
+}
+
+export function LabelUploadForm({ mode = 'validate' }: LabelUploadFormProps) {
   const router = useRouter()
   const [files, setFiles] = useState<FileWithPreview[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [processingStage, setProcessingStage] =
+    useState<ProcessingStage | null>(null)
+  const stageTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+
+  /** Start timed progression through AI pipeline stages after upload completes */
+  function startPipelineStages() {
+    // Clear any previous timers
+    for (const t of stageTimersRef.current) clearTimeout(t)
+    stageTimersRef.current = []
+
+    // Transition: ocr → classifying → comparing → finalizing
+    // These are estimated times based on typical pipeline performance
+    setProcessingStage('ocr')
+    const stages: Array<{ stage: ProcessingStage; delayMs: number }> = [
+      { stage: 'classifying', delayMs: 1200 },
+      { stage: 'comparing', delayMs: 3200 },
+      { stage: 'finalizing', delayMs: 3800 },
+    ]
+    for (const { stage, delayMs } of stages) {
+      stageTimersRef.current.push(
+        setTimeout(() => setProcessingStage(stage), delayMs),
+      )
+    }
+  }
+
+  function clearPipelineStages() {
+    for (const t of stageTimersRef.current) clearTimeout(t)
+    stageTimersRef.current = []
+    setProcessingStage(null)
+  }
 
   const {
     register,
@@ -169,6 +213,51 @@ export function LabelUploadForm() {
       status: 'pending' as const,
     }))
     setFiles((prev) => [...prev, ...newFiles])
+
+    // Async quality check for each dropped file
+    for (let i = 0; i < newFiles.length; i++) {
+      const entry = newFiles[i]
+      decodeImageDimensions(entry.preview)
+        .then(({ width, height }) => {
+          const result = assessImageQuality(
+            width,
+            height,
+            entry.file.size,
+            entry.file.type,
+          )
+
+          if (result.level === 'error') {
+            // Hard block — remove from list and show red toast
+            setFiles((prev) => {
+              const idx = prev.findIndex((f) => f.preview === entry.preview)
+              if (idx === -1) return prev
+              URL.revokeObjectURL(entry.preview)
+              return [...prev.slice(0, idx), ...prev.slice(idx + 1)]
+            })
+            toast.error(
+              `${entry.file.name} rejected — ${result.issues[0]?.message}`,
+            )
+          } else if (result.level === 'warning') {
+            // Soft warning — attach quality result and show amber toast
+            setFiles((prev) =>
+              prev.map((f) =>
+                f.preview === entry.preview ? { ...f, quality: result } : f,
+              ),
+            )
+            toast.warning(`${entry.file.name}: ${result.issues[0]?.message}`)
+          } else {
+            // Pass — attach quality silently
+            setFiles((prev) =>
+              prev.map((f) =>
+                f.preview === entry.preview ? { ...f, quality: result } : f,
+              ),
+            )
+          }
+        })
+        .catch(() => {
+          // Could not decode — leave as-is, let upload/AI handle it
+        })
+    }
   }, [])
 
   const removeFile = useCallback((index: number) => {
@@ -220,10 +309,16 @@ export function LabelUploadForm() {
       setFiles([...updated])
 
       try {
-        const blob = await upload(fileEntry.file.name, fileEntry.file, {
-          access: 'public',
-          handleUploadUrl: '/api/blob/upload',
-        })
+        const body = new FormData()
+        body.append('file', fileEntry.file)
+        const res = await fetch('/api/blob/upload', { method: 'POST', body })
+        if (!res.ok) {
+          const data = await res
+            .json()
+            .catch(() => ({ error: 'Upload failed' }))
+          throw new Error(data.error ?? `Upload failed (${res.status})`)
+        }
+        const blob: { url: string } = await res.json()
         updated[i] = { ...fileEntry, status: 'uploaded', url: blob.url }
         urls.push(blob.url)
       } catch (err) {
@@ -248,13 +343,25 @@ export function LabelUploadForm() {
       return
     }
 
+    // Safety guard — block if any file still has error-level quality
+    if (files.some((f) => f.quality?.level === 'error')) {
+      toast.error(
+        'Remove images that do not meet the minimum quality requirements',
+      )
+      return
+    }
+
     setIsSubmitting(true)
+    setProcessingStage('uploading')
 
     try {
       // 1. Upload images to Vercel Blob
       const imageUrls = await uploadFiles()
 
-      // 2. Build FormData for server action
+      // 2. Start timed AI pipeline progression
+      startPipelineStages()
+
+      // 3. Build FormData for server action
       const formData = new FormData()
       formData.set('beverageType', data.beverageType)
       formData.set('containerSizeMl', String(data.containerSizeMl))
@@ -283,12 +390,23 @@ export function LabelUploadForm() {
         formData.set('stateOfDistillation', data.stateOfDistillation)
       formData.set('imageUrls', JSON.stringify(imageUrls))
 
-      // 3. Call server action
-      const result = await validateLabel(formData)
+      // 4. Call server action
+      const result =
+        mode === 'submit'
+          ? await submitApplication(formData)
+          : await validateLabel(formData)
 
       if (result.success) {
-        toast.success('Label validation complete')
-        router.push(`/history/${result.labelId}`)
+        toast.success(
+          mode === 'submit'
+            ? 'Application submitted successfully'
+            : 'Label validation complete',
+        )
+        router.push(
+          mode === 'submit'
+            ? `/submissions/${result.labelId}`
+            : `/labels/${result.labelId}`,
+        )
       } else {
         toast.error(result.error)
       }
@@ -297,6 +415,7 @@ export function LabelUploadForm() {
         err instanceof Error ? err.message : 'An unexpected error occurred'
       toast.error(message)
     } finally {
+      clearPipelineStages()
       setIsSubmitting(false)
     }
   }
@@ -502,10 +621,17 @@ export function LabelUploadForm() {
                       )}
                     </div>
                   </div>
+                  {fileEntry.quality?.level === 'warning' && (
+                    <span className="absolute top-1 left-1 flex items-center gap-1 rounded-full bg-amber-500/90 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                      <AlertTriangle className="size-3" />
+                      Low quality
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={() => removeFile(index)}
-                    className="hover:text-destructive-foreground absolute top-1 right-1 rounded-full bg-background/80 p-1 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-destructive"
+                    className="hover:text-destructive-foreground absolute top-1 right-1 rounded-full bg-background/80 p-1.5 text-muted-foreground transition-colors hover:bg-destructive active:scale-95"
+                    aria-label={`Remove ${fileEntry.file.name}`}
                   >
                     <X className="size-3.5" />
                   </button>
@@ -770,20 +896,28 @@ export function LabelUploadForm() {
         >
           Cancel
         </Button>
-        <Button type="submit" disabled={isSubmitting} size="lg">
+        <Button
+          type="submit"
+          disabled={isSubmitting}
+          size="lg"
+          className="active:scale-[0.97]"
+        >
           {isSubmitting ? (
             <>
               <Loader2 className="animate-spin" />
-              Validating...
+              {mode === 'submit' ? 'Submitting...' : 'Validating...'}
             </>
           ) : (
             <>
               <CheckCircle />
-              Validate Label
+              {mode === 'submit' ? 'Submit Application' : 'Validate Label'}
             </>
           )}
         </Button>
       </div>
+
+      {/* Multi-stage processing progress overlay */}
+      {processingStage && <ProcessingProgress stage={processingStage} />}
     </form>
   )
 }

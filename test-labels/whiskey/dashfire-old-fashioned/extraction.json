@@ -1,0 +1,116 @@
+{
+  "labelName": "dashfire-old-fashioned",
+  "beverageType": "distilled_spirits",
+  "images": [
+    {
+      "filename": "front.png",
+      "imageType": "front"
+    }
+  ],
+  "fields": {
+    "brand_name": "DASHFIRE",
+    "class_type": "BOURBON",
+    "alcohol_content": "38% ALC. / VOL.",
+    "net_contents": "VOL. 100ML",
+    "health_warning": null,
+    "name_and_address": null,
+    "qualifying_phrase": null,
+    "fanciful_name": "OLD FASHIONED",
+    "country_of_origin": null,
+    "age_statement": null,
+    "state_of_distillation": null,
+    "standards_of_fill": null
+  },
+  "fieldDetails": [
+    {
+      "fieldName": "brand_name",
+      "value": "DASHFIRE",
+      "confidence": 95,
+      "reasoning": "Large, prominent uppercase wordmark across the center-left of the label: “DASHFIRE.”",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "class_type",
+      "value": "BOURBON",
+      "confidence": 95,
+      "reasoning": "The word “BOURBON” appears in uppercase directly above the product name and under the brand on the label.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "alcohol_content",
+      "value": "38% ALC. / VOL.",
+      "confidence": 90,
+      "reasoning": "Bottom-left area shows the alcohol statement in a small boxed panel reading “38% ALC. / VOL.” (also the diamond shows “76 PROOF”).",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "net_contents",
+      "value": "VOL. 100ML",
+      "confidence": 90,
+      "reasoning": "Near the alcohol statement a boxed label reads “VOL. 100ML,” indicating the net contents as printed.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "health_warning",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No federally mandated “GOVERNMENT WARNING:” statement is visible on the provided front-label image.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "name_and_address",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No clear bottler/distiller/importer name and address block is legible on the front label image; small vertical text at the far right is unreadable in this image.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "qualifying_phrase",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No qualifying phrase such as “Bottled by,” “Distilled by,” or “Imported by” is legible on the front label image.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "fanciful_name",
+      "value": "OLD FASHIONED",
+      "confidence": 90,
+      "reasoning": "“OLD FASHIONED” appears prominently in large type on the label and on the boxed right panel, indicating the product/fanciful name.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "country_of_origin",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No explicit country-of-origin statement (e.g., “Product of …”) is visible on the front label image.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "age_statement",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No age or maturation statement (e.g., “Aged X Years”) is visible on the front label image.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "state_of_distillation",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "The state where distilled is not legible or present on the front label image.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "standards_of_fill",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No text indicating standards of fill is visible on the provided front label image.",
+      "sourceImage": null
+    }
+  ],
+  "metadata": {
+    "modelUsed": "gpt-5-mini",
+    "processingTimeMs": 21889,
+    "extractedAt": "2026-02-23T00:30:18.467Z",
+    "totalTokens": 2860
+  }
+}

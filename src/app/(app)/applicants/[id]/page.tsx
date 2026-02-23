@@ -76,7 +76,7 @@ function formatDate(date: Date): string {
 function formatConfidence(value: string | null): string {
   if (!value) return '--'
   const num = Number(value)
-  return `${Math.round(num * 100)}%`
+  return `${Math.round(num)}%`
 }
 
 function getRiskBadge(approvalRate: number | null) {
@@ -398,7 +398,7 @@ export default async function ApplicantDetailPage({
                     </TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/history/${label.id}`}>
+                        <Link href={`/labels/${label.id}`}>
                           View
                           <ArrowRight className="size-3" />
                         </Link>

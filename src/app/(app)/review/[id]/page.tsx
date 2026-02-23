@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { eq, and } from 'drizzle-orm'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Building2 } from 'lucide-react'
 
 import { db } from '@/db'
 import {
@@ -10,12 +10,14 @@ import {
   labelImages,
   validationResults,
   validationItems,
+  applicants,
 } from '@/db/schema'
 import { getSession } from '@/lib/auth/get-session'
 import { getEffectiveStatus } from '@/lib/labels/effective-status'
 import { getSignedImageUrl } from '@/lib/storage/blob'
 import { PageHeader } from '@/components/layout/page-header'
 import { StatusBadge } from '@/components/shared/status-badge'
+import { StatusOverrideDialog } from '@/components/shared/status-override-dialog'
 import { ValidationSummary } from '@/components/validation/validation-summary'
 import { ReviewDetailPanels } from '@/components/review/review-detail-panels'
 import { Button } from '@/components/ui/button'
@@ -52,14 +54,18 @@ export default async function ReviewDetailPage({
     deadlineExpired: label.deadlineExpired,
   })
 
-  // Only allow review for labels that need correction or are conditionally approved
-  const reviewableStatuses = ['needs_correction', 'conditionally_approved']
+  // Only allow review for labels pending human review or with correction issues
+  const reviewableStatuses = [
+    'pending_review',
+    'needs_correction',
+    'conditionally_approved',
+  ]
   if (!reviewableStatuses.includes(effectiveStatus)) {
     notFound()
   }
 
   // Fetch all related data in parallel
-  const [appData, images, result] = await Promise.all([
+  const [appData, images, result, applicant] = await Promise.all([
     db
       .select()
       .from(applicationData)
@@ -82,6 +88,14 @@ export default async function ReviewDetailPage({
       )
       .limit(1)
       .then((rows) => rows[0] ?? null),
+    label.applicantId
+      ? db
+          .select()
+          .from(applicants)
+          .where(eq(applicants.id, label.applicantId))
+          .limit(1)
+          .then((rows) => rows[0] ?? null)
+      : null,
   ])
 
   // Fetch validation items for the current result
@@ -109,10 +123,12 @@ export default async function ReviewDetailPage({
   )
 
   const brandName = appData?.brandName ?? 'Untitled Label'
-  const primaryImage = images[0]
-  const signedImageUrl = primaryImage
-    ? await getSignedImageUrl(primaryImage.imageUrl)
-    : null
+  const signedImages = images.map((img) => ({
+    id: img.id,
+    imageUrl: getSignedImageUrl(img.imageUrl),
+    imageType: img.imageType,
+    sortOrder: img.sortOrder,
+  }))
   const confidence = label.overallConfidence
     ? Number(label.overallConfidence)
     : null
@@ -122,9 +138,9 @@ export default async function ReviewDetailPage({
       {/* Back link + header */}
       <div className="space-y-4">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/review">
+          <Link href="/">
             <ArrowLeft className="size-4" />
-            Back to Review Queue
+            Back to Labels
           </Link>
         </Button>
 
@@ -137,7 +153,36 @@ export default async function ReviewDetailPage({
           }
         >
           <StatusBadge status={effectiveStatus} className="px-3 py-1 text-sm" />
+          <StatusOverrideDialog
+            labelId={label.id}
+            currentStatus={effectiveStatus}
+          />
         </PageHeader>
+
+        {/* Applicant info */}
+        {applicant && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Building2 className="size-4 shrink-0" />
+            <Link
+              href={`/applicants/${applicant.id}`}
+              className="font-medium text-foreground hover:underline"
+            >
+              {applicant.companyName}
+            </Link>
+            {applicant.contactName && (
+              <>
+                <span className="text-muted-foreground/50">·</span>
+                <span>{applicant.contactName}</span>
+              </>
+            )}
+            {applicant.contactEmail && (
+              <>
+                <span className="text-muted-foreground/50">·</span>
+                <span>{applicant.contactEmail}</span>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Summary bar */}
@@ -147,13 +192,14 @@ export default async function ReviewDetailPage({
         processingTimeMs={result?.processingTimeMs ?? null}
         modelUsed={result?.modelUsed ?? null}
         fieldCounts={fieldCounts}
+        aiProposedStatus={label.aiProposedStatus}
       />
 
       {/* Two-panel layout: image + review field list */}
-      {primaryImage && signedImageUrl ? (
+      {signedImages.length > 0 ? (
         <ReviewDetailPanels
           labelId={label.id}
-          imageUrl={signedImageUrl}
+          images={signedImages}
           validationItems={items.map((item) => ({
             id: item.id,
             fieldName: item.fieldName,
@@ -166,6 +212,7 @@ export default async function ReviewDetailPage({
             bboxY: item.bboxY,
             bboxWidth: item.bboxWidth,
             bboxHeight: item.bboxHeight,
+            labelImageId: item.labelImageId,
           }))}
         />
       ) : (

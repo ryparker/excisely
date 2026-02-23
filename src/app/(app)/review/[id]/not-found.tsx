@@ -24,7 +24,7 @@ export default function ReviewNotFound() {
         </CardContent>
         <CardFooter className="justify-center">
           <Button asChild>
-            <Link href="/review">Back to Review Queue</Link>
+            <Link href="/">Back to Labels</Link>
           </Button>
         </CardFooter>
       </Card>

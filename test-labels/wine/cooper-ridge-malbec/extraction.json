@@ -1,0 +1,136 @@
+{
+  "labelName": "cooper-ridge-malbec",
+  "beverageType": "wine",
+  "images": [
+    {
+      "filename": "front.png",
+      "imageType": "front"
+    },
+    {
+      "filename": "back.png",
+      "imageType": "back"
+    }
+  ],
+  "fields": {
+    "brand_name": "COOPER RIDGE",
+    "class_type": "MALBEC",
+    "alcohol_content": "Alc. 13% by Vol.",
+    "net_contents": "750 ml",
+    "health_warning": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE OF THE RISK OF BIRTH DEFECTS. (2) CONSUMPTION OF ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY TO DRIVE A CAR OR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+    "name_and_address": "Cooper Ridge Vineyard 1389 Old Garden Valley Road, Roseburg, Oregon",
+    "qualifying_phrase": "Grown, Produced & Bottled by",
+    "grape_varietal": "MALBEC",
+    "appellation_of_origin": "UMPQUA VALLEY, OREGON",
+    "sulfite_declaration": "Contains Sulfites",
+    "fanciful_name": "FOX HOLLOW VINEYARD",
+    "country_of_origin": null,
+    "vintage_year": "2022",
+    "standards_of_fill": null
+  },
+  "fieldDetails": [
+    {
+      "fieldName": "brand_name",
+      "value": "COOPER RIDGE",
+      "confidence": 95,
+      "reasoning": "Large prominent brand text at top of front label: \"COOPER RIDGE\".",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "class_type",
+      "value": "MALBEC",
+      "confidence": 95,
+      "reasoning": "The varietal/class is printed prominently as \"MALBEC\" on both front and back labels.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "alcohol_content",
+      "value": "Alc. 13% by Vol.",
+      "confidence": 90,
+      "reasoning": "Back label small print shows the alcohol statement: \"Alc. 13% by Vol.\" (appears next to the net contents).",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "net_contents",
+      "value": "750 ml",
+      "confidence": 90,
+      "reasoning": "Back label lists container size as \"750 ml\" next to the alcohol content.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "health_warning",
+      "value": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE OF THE RISK OF BIRTH DEFECTS. (2) CONSUMPTION OF ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY TO DRIVE A CAR OR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+      "confidence": 95,
+      "reasoning": "Back label contains the full federally mandated health warning beginning with the required \"GOVERNMENT WARNING:\" prefix.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "name_and_address",
+      "value": "Cooper Ridge Vineyard 1389 Old Garden Valley Road, Roseburg, Oregon",
+      "confidence": 85,
+      "reasoning": "Back label lists the producer name and street/city/state address in the block: \"Cooper Ridge Vineyard 1389 Old Garden Valley Road, Roseburg, Oregon\" (appears after the qualifying phrase).",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "qualifying_phrase",
+      "value": "Grown, Produced & Bottled by",
+      "confidence": 90,
+      "reasoning": "Back label begins the name/address block with the qualifying phrase \"Grown, Produced & Bottled by\" before the producer name.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "grape_varietal",
+      "value": "MALBEC",
+      "confidence": 95,
+      "reasoning": "The wine varietal is stated clearly as \"MALBEC\" on both front and back labels.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "appellation_of_origin",
+      "value": "UMPQUA VALLEY, OREGON",
+      "confidence": 95,
+      "reasoning": "Front label lists the appellation in all caps as \"UMPQUA VALLEY, OREGON.\"",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "sulfite_declaration",
+      "value": "Contains Sulfites",
+      "confidence": 95,
+      "reasoning": "Back label includes the sulfite declaration text \"Contains Sulfites.\"",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "fanciful_name",
+      "value": "FOX HOLLOW VINEYARD",
+      "confidence": 75,
+      "reasoning": "Front label includes the vineyard/designation \"FOX HOLLOW VINEYARD\" beneath the varietal; this may serve as a fanciful/vineyard name.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "country_of_origin",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No explicit country-of-origin or \"Product of ...\" statement is visible on the label images.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "vintage_year",
+      "value": "2022",
+      "confidence": 95,
+      "reasoning": "The vintage year \"2022\" appears prominently on both front and back labels.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "standards_of_fill",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No statement regarding standards of fill is visible on the provided label images.",
+      "sourceImage": null
+    }
+  ],
+  "metadata": {
+    "modelUsed": "gpt-5-mini",
+    "processingTimeMs": 35218,
+    "extractedAt": "2026-02-23T00:31:46.150Z",
+    "totalTokens": 3909
+  }
+}

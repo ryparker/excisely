@@ -1,0 +1,120 @@
+{
+  "labelName": "branch-barrel-wheat",
+  "beverageType": "distilled_spirits",
+  "images": [
+    {
+      "filename": "front.png",
+      "imageType": "front"
+    },
+    {
+      "filename": "back.png",
+      "imageType": "back"
+    }
+  ],
+  "fields": {
+    "brand_name": "BRANCH & BARREL",
+    "class_type": "WHEAT WHISKEY",
+    "alcohol_content": "46% Alc. by Vol.",
+    "net_contents": "750ml",
+    "health_warning": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE OF THE RISK OF BIRTH DEFECTS. (2) CONSUMPTION OF ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY TO DRIVE A CAR OR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+    "name_and_address": "BRANCH & BARREL DISTILLING, CENTENNIAL, COLORADO",
+    "qualifying_phrase": "DISTILLED, AGED AND BOTTLED BY",
+    "fanciful_name": null,
+    "country_of_origin": null,
+    "age_statement": "AGED A MINIMUM OF 4 YEARS",
+    "state_of_distillation": "CENTENNIAL, COLORADO",
+    "standards_of_fill": null
+  },
+  "fieldDetails": [
+    {
+      "fieldName": "brand_name",
+      "value": "BRANCH & BARREL",
+      "confidence": 95,
+      "reasoning": "Large prominent text at top of the label on the front (also repeated on the back).",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "class_type",
+      "value": "WHEAT WHISKEY",
+      "confidence": 98,
+      "reasoning": "Displayed prominently on the front ribbon and as the heading on the back label.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "alcohol_content",
+      "value": "46% Alc. by Vol.",
+      "confidence": 85,
+      "reasoning": "Printed on the front label below the age statement: '46% Alc. by Vol.'",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "net_contents",
+      "value": "750ml",
+      "confidence": 80,
+      "reasoning": "Small print on the lower left of the back label shows the bottle size as '750ml'.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "health_warning",
+      "value": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE OF THE RISK OF BIRTH DEFECTS. (2) CONSUMPTION OF ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY TO DRIVE A CAR OR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+      "confidence": 70,
+      "reasoning": "Standard federal government warning block is present in small print on the back label; text matches the standard required warning (transcribed from the small paragraph near the bottom).",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "name_and_address",
+      "value": "BRANCH & BARREL DISTILLING, CENTENNIAL, COLORADO",
+      "confidence": 90,
+      "reasoning": "Back label states 'DISTILLED, AGED AND BOTTLED BY BRANCH & BARREL DISTILLING, CENTENNIAL, COLORADO' — this is the bottler name and location (extracted name and address portion).",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "qualifying_phrase",
+      "value": "DISTILLED, AGED AND BOTTLED BY",
+      "confidence": 92,
+      "reasoning": "The back label begins the producer line with the qualifying phrase 'DISTILLED, AGED AND BOTTLED BY' before the name and address.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "fanciful_name",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No separate fanciful/distinctive product name beyond the brand and class type is visible on the label.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "country_of_origin",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No imported-country statement (e.g., 'Product of ...') is present; product appears domestic (Colorado) but no explicit country-of-origin phrase printed.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "age_statement",
+      "value": "AGED A MINIMUM OF 4 YEARS",
+      "confidence": 95,
+      "reasoning": "Printed on the front label below the ribbon: 'AGED A MINIMUM OF 4 YEARS'.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "state_of_distillation",
+      "value": "CENTENNIAL, COLORADO",
+      "confidence": 90,
+      "reasoning": "Back label gives the location for the distiller as '... BRANCH & BARREL DISTILLING, CENTENNIAL, COLORADO', identifying the state of distillation.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "standards_of_fill",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No explicit statement about TTB standards of fill appears on the label.",
+      "sourceImage": null
+    }
+  ],
+  "metadata": {
+    "modelUsed": "gpt-5-mini",
+    "processingTimeMs": 40128,
+    "extractedAt": "2026-02-23T00:30:00.251Z",
+    "totalTokens": 4119
+  }
+}

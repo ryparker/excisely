@@ -1,0 +1,120 @@
+{
+  "labelName": "knob-creek",
+  "beverageType": "distilled_spirits",
+  "images": [
+    {
+      "filename": "front.png",
+      "imageType": "front"
+    },
+    {
+      "filename": "back.png",
+      "imageType": "back"
+    }
+  ],
+  "fields": {
+    "brand_name": "KNOB CREEK",
+    "class_type": "KENTUCKY STRAIGHT BOURBON WHISKEY",
+    "alcohol_content": "60% ALC./VOL.",
+    "net_contents": "750 mL",
+    "health_warning": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE OF THE RISK OF BIRTH DEFECTS. (2) CONSUMPTION OF ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY TO DRIVE A CAR OR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+    "name_and_address": "DISTILLED AND BOTTLED BY JAMES B. BEAM DISTILLING CO., CLERMONT, KENTUCKY",
+    "qualifying_phrase": "DISTILLED AND BOTTLED BY",
+    "fanciful_name": "SINGLE BARREL RESERVE",
+    "country_of_origin": null,
+    "age_statement": "AGED NINE YEARS",
+    "state_of_distillation": "CLERMONT, KENTUCKY",
+    "standards_of_fill": null
+  },
+  "fieldDetails": [
+    {
+      "fieldName": "brand_name",
+      "value": "KNOB CREEK",
+      "confidence": 98,
+      "reasoning": "The large prominent brand text on the front label reads \"KNOB CREEK.\"",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "class_type",
+      "value": "KENTUCKY STRAIGHT BOURBON WHISKEY",
+      "confidence": 95,
+      "reasoning": "Front label under \"SINGLE BARREL RESERVE\" reads \"KENTUCKY STRAIGHT BOURBON WHISKEY.\"",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "alcohol_content",
+      "value": "60% ALC./VOL.",
+      "confidence": 90,
+      "reasoning": "Back label small print at bottom shows the alcohol content as \"60% ALC./VOL.\" next to the net contents.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "net_contents",
+      "value": "750 mL",
+      "confidence": 95,
+      "reasoning": "Back label bottom left clearly shows the container size as \"750 mL.\"",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "health_warning",
+      "value": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE OF THE RISK OF BIRTH DEFECTS. (2) CONSUMPTION OF ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY TO DRIVE A CAR OR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+      "confidence": 92,
+      "reasoning": "Back label top-left contains the federally required health warning beginning with the exact prefix \"GOVERNMENT WARNING:\" followed by the two numbered statements.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "name_and_address",
+      "value": "DISTILLED AND BOTTLED BY JAMES B. BEAM DISTILLING CO., CLERMONT, KENTUCKY",
+      "confidence": 85,
+      "reasoning": "Back label small print includes the bottler/distiller name and location: \"Distilled and bottled by James B. Beam Distilling Co., Clermont, Kentucky.\" Preserved here in the label's uppercase styling.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "qualifying_phrase",
+      "value": "DISTILLED AND BOTTLED BY",
+      "confidence": 85,
+      "reasoning": "The phrase preceding the name/address on the back label is the qualifying phrase \"Distilled and bottled by\" (appearing in uppercase on the label).",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "fanciful_name",
+      "value": "SINGLE BARREL RESERVE",
+      "confidence": 95,
+      "reasoning": "Front label displays the distinctive product name \"SINGLE BARREL RESERVE\" above the class/type statement.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "country_of_origin",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No explicit country-of-origin statement (e.g., \"Product of ...\") is visible on the provided label images.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "age_statement",
+      "value": "AGED NINE YEARS",
+      "confidence": 90,
+      "reasoning": "Front label includes an age statement next to the large \"9\" reading \"AGED NINE YEARS.\"",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "state_of_distillation",
+      "value": "CLERMONT, KENTUCKY",
+      "confidence": 85,
+      "reasoning": "The bottler/distiller address on the back includes the location \"Clermont, Kentucky,\" indicating the state where the spirit was produced.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "standards_of_fill",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No explicit statement about standards of fill is visible on the provided label images.",
+      "sourceImage": null
+    }
+  ],
+  "metadata": {
+    "modelUsed": "gpt-5-mini",
+    "processingTimeMs": 34700,
+    "extractedAt": "2026-02-23T00:29:48.322Z",
+    "totalTokens": 3878
+  }
+}

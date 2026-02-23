@@ -27,6 +27,15 @@ const fieldOverrideSchema = z.object({
   ]),
   resolvedStatus: z.enum(['match', 'mismatch', 'not_found']),
   reviewerNotes: z.string().optional(),
+  annotationData: z
+    .object({
+      x: z.number().min(0).max(1),
+      y: z.number().min(0).max(1),
+      width: z.number().min(0).max(1),
+      height: z.number().min(0).max(1),
+    })
+    .nullable()
+    .optional(),
 })
 
 const submitReviewSchema = z.object({
@@ -196,6 +205,7 @@ export async function submitReview(
     }
 
     const reviewableStatuses = [
+      'pending_review',
       'needs_correction',
       'conditionally_approved',
       'processing',
@@ -216,6 +226,7 @@ export async function submitReview(
         originalStatus: override.originalStatus,
         resolvedStatus: override.resolvedStatus,
         reviewerNotes: override.reviewerNotes || null,
+        annotationData: override.annotationData ?? null,
       })
 
       await db

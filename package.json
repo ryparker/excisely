@@ -18,6 +18,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx src/db/seed.ts",
+    "seed:prepare-images": "tsx scripts/prepare-ttb-slides.ts",
+    "test-labels:extract": "tsx scripts/extract-test-labels.ts",
     "db:studio": "drizzle-kit studio",
     "prepare": "husky"
   },
@@ -49,6 +51,7 @@
     "recharts": "2.15.4",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
+    "sharp": "^0.33.5",
     "zustand": "^5.0.11"
   },
   "devDependencies": {

@@ -1,0 +1,116 @@
+{
+  "labelName": "bulleit-frontier",
+  "beverageType": "distilled_spirits",
+  "images": [
+    {
+      "filename": "front.png",
+      "imageType": "front"
+    }
+  ],
+  "fields": {
+    "brand_name": "BULLEIT® BOURBON",
+    "class_type": "KENTUCKY STRAIGHT BOURBON WHISKEY",
+    "alcohol_content": "45% alc./vol. 90 PROOF",
+    "net_contents": "750 mL",
+    "health_warning": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE OF THE RISK OF BIRTH DEFECTS. (2) CONSUMPTION OF ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY TO DRIVE A CAR OR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+    "name_and_address": "BOTTLED BY BFW SPIRITS, BARDSTOWN, KENTUCKY",
+    "qualifying_phrase": "BOTTLED BY",
+    "fanciful_name": "FRONTIER WHISKEY",
+    "country_of_origin": null,
+    "age_statement": null,
+    "state_of_distillation": null,
+    "standards_of_fill": null
+  },
+  "fieldDetails": [
+    {
+      "fieldName": "brand_name",
+      "value": "BULLEIT® BOURBON",
+      "confidence": 95,
+      "reasoning": "Large prominent text on the front label reads “BULLEIT® BOURBON.”",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "class_type",
+      "value": "KENTUCKY STRAIGHT BOURBON WHISKEY",
+      "confidence": 95,
+      "reasoning": "The label includes the designation “KENTUCKY STRAIGHT BOURBON WHISKEY” beneath the brand text.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "alcohol_content",
+      "value": "45% alc./vol. 90 PROOF",
+      "confidence": 90,
+      "reasoning": "Alcohol content and proof are printed on the front panel as “45% alc./vol. 90 PROOF.”",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "net_contents",
+      "value": "750 mL",
+      "confidence": 95,
+      "reasoning": "The net contents “750 mL” is printed on the front label next to the brand text.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "health_warning",
+      "value": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE OF THE RISK OF BIRTH DEFECTS. (2) CONSUMPTION OF ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY TO DRIVE A CAR OR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+      "confidence": 90,
+      "reasoning": "The standard federally mandated warning block beginning with “GOVERNMENT WARNING:” appears on the label’s regulatory panel (right side).",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "name_and_address",
+      "value": "BOTTLED BY BFW SPIRITS, BARDSTOWN, KENTUCKY",
+      "confidence": 85,
+      "reasoning": "On the regulatory panel the bottler and location are printed as “BOTTLED BY BFW SPIRITS, BARDSTOWN, KENTUCKY.”",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "qualifying_phrase",
+      "value": "BOTTLED BY",
+      "confidence": 90,
+      "reasoning": "The phrase introducing the bottler appears in uppercase on the regulatory panel as “BOTTLED BY.”",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "fanciful_name",
+      "value": "FRONTIER WHISKEY",
+      "confidence": 85,
+      "reasoning": "Below the brand text the label displays “FRONTIER WHISKEY,” a distinctive product name element.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "country_of_origin",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No explicit country-of-origin statement (e.g., “Product of …”) is visible on the provided front label image.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "age_statement",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No age or maturation statement (e.g., “Aged X Years”) is visible on the label.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "state_of_distillation",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "Although the class type includes “KENTUCKY,” there is no explicit printed phrase like “Distilled in Kentucky”; therefore no explicit state-of-distillation phrase was extracted.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "standards_of_fill",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No statement about standards of fill is present or visible on the provided label image.",
+      "sourceImage": null
+    }
+  ],
+  "metadata": {
+    "modelUsed": "gpt-5-mini",
+    "processingTimeMs": 46822,
+    "extractedAt": "2026-02-23T00:29:20.121Z",
+    "totalTokens": 3664
+  }
+}

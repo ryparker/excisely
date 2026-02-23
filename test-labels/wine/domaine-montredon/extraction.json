@@ -1,0 +1,136 @@
+{
+  "labelName": "domaine-montredon",
+  "beverageType": "wine",
+  "images": [
+    {
+      "filename": "front.png",
+      "imageType": "front"
+    },
+    {
+      "filename": "back.png",
+      "imageType": "back"
+    }
+  ],
+  "fields": {
+    "brand_name": "DOMAINE DE MONTREDON",
+    "class_type": "Carignan",
+    "alcohol_content": "ALC. 13.5% BY VOL.",
+    "net_contents": "750 ML",
+    "health_warning": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE OF THE RISK OF BIRTH DEFECTS. (2) CONSUMPTION OF ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY TO DRIVE A CAR OR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+    "name_and_address": "SOUR GRAPES WINE ASHEVILLE NC",
+    "qualifying_phrase": "IMPORTED BY",
+    "grape_varietal": "Carignan",
+    "appellation_of_origin": "Pays d'Oc",
+    "sulfite_declaration": "CONTAINS SULFITES",
+    "fanciful_name": null,
+    "country_of_origin": "PRODUCT OF FRANCE",
+    "vintage_year": "2022",
+    "standards_of_fill": null
+  },
+  "fieldDetails": [
+    {
+      "fieldName": "brand_name",
+      "value": "DOMAINE DE MONTREDON",
+      "confidence": 95,
+      "reasoning": "Prominent text at top of front label reads 'DOMAINE DE MONTREDON'.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "class_type",
+      "value": "Carignan",
+      "confidence": 95,
+      "reasoning": "The grape/type designation 'Carignan' is shown prominently on the front label.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "alcohol_content",
+      "value": "ALC. 13.5% BY VOL.",
+      "confidence": 90,
+      "reasoning": "Back label near the barcode area shows 'ALC. 13.5% BY VOL.' (followed by the net contents).",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "net_contents",
+      "value": "750 ML",
+      "confidence": 90,
+      "reasoning": "Back label lists the bottle size as '750 ML' next to the alcohol content statement.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "health_warning",
+      "value": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE OF THE RISK OF BIRTH DEFECTS. (2) CONSUMPTION OF ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY TO DRIVE A CAR OR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+      "confidence": 95,
+      "reasoning": "Standard federally mandated warning block appears on the back label beginning with 'GOVERNMENT WARNING:' followed by the two numbered statements.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "name_and_address",
+      "value": "SOUR GRAPES WINE ASHEVILLE NC",
+      "confidence": 85,
+      "reasoning": "Back label contains the importer line 'IMPORTED BY SOUR GRAPES WINE ASHEVILLE NC'. This field captures the name and location as printed.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "qualifying_phrase",
+      "value": "IMPORTED BY",
+      "confidence": 90,
+      "reasoning": "The phrase 'IMPORTED BY' precedes the importer name/address on the back label.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "grape_varietal",
+      "value": "Carignan",
+      "confidence": 95,
+      "reasoning": "The varietal 'Carignan' is printed on the front label and also on the back ('Carignan, Pays d'Oc').",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "appellation_of_origin",
+      "value": "Pays d'Oc",
+      "confidence": 95,
+      "reasoning": "Label includes the appellation 'Pays d'Oc' (Indication Géographique Protégée) shown on back and front.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "sulfite_declaration",
+      "value": "CONTAINS SULFITES",
+      "confidence": 95,
+      "reasoning": "Back label includes the sulfite declaration 'CONTAINS SULFITES' in the product information block.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "fanciful_name",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No separate fanciful name distinct from the brand ('DOMAINE DE MONTREDON') is evident on the label.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "country_of_origin",
+      "value": "PRODUCT OF FRANCE",
+      "confidence": 95,
+      "reasoning": "Back label shows 'PRODUCT OF FRANCE' (and front shows 'Produit de France').",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "vintage_year",
+      "value": "2022",
+      "confidence": 90,
+      "reasoning": "Back label displays the year '2022' below the 'DOMAINE DE MONTREDON' heading.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "standards_of_fill",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "The label does not explicitly state whether the container conforms to TTB standards of fill; this cannot be determined solely from the printed text.",
+      "sourceImage": null
+    }
+  ],
+  "metadata": {
+    "modelUsed": "gpt-5-mini",
+    "processingTimeMs": 61263,
+    "extractedAt": "2026-02-23T00:32:53.316Z",
+    "totalTokens": 5744
+  }
+}

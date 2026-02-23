@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Bottle -->
+  <g stroke="#c5a55a" stroke-width="2.5">
+    <!-- Bottle neck -->
+    <path d="M18 8v8c-4 2-7 5-7 10v24a4 4 0 004 4h14a4 4 0 004-4V26c0-5-3-8-7-10V8"/>
+    <!-- Bottle cap -->
+    <rect x="16" y="4" width="8" height="5" rx="1"/>
+    <!-- Label on bottle -->
+    <rect x="14" y="32" width="12" height="10" rx="1.5"/>
+  </g>
+  <!-- Magnifying glass -->
+  <g stroke="#c5a55a" stroke-width="2.5">
+    <circle cx="44" cy="30" r="12"/>
+    <line x1="52.5" y1="38.5" x2="59" y2="45"/>
+  </g>
+  <!-- Checkmark inside magnifying glass -->
+  <polyline points="37,30 42,35 51,25" stroke="#c5a55a" stroke-width="3" fill="none"/>
+</svg>

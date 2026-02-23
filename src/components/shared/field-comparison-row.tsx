@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { diffChars } from 'diff'
 import {
   CheckCircle2,
@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
+import { FieldLabel } from '@/components/shared/field-label'
 import { cn } from '@/lib/utils'
 
 const FIELD_DISPLAY_NAMES: Record<string, string> = {
@@ -55,6 +56,20 @@ const STATUS_BORDER: Record<string, string> = {
   mismatch: 'border-red-200 dark:border-red-900/40',
   needs_correction: 'border-amber-200 dark:border-amber-900/40',
   not_found: 'border-border',
+}
+
+const ACTIVE_BG: Record<string, string> = {
+  match: 'bg-green-50/50 dark:bg-green-950/20',
+  mismatch: 'bg-red-50/50 dark:bg-red-950/20',
+  needs_correction: 'bg-amber-50/50 dark:bg-amber-950/20',
+  not_found: 'bg-muted/50',
+}
+
+const ACTIVE_RING: Record<string, string> = {
+  match: 'ring-green-500/50',
+  mismatch: 'ring-red-500/50',
+  needs_correction: 'ring-amber-500/50',
+  not_found: 'ring-border',
 }
 
 interface FieldComparisonRowProps {
@@ -114,19 +129,29 @@ export function FieldComparisonRow({
   onClick,
 }: FieldComparisonRowProps) {
   const [expanded, setExpanded] = useState(false)
+  const rowRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (isActive && rowRef.current) {
+      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [isActive])
 
   const displayName =
     FIELD_DISPLAY_NAMES[fieldName] ?? fieldName.replace(/_/g, ' ')
-  const confidencePercent = Math.round(confidence * 100)
+  const confidencePercent = Math.round(confidence)
   const borderStyle = STATUS_BORDER[status] ?? 'border-border'
   const badgeStyle = STATUS_BADGE_STYLE[status] ?? ''
+  const activeBg = ACTIVE_BG[status] ?? ''
+  const activeRing = ACTIVE_RING[status] ?? 'ring-primary'
 
   return (
     <div
+      ref={rowRef}
       className={cn(
-        'cursor-pointer rounded-lg border p-4 transition-all',
+        'cursor-pointer rounded-lg border p-4 transition-all duration-200',
         borderStyle,
-        isActive && 'ring-2 ring-primary ring-offset-2',
+        isActive && cn('ring-2 ring-offset-2', activeRing, activeBg),
       )}
       onClick={onClick}
       role="button"
@@ -142,7 +167,9 @@ export function FieldComparisonRow({
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           {STATUS_ICON[status]}
-          <span className="text-sm font-medium">{displayName}</span>
+          <FieldLabel fieldName={fieldName} className="text-sm font-medium">
+            {displayName}
+          </FieldLabel>
         </div>
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs text-muted-foreground">

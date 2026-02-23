@@ -1,12 +1,17 @@
 import { redirect } from 'next/navigation'
-import { eq, sql, count, gte, desc } from 'drizzle-orm'
+import { eq, sql, count, gte, desc, and } from 'drizzle-orm'
 import { ShieldCheck, TrendingUp, Users, AlertTriangle } from 'lucide-react'
 
 import { db } from '@/db'
-import { labels, users, applicants } from '@/db/schema'
+import { labels, users, applicants, humanReviews } from '@/db/schema'
 import { getSession } from '@/lib/auth/get-session'
+import { getSLATargets } from '@/lib/settings/get-settings'
 import { PageHeader } from '@/components/layout/page-header'
 import { StatsCards } from '@/components/dashboard/stats-cards'
+import {
+  SLAComplianceCard,
+  type SLAMetrics,
+} from '@/components/admin/sla-compliance-card'
 import {
   Card,
   CardContent,
@@ -35,6 +40,8 @@ export default async function AdminDashboardPage() {
 
   const todayStart = new Date()
   todayStart.setHours(0, 0, 0, 0)
+  const thirtyDaysAgo = new Date()
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
   const [
     specialistRows,
@@ -43,6 +50,11 @@ export default async function AdminDashboardPage() {
     approvedResult,
     queueResult,
     flaggedApplicants,
+    slaTargets,
+    avgReviewResponse,
+    avgTurnaround,
+    autoApprovalResult,
+    pendingReviewCount,
   ] = await Promise.all([
     // Per-specialist summary
     db
@@ -54,7 +66,7 @@ export default async function AdminDashboardPage() {
           sql`CASE WHEN ${labels.status} = 'approved' THEN 1 END`,
         ),
         pendingReviews: count(
-          sql`CASE WHEN ${labels.status} IN ('needs_correction', 'conditionally_approved') THEN 1 END`,
+          sql`CASE WHEN ${labels.status} IN ('pending_review', 'needs_correction', 'conditionally_approved') THEN 1 END`,
         ),
       })
       .from(users)
@@ -78,12 +90,12 @@ export default async function AdminDashboardPage() {
       .from(labels)
       .where(eq(labels.status, 'approved')),
 
-    // Queue depth (needs_correction + conditionally_approved)
+    // Queue depth (pending_review + needs_correction + conditionally_approved)
     db
       .select({ total: count() })
       .from(labels)
       .where(
-        sql`${labels.status} IN ('needs_correction', 'conditionally_approved')`,
+        sql`${labels.status} IN ('pending_review', 'needs_correction', 'conditionally_approved')`,
       ),
 
     // Top flagged applicants (highest rejection/correction rate, min 5 labels)
@@ -106,6 +118,55 @@ export default async function AdminDashboardPage() {
         ),
       )
       .limit(5),
+
+    // SLA targets from settings
+    getSLATargets(),
+
+    // Avg hours from label creation (pending_review) to first human review
+    db
+      .select({
+        avgHours: sql<number>`avg(extract(epoch from ${humanReviews.reviewedAt} - ${labels.createdAt}) / 3600)`,
+      })
+      .from(humanReviews)
+      .innerJoin(labels, eq(humanReviews.labelId, labels.id))
+      .where(gte(humanReviews.reviewedAt, thirtyDaysAgo)),
+
+    // Avg hours from label creation to final status (updatedAt)
+    db
+      .select({
+        avgHours: sql<number>`avg(extract(epoch from ${labels.updatedAt} - ${labels.createdAt}) / 3600)`,
+      })
+      .from(labels)
+      .where(
+        and(
+          gte(labels.updatedAt, thirtyDaysAgo),
+          sql`${labels.status} IN ('approved', 'rejected', 'needs_correction', 'conditionally_approved')`,
+        ),
+      ),
+
+    // Auto-approval: labels approved with no human reviews
+    db
+      .select({
+        total: count(),
+        autoApproved: count(
+          sql`CASE WHEN ${labels.status} = 'approved' AND NOT EXISTS (
+            SELECT 1 FROM human_reviews hr WHERE hr.label_id = ${labels.id}
+          ) THEN 1 END`,
+        ),
+      })
+      .from(labels)
+      .where(
+        and(
+          gte(labels.createdAt, thirtyDaysAgo),
+          sql`${labels.status} IN ('approved', 'rejected', 'needs_correction', 'conditionally_approved')`,
+        ),
+      ),
+
+    // Current queue depth (pending_review labels)
+    db
+      .select({ total: count() })
+      .from(labels)
+      .where(eq(labels.status, 'pending_review')),
   ])
 
   const todayCount = todayResult[0]?.total ?? 0
@@ -114,6 +175,20 @@ export default async function AdminDashboardPage() {
   const queueDepth = queueResult[0]?.total ?? 0
   const teamApprovalRate =
     totalLabels > 0 ? Math.round((approvedCount / totalLabels) * 100) : 0
+
+  // SLA metrics
+  const slaMetrics: SLAMetrics = {
+    avgReviewResponseHours: avgReviewResponse[0]?.avgHours ?? null,
+    avgTotalTurnaroundHours: avgTurnaround[0]?.avgHours ?? null,
+    autoApprovalRate:
+      autoApprovalResult[0]?.total && autoApprovalResult[0].total > 0
+        ? Math.round(
+            (autoApprovalResult[0].autoApproved / autoApprovalResult[0].total) *
+              100,
+          )
+        : null,
+    queueDepth: pendingReviewCount[0]?.total ?? 0,
+  }
 
   const stats = [
     {
@@ -145,11 +220,14 @@ export default async function AdminDashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Admin Dashboard"
-        description="Team performance overview and operational metrics."
+        title="Team"
+        description="Team performance and SLA compliance."
       />
 
       <StatsCards stats={stats} />
+
+      {/* SLA Compliance */}
+      <SLAComplianceCard targets={slaTargets} metrics={slaMetrics} />
 
       {/* Specialist performance table */}
       <Card>

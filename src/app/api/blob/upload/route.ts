@@ -1,30 +1,44 @@
-import { handleUpload, type HandleUploadBody } from '@vercel/blob/client'
+import { put } from '@vercel/blob'
 import { NextResponse } from 'next/server'
 
-export async function POST(request: Request): Promise<NextResponse> {
-  const body = (await request.json()) as HandleUploadBody
+const ALLOWED_CONTENT_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
+const MAX_SIZE = 10 * 1024 * 1024 // 10MB
+
+export async function POST(request: Request): Promise<NextResponse> {
   try {
-    const jsonResponse = await handleUpload({
-      body,
-      request,
-      onBeforeGenerateToken: async () => {
-        // TODO: authenticate user session here once auth is set up
-        return {
-          allowedContentTypes: ['image/jpeg', 'image/png', 'image/webp'],
-          maximumSizeInBytes: 10 * 1024 * 1024, // 10MB
-        }
-      },
-      onUploadCompleted: async () => {
-        // Could persist metadata here if needed
-      },
+    const formData = await request.formData()
+    const file = formData.get('file') as File | null
+
+    if (!file) {
+      return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+    }
+
+    if (!ALLOWED_CONTENT_TYPES.has(file.type)) {
+      return NextResponse.json(
+        { error: `Invalid file type: ${file.type}` },
+        { status: 400 },
+      )
+    }
+
+    if (file.size > MAX_SIZE) {
+      return NextResponse.json(
+        { error: 'File exceeds 10 MB limit' },
+        { status: 400 },
+      )
+    }
+
+    const blob = await put(`labels/${file.name}`, file, {
+      access: 'private',
+      contentType: file.type,
+      addRandomSuffix: true,
     })
 
-    return NextResponse.json(jsonResponse)
+    return NextResponse.json({ url: blob.url, pathname: blob.pathname })
   } catch (error) {
     return NextResponse.json(
       { error: (error as Error).message },
-      { status: 400 },
+      { status: 500 },
     )
   }
 }

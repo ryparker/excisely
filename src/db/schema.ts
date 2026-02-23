@@ -15,7 +15,11 @@ import { nanoid } from 'nanoid'
 // Enums
 // ---------------------------------------------------------------------------
 
-export const userRoleEnum = pgEnum('user_role', ['admin', 'specialist'])
+export const userRoleEnum = pgEnum('user_role', [
+  'admin',
+  'specialist',
+  'applicant',
+])
 
 export const batchStatusEnum = pgEnum('batch_status', [
   'processing',
@@ -32,6 +36,7 @@ export const beverageTypeEnum = pgEnum('beverage_type', [
 export const labelStatusEnum = pgEnum('label_status', [
   'pending',
   'processing',
+  'pending_review',
   'approved',
   'conditionally_approved',
   'needs_correction',
@@ -245,9 +250,7 @@ export const labels = pgTable('labels', {
   id: text('id')
     .primaryKey()
     .$defaultFn(() => nanoid()),
-  specialistId: text('specialist_id')
-    .notNull()
-    .references(() => users.id),
+  specialistId: text('specialist_id').references(() => users.id),
   applicantId: text('applicant_id').references(() => applicants.id),
   batchId: text('batch_id').references(() => batches.id),
   priorLabelId: text('prior_label_id'),
@@ -259,6 +262,7 @@ export const labels = pgTable('labels', {
     withTimezone: true,
   }),
   deadlineExpired: boolean('deadline_expired').notNull().default(false),
+  aiProposedStatus: labelStatusEnum('ai_proposed_status'),
   isPriority: boolean('is_priority').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
@@ -421,9 +425,33 @@ export const humanReviews = pgTable('human_reviews', {
   originalStatus: validationItemStatusEnum('original_status').notNull(),
   resolvedStatus: resolvedStatusEnum('resolved_status').notNull(),
   reviewerNotes: text('reviewer_notes'),
+  annotationData: jsonb('annotation_data').$type<{
+    x: number
+    y: number
+    width: number
+    height: number
+  }>(),
   reviewedAt: timestamp('reviewed_at', { withTimezone: true })
     .notNull()
     .$defaultFn(() => new Date()),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .$defaultFn(() => new Date()),
+})
+
+export const statusOverrides = pgTable('status_overrides', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => nanoid()),
+  labelId: text('label_id')
+    .notNull()
+    .references(() => labels.id),
+  specialistId: text('specialist_id')
+    .notNull()
+    .references(() => users.id),
+  previousStatus: labelStatusEnum('previous_status').notNull(),
+  newStatus: labelStatusEnum('new_status').notNull(),
+  justification: text('justification').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -439,6 +467,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   batches: many(batches),
   labels: many(labels),
   humanReviews: many(humanReviews),
+  statusOverrides: many(statusOverrides),
 }))
 
 export const accountsRelations = relations(accounts, ({ one }) => ({
@@ -495,6 +524,7 @@ export const labelsRelations = relations(labels, ({ one, many }) => ({
   applicationData: one(applicationData),
   validationResults: many(validationResults),
   humanReviews: many(humanReviews),
+  statusOverrides: many(statusOverrides),
 }))
 
 export const labelImagesRelations = relations(labelImages, ({ one }) => ({
@@ -544,6 +574,20 @@ export const validationItemsRelations = relations(
 )
 
 export const acceptedVariantsRelations = relations(acceptedVariants, () => ({}))
+
+export const statusOverridesRelations = relations(
+  statusOverrides,
+  ({ one }) => ({
+    label: one(labels, {
+      fields: [statusOverrides.labelId],
+      references: [labels.id],
+    }),
+    specialist: one(users, {
+      fields: [statusOverrides.specialistId],
+      references: [users.id],
+    }),
+  }),
+)
 
 export const humanReviewsRelations = relations(humanReviews, ({ one }) => ({
   specialist: one(users, {
@@ -605,3 +649,6 @@ export type NewAcceptedVariant = typeof acceptedVariants.$inferInsert
 
 export type HumanReview = typeof humanReviews.$inferSelect
 export type NewHumanReview = typeof humanReviews.$inferInsert
+
+export type StatusOverride = typeof statusOverrides.$inferSelect
+export type NewStatusOverride = typeof statusOverrides.$inferInsert

@@ -28,7 +28,7 @@ export function StatsCards({ stats }: StatsCardsProps) {
                 <Icon className="size-4 text-muted-foreground" />
               </div>
               <div className="mt-2">
-                <p className="text-2xl font-bold">{stat.value}</p>
+                <p className="text-2xl font-bold tabular-nums">{stat.value}</p>
                 {stat.description && (
                   <p className="mt-1 text-xs text-muted-foreground">
                     {stat.description}

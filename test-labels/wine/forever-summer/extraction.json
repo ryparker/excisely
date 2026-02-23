@@ -1,0 +1,136 @@
+{
+  "labelName": "forever-summer",
+  "beverageType": "wine",
+  "images": [
+    {
+      "filename": "front.png",
+      "imageType": "front"
+    },
+    {
+      "filename": "back.png",
+      "imageType": "back"
+    }
+  ],
+  "fields": {
+    "brand_name": "FOREVER SUMMER",
+    "class_type": "ROSE WINE",
+    "alcohol_content": "ALC. 12.5% BY VOL.",
+    "net_contents": "750ML",
+    "health_warning": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE OF THE RISK OF BIRTH DEFECTS. (2) CONSUMPTION OF ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY TO DRIVE A CAR OR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+    "name_and_address": "TWENTY-ONE WINE & SPIRITS AFTERMATH WINE & SPIRITS LLC, MIAMI, FL",
+    "qualifying_phrase": "IMPORTED BY:",
+    "grape_varietal": null,
+    "appellation_of_origin": "MEDITERRANEE Appellation d'Origine Contrôlée",
+    "sulfite_declaration": "CONTAINS SULFITES",
+    "fanciful_name": null,
+    "country_of_origin": "PRODUCT OF FRANCE",
+    "vintage_year": null,
+    "standards_of_fill": null
+  },
+  "fieldDetails": [
+    {
+      "fieldName": "brand_name",
+      "value": "FOREVER SUMMER",
+      "confidence": 95,
+      "reasoning": "Large prominent text 'FOREVER SUMMER' appears on the front (and top of back) label; this is the most prominent brand wording.",
+      "sourceImage": "front"
+    },
+    {
+      "fieldName": "class_type",
+      "value": "ROSE WINE",
+      "confidence": 95,
+      "reasoning": "Back label directly under the brand heading shows 'ROSE WINE'.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "alcohol_content",
+      "value": "ALC. 12.5% BY VOL.",
+      "confidence": 95,
+      "reasoning": "Back label contains the alcohol expression 'ALC. 12.5% BY VOL.' near the bottom of the panel.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "net_contents",
+      "value": "750ML",
+      "confidence": 80,
+      "reasoning": "Back label shows the container size at the bottom as '750ML' (no visible decimal or fractional units).",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "health_warning",
+      "value": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE OF THE RISK OF BIRTH DEFECTS. (2) CONSUMPTION OF ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY TO DRIVE A CAR OR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+      "confidence": 95,
+      "reasoning": "Full mandated warning block appears on the back label starting with the required 'GOVERNMENT WARNING:' prefix followed by the two numbered statements.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "name_and_address",
+      "value": "TWENTY-ONE WINE & SPIRITS AFTERMATH WINE & SPIRITS LLC, MIAMI, FL",
+      "confidence": 55,
+      "reasoning": "Small print at the bottom of the back label lists importer/bottler information. Text is somewhat small/blurred; joined the visible lines into a single line per instruction.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "qualifying_phrase",
+      "value": "IMPORTED BY:",
+      "confidence": 95,
+      "reasoning": "The back label shows the qualifying phrase 'IMPORTED BY:' immediately before the importer name/address block.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "grape_varietal",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No specific grape varietal (e.g., 'Grenache', 'Syrah') is visible on the front or back label.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "appellation_of_origin",
+      "value": "MEDITERRANEE Appellation d'Origine Contrôlée",
+      "confidence": 90,
+      "reasoning": "Back label shows 'MEDITERRANEE' with the French appellation statement 'Appellation d'Origine Contrôlée' beneath the 'ROSE WINE' designation.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "sulfite_declaration",
+      "value": "CONTAINS SULFITES",
+      "confidence": 95,
+      "reasoning": "Back label includes the sulfite declaration 'CONTAINS SULFITES' in the mandatory sulfite statement area.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "fanciful_name",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No separate fanciful name distinct from the prominent brand wording is indicated; 'FOREVER SUMMER' is treated as the brand name.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "country_of_origin",
+      "value": "PRODUCT OF FRANCE",
+      "confidence": 90,
+      "reasoning": "Back label displays 'PRODUCT OF FRANCE' near the bottom of the panel.",
+      "sourceImage": "back"
+    },
+    {
+      "fieldName": "vintage_year",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No vintage year (harvest year) is visible on either the front or back label.",
+      "sourceImage": null
+    },
+    {
+      "fieldName": "standards_of_fill",
+      "value": null,
+      "confidence": 0,
+      "reasoning": "No explicit statement about standards of fill is present on the visible label panels.",
+      "sourceImage": null
+    }
+  ],
+  "metadata": {
+    "modelUsed": "gpt-5-mini",
+    "processingTimeMs": 36214,
+    "extractedAt": "2026-02-23T00:31:52.050Z",
+    "totalTokens": 5444
+  }
+}

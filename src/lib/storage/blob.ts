@@ -1,4 +1,4 @@
-import { del, head, put } from '@vercel/blob'
+import { del, put } from '@vercel/blob'
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
 
@@ -31,22 +31,27 @@ function isBlobUrl(url: string): boolean {
 }
 
 /**
- * Returns a time-limited signed download URL for a private blob.
- * Non-blob URLs (e.g. placeholders from seed data) are returned as-is.
+ * Returns a browser-accessible URL for a private blob.
+ * Routes through the /api/blob/image proxy which fetches server-side with the token.
+ * Non-blob URLs (e.g. external images) are returned as-is.
  */
-export async function getSignedImageUrl(url: string): Promise<string> {
+export function getSignedImageUrl(url: string): string {
   if (!isBlobUrl(url)) return url
-  const metadata = await head(url)
-  return metadata.downloadUrl
+  return `/api/blob/image?url=${encodeURIComponent(url)}`
 }
 
 /**
  * Fetches image bytes from a private blob for server-side processing (e.g. OCR).
- * Also handles non-blob URLs (e.g. placeholders from seed data).
+ * Uses Bearer token auth for private blob URLs.
+ * Also handles non-blob URLs (e.g. external images).
  */
 export async function fetchImageBytes(url: string): Promise<Buffer> {
-  const fetchUrl = isBlobUrl(url) ? await getSignedImageUrl(url) : url
-  const response = await fetch(fetchUrl)
+  const headers: Record<string, string> = {}
+  if (isBlobUrl(url)) {
+    const token = process.env.BLOB_READ_WRITE_TOKEN
+    if (token) headers.Authorization = `Bearer ${token}`
+  }
+  const response = await fetch(url, { headers })
   if (!response.ok) {
     throw new Error(`Failed to fetch image: ${response.status}`)
   }
