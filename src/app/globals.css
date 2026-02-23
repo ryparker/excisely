@@ -179,6 +179,9 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    scrollbar-gutter: stable;
+  }
   body {
     @apply bg-background text-foreground;
     -webkit-font-smoothing: antialiased;
@@ -211,5 +214,30 @@
     .animate-pulse {
       animation: none;
     }
+  }
+}
+
+/* ---- Regulation card :target highlight ---- */
+@keyframes target-flash {
+  0% {
+    box-shadow: 0 0 0 0 var(--primary);
+  }
+  30% {
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 30%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.regulation-card:target {
+  border-color: color-mix(in oklch, var(--primary) 40%, transparent);
+  background: color-mix(in oklch, var(--primary) 5%, var(--card));
+  animation: target-flash 1.2s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .regulation-card:target {
+    animation: none;
   }
 }

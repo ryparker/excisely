@@ -78,6 +78,41 @@ psql "$DATABASE_URL" -c "SELECT count(*) FROM labels;"
 
 Use the `/db-inspect` skill for common queries — it has ready-made queries for counts, labels by status, applicant stats, review queue, validation items, and more.
 
+## Decision Log
+
+**When you make or recommend a major engineering decision** — architectural pivots, technology swaps, new patterns, significant scope changes, or meaningful trade-off evaluations — **update `DECISIONS.md` immediately.** This is a U.S. Treasury hiring assignment; the decision log demonstrates thoughtful engineering judgment to evaluators.
+
+What qualifies as a "major decision":
+- Changing or adding a core technology (database, AI model, auth provider, state management)
+- Pivoting an architectural pattern (e.g., switching from polling to SSE, moving from client to server rendering)
+- Significant scope changes (adding or cutting features, changing MVP boundaries)
+- Non-obvious trade-offs where multiple valid approaches exist and we chose one with clear reasoning
+- Lessons learned from something that didn't work and what we changed
+
+For each decision, document:
+1. **What we chose** and what it replaced (if applicable)
+2. **Alternatives considered** with brief descriptions
+3. **Reasoning** — the "why" that shows engineering judgment (cost, performance, complexity, user needs, timeline)
+4. **Date** — when the decision was made (to show evolution of thinking over time)
+
+If a previous decision in the doc is being revised or reversed, don't delete it — add a "Revised" note with the date and updated reasoning. This shows iterative thinking, not flip-flopping.
+
+## Production Readiness Log
+
+**When you identify something that would be needed for production but is out of scope for this prototype, add it to `PRODUCTION.md`.** This document shows evaluators we've thought beyond the demo — that we understand the gap between a working prototype and a production system real TTB specialists would use daily.
+
+Add entries when you:
+- Defer a security hardening step (e.g., rate limiting, MFA)
+- Skip a scalability concern (e.g., larger dataset, caching, monitoring)
+- Identify an operational gap (e.g., disaster recovery, alerting, runbooks)
+- Notice a feature that production would require but the prototype doesn't need (e.g., manager role, pipeline versioning)
+
+Keep entries concrete and specific — explain *what* we'd build and *why* it matters for TTB, not just "we'd add security."
+
+## Changelog
+
+**When committing notable changes, update `CHANGELOG.md`.** Keep the "Unreleased" section current with meaningful changes as they happen. When a commit is made, move unreleased items into a versioned section. Entries should describe *what changed and why* in plain language — not just file lists. Group under Added/Changed/Fixed/Removed headings.
+
 ## Architecture Rules
 
 1. **RSC by default** — everything is a React Server Component unless it needs interactivity
@@ -160,6 +195,9 @@ Received → Processing → Approved
 | `.claude/plans/20260221-ai-label-verification-app.md` | Full implementation plan                                                                                                            |
 | `.claude/plans/test-workflows.md`                     | 150+ test cases by feature area                                                                                                     |
 | `CONTEXT.md`                                          | TTB research — vocabulary, Form 5100.31 fields, regulations                                                                         |
+| `PRODUCTION.md`                                       | Production readiness gaps — what we'd address before a real release (security, data, ops)                                           |
+| `DECISIONS.md`                                        | Living decision log — engineering trade-offs with dates, reasoning, and revisions                                                   |
+| `CHANGELOG.md`                                        | Narrative changelog — what changed and why, grouped by version                                                                      |
 
 ## Available Skills
 

@@ -16,6 +16,9 @@ export type ProcessingStage =
   | 'classifying'
   | 'comparing'
   | 'finalizing'
+  | 'complete'
+  | 'timeout'
+  | 'error'
 
 export interface StageConfig {
   id: ProcessingStage
@@ -49,8 +52,8 @@ export const STAGES: StageConfig[] = [
     label: 'Reading label text',
     description: (n) =>
       n > 1
-        ? `Google Cloud Vision is extracting text from ${n} images`
-        : 'Google Cloud Vision is extracting text and bounding boxes',
+        ? `Extracting text from ${n} label images`
+        : 'Extracting text from your label',
     icon: ScanText,
     baseEstimatedMs: 1200,
     perImageMs: 200,
@@ -60,8 +63,8 @@ export const STAGES: StageConfig[] = [
     label: 'Classifying fields',
     description: (n) =>
       n > 1
-        ? `GPT-5 Mini is identifying label fields across ${n} images`
-        : 'GPT-5 Mini is identifying label fields from OCR text',
+        ? `Identifying regulatory fields across ${n} images`
+        : 'Identifying regulatory fields from extracted text',
     icon: Sparkles,
     baseEstimatedMs: 2000,
     perImageMs: 400,

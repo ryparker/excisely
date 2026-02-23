@@ -1,12 +1,16 @@
 import Link from 'next/link'
-import { desc, eq, sql, count } from 'drizzle-orm'
+import { desc, asc, eq, sql, count } from 'drizzle-orm'
 import { ArrowRight, Building2 } from 'lucide-react'
 
 import { db } from '@/db'
 import { applicants, labels } from '@/db/schema'
-import { getSession } from '@/lib/auth/get-session'
+import { requireSpecialist } from '@/lib/auth/require-role'
 import { REASON_CODE_LABELS } from '@/config/override-reasons'
 import { PageHeader } from '@/components/layout/page-header'
+import { PageShell } from '@/components/layout/page-shell'
+import { ColumnHeader } from '@/components/shared/column-header'
+import { Highlight } from '@/components/shared/highlight'
+import { ResetFiltersButton } from '@/components/shared/reset-filters-button'
 import { SearchInput } from '@/components/shared/search-input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -21,6 +25,17 @@ import {
 } from '@/components/ui/table'
 
 export const dynamic = 'force-dynamic'
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const RISK_OPTIONS = [
+  { label: 'All', value: '' },
+  { label: 'Low Risk', value: 'low' },
+  { label: 'Medium Risk', value: 'medium' },
+  { label: 'High Risk', value: 'high' },
+]
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -66,22 +81,64 @@ function getRiskBadge(approvalRate: number | null) {
   )
 }
 
+function getRiskLevel(approvalRate: number | null): string {
+  if (approvalRate === null) return 'none'
+  if (approvalRate >= 90) return 'low'
+  if (approvalRate >= 70) return 'medium'
+  return 'high'
+}
+
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 
 interface ApplicantsPageProps {
-  searchParams: Promise<{ search?: string }>
+  searchParams: Promise<{
+    search?: string
+    sort?: string
+    order?: string
+    risk?: string
+  }>
 }
 
 export default async function ApplicantsPage({
   searchParams,
 }: ApplicantsPageProps) {
-  const session = await getSession()
-  if (!session) return null
+  await requireSpecialist()
 
   const params = await searchParams
   const searchTerm = params.search?.trim() ?? ''
+  const sortKey = params.sort ?? ''
+  const sortOrder = params.order === 'asc' ? 'asc' : 'desc'
+  const riskFilter = params.risk ?? ''
+
+  // Computed columns for sorting
+  const approvalRateSql = sql<number>`
+    CASE WHEN count(${labels.id}) > 0
+    THEN round((count(case when ${labels.status} = 'approved' then 1 end)::numeric / count(${labels.id})) * 100)
+    ELSE 0 END
+  `
+  const totalLabelsSql = count(labels.id)
+  const lastSubmissionSql = sql<Date | null>`max(${labels.createdAt})`
+
+  // Map sort keys to columns
+  const SORT_COLUMNS: Record<
+    string,
+    ReturnType<typeof sql> | typeof applicants.companyName
+  > = {
+    companyName: applicants.companyName,
+    totalLabels: totalLabelsSql,
+    approvalRate: approvalRateSql,
+    lastSubmission: lastSubmissionSql,
+  }
+
+  let orderByClause
+  if (sortKey && SORT_COLUMNS[sortKey]) {
+    const col = SORT_COLUMNS[sortKey]
+    orderByClause = sortOrder === 'asc' ? asc(col) : desc(col)
+  } else {
+    orderByClause = desc(applicants.createdAt)
+  }
 
   // Query applicants with aggregated label stats
   const rows = await db
@@ -90,9 +147,9 @@ export default async function ApplicantsPage({
       companyName: applicants.companyName,
       contactEmail: applicants.contactEmail,
       createdAt: applicants.createdAt,
-      totalLabels: count(labels.id),
+      totalLabels: totalLabelsSql,
       approvedCount: sql<number>`count(case when ${labels.status} = 'approved' then 1 end)`,
-      lastSubmission: sql<Date | null>`max(${labels.createdAt})`,
+      lastSubmission: lastSubmissionSql,
       topOverrideReason: sql<string | null>`(
         SELECT so.reason_code FROM status_overrides so
         INNER JOIN labels l ON so.label_id = l.id
@@ -112,7 +169,7 @@ export default async function ApplicantsPage({
         : undefined,
     )
     .groupBy(applicants.id)
-    .orderBy(desc(applicants.createdAt))
+    .orderBy(orderByClause)
 
   const applicantsWithStats = rows.map((row) => {
     const approvalRate =
@@ -125,8 +182,15 @@ export default async function ApplicantsPage({
     return { ...row, approvalRate, topReason }
   })
 
+  // Apply client-side risk filter (computed from approval rate)
+  const filteredApplicants = riskFilter
+    ? applicantsWithStats.filter(
+        (a) => getRiskLevel(a.approvalRate) === riskFilter,
+      )
+    : applicantsWithStats
+
   return (
-    <div className="space-y-6">
+    <PageShell className="space-y-6">
       <PageHeader
         title="Applicants"
         description="Companies that have submitted labels for verification."
@@ -136,48 +200,62 @@ export default async function ApplicantsPage({
         </Badge>
       </PageHeader>
 
-      {/* Search */}
-      <SearchInput
-        paramKey="search"
-        placeholder="Search by company name..."
-        className="max-w-sm"
-      />
+      {/* Search + Reset */}
+      <div className="flex items-center gap-2">
+        <SearchInput
+          paramKey="search"
+          placeholder="Search by company name..."
+          className="max-w-sm flex-1"
+        />
+        <ResetFiltersButton paramKeys={['risk', 'sort', 'order']} />
+      </div>
 
-      {applicantsWithStats.length === 0 ? (
+      {filteredApplicants.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Building2 className="mb-4 size-10 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              {searchTerm
-                ? `No applicants found matching "${searchTerm}".`
+              {searchTerm || riskFilter
+                ? 'No applicants found matching your filters.'
                 : 'No applicants yet. Applicants are created when submitting labels for verification.'}
             </p>
-            {searchTerm && (
+            {(searchTerm || riskFilter) && (
               <p className="mt-1 text-xs text-muted-foreground">
-                Try a different search term or clear the search field.
+                Try a different search term or clear the filters.
               </p>
             )}
           </CardContent>
         </Card>
       ) : (
-        <Card className="py-0">
+        <Card className="overflow-clip py-0">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Company Name</TableHead>
-                <TableHead className="text-right">Total Labels</TableHead>
-                <TableHead className="text-right">Approval Rate</TableHead>
-                <TableHead>Risk</TableHead>
+              <TableRow className="bg-muted/30 hover:bg-muted/30">
+                <ColumnHeader sortKey="companyName">Company Name</ColumnHeader>
+                <ColumnHeader sortKey="totalLabels" className="text-right">
+                  Total Labels
+                </ColumnHeader>
+                <ColumnHeader sortKey="approvalRate" className="text-right">
+                  Approval Rate
+                </ColumnHeader>
+                <ColumnHeader filterKey="risk" filterOptions={RISK_OPTIONS}>
+                  Risk
+                </ColumnHeader>
                 <TableHead>Top Reason</TableHead>
-                <TableHead>Last Submission</TableHead>
+                <ColumnHeader sortKey="lastSubmission" defaultSort="desc">
+                  Last Submission
+                </ColumnHeader>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {applicantsWithStats.map((applicant) => (
+              {filteredApplicants.map((applicant) => (
                 <TableRow key={applicant.id}>
                   <TableCell className="font-medium">
-                    {applicant.companyName}
+                    <Highlight
+                      text={applicant.companyName}
+                      query={searchTerm}
+                    />
                   </TableCell>
                   <TableCell className="text-right font-mono">
                     {applicant.totalLabels}
@@ -210,6 +288,6 @@ export default async function ApplicantsPage({
           </Table>
         </Card>
       )}
-    </div>
+    </PageShell>
   )
 }

@@ -49,7 +49,7 @@ describe('generateStatusEmail', () => {
       matchingItems,
       null,
     )
-    expect(email.subject).toBe('COLA Application Approved — SN-12345')
+    expect(email.subject).toBe('Label Application Approved — SN-12345')
     expect(email.body).toContain('Dear Thomas Blackwell')
     expect(email.body).toContain('approved')
     expect(email.body).toContain('Old Tom Reserve')
@@ -93,7 +93,7 @@ describe('generateStatusEmail', () => {
       deadline,
     )
     expect(email.subject).toBe(
-      'COLA Application Requires Correction — SN-12345',
+      'Label Application Requires Correction — SN-12345',
     )
     expect(email.body).toContain(formatted)
     expect(email.body).toContain('Non-compliant fields')
@@ -124,7 +124,7 @@ describe('generateStatusEmail', () => {
       null,
     )
     expect(email.body).toContain('"Unknown"')
-    expect(email.subject).toBe('COLA Application Approved')
+    expect(email.subject).toBe('Label Application Approved')
   })
 
   it('handles null appData and applicant', () => {

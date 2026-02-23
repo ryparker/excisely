@@ -1,8 +1,17 @@
 import { z } from 'zod'
 
 export const validateLabelSchema = z.object({
-  beverageType: z.enum(['distilled_spirits', 'wine', 'malt_beverage']),
-  containerSizeMl: z.number().int().positive(),
+  beverageType: z.enum(['distilled_spirits', 'wine', 'malt_beverage'], {
+    required_error: 'Select a beverage type',
+    invalid_type_error: 'Select a beverage type',
+  }),
+  containerSizeMl: z
+    .number({
+      required_error: 'Enter bottle capacity',
+      invalid_type_error: 'Enter a valid number',
+    })
+    .int('Capacity must be a whole number')
+    .positive('Capacity must be greater than 0'),
   classTypeCode: z.string().trim().optional(),
   serialNumber: z.string().trim().optional(),
   brandName: z.string().trim().min(1, 'Brand Name is required'),

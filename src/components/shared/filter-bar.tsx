@@ -8,6 +8,9 @@ import { cn } from '@/lib/utils'
 interface FilterOption {
   label: string
   value: string
+  count?: number
+  /** Highlight this filter as needing attention (e.g. items awaiting action) */
+  attention?: boolean
 }
 
 interface FilterBarProps {
@@ -59,7 +62,7 @@ export function FilterBar({
             {/* Animated pill background */}
             {isActive && (
               <motion.span
-                layoutId="filter-pill"
+                layoutId={`filter-pill-${paramKey}`}
                 className="absolute inset-0 rounded-full bg-primary"
                 transition={
                   shouldReduceMotion
@@ -72,7 +75,23 @@ export function FilterBar({
                 }
               />
             )}
-            <span className="relative z-10">{option.label}</span>
+            <span className="relative z-10">
+              {option.label}
+              {option.count !== undefined && option.count > 0 && (
+                <span
+                  className={cn(
+                    'ml-1.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1 text-[10px] leading-tight font-semibold tabular-nums',
+                    isActive
+                      ? 'bg-primary-foreground/20 text-primary-foreground'
+                      : option.attention
+                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'
+                        : 'bg-muted text-muted-foreground',
+                  )}
+                >
+                  {option.count}
+                </span>
+              )}
+            </span>
           </button>
         )
       })}

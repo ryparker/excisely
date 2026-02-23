@@ -1,21 +1,19 @@
 'use client'
 
-import { useState, useCallback, useTransition } from 'react'
-import Link from 'next/link'
+import React, { useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  ArrowRight,
-  FileText,
-  Loader2,
-  MoreHorizontal,
-  RefreshCw,
-} from 'lucide-react'
+import { Check, FileText, Loader2, RefreshCw, ShieldCheck } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useQueryState, parseAsInteger } from 'nuqs'
 import pLimit from 'p-limit'
 
 import { reanalyzeLabel } from '@/app/actions/reanalyze-label'
+import { batchApprove } from '@/app/actions/batch-approve'
+import { useReanalysisStore } from '@/stores/reanalysis-store'
 import { REASON_CODE_LABELS } from '@/config/override-reasons'
+import { BEVERAGE_ICON, BEVERAGE_LABEL_FULL } from '@/config/beverage-display'
+import { ColumnHeader } from '@/components/shared/column-header'
+import { Highlight } from '@/components/shared/highlight'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -33,12 +31,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
   Table,
   TableBody,
   TableCell,
@@ -46,6 +38,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -65,6 +62,7 @@ interface LabelRow {
   flaggedCount: number
   thumbnailUrl: string | null
   overrideReasonCode?: string | null
+  lastReviewedAt?: Date | null
 }
 
 interface LabelsTableProps {
@@ -73,6 +71,8 @@ interface LabelsTableProps {
   totalPages: number
   tableTotal: number
   pageSize: number
+  queueMode?: 'ready' | 'review'
+  searchTerm?: string
 }
 
 type BulkItemStatus = 'pending' | 'processing' | 'success' | 'error'
@@ -81,17 +81,12 @@ type BulkItemStatus = 'pending' | 'processing' | 'success' | 'error'
 // Constants
 // ---------------------------------------------------------------------------
 
-const BEVERAGE_TYPE_LABELS: Record<string, string> = {
-  distilled_spirits: 'Distilled Spirits',
-  wine: 'Wine',
-  malt_beverage: 'Malt Beverage',
-}
-
-const REVIEWABLE_STATUSES = new Set([
-  'pending_review',
-  'needs_correction',
-  'conditionally_approved',
-])
+const BEVERAGE_OPTIONS = [
+  { label: 'All Types', value: '' },
+  { label: 'Spirits', value: 'distilled_spirits' },
+  { label: 'Wine', value: 'wine' },
+  { label: 'Malt Beverage', value: 'malt_beverage' },
+]
 
 const NON_REANALYZABLE_STATUSES = new Set(['pending', 'processing'])
 
@@ -149,10 +144,12 @@ function getDeadlineDisplay(deadline: Date | null): React.ReactNode {
 function LabelThumbnail({ src, alt }: { src: string | null; alt: string }) {
   const [failed, setFailed] = useState(false)
   const onError = useCallback(() => setFailed(true), [])
+  const openTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
+  const [open, setOpen] = useState(false)
 
   const showImage = src && !failed
 
-  return (
+  const thumbnail = (
     <div className="size-20 overflow-hidden rounded-lg border bg-muted">
       {showImage ? (
         /* eslint-disable-next-line @next/next/no-img-element */
@@ -169,6 +166,45 @@ function LabelThumbnail({ src, alt }: { src: string | null; alt: string }) {
       )}
     </div>
   )
+
+  if (!showImage) return thumbnail
+
+  return (
+    <HoverCard
+      open={open}
+      onOpenChange={setOpen}
+      openDelay={300}
+      closeDelay={0}
+    >
+      <HoverCardTrigger
+        asChild
+        onMouseEnter={() => {
+          openTimerRef.current = setTimeout(() => setOpen(true), 300)
+        }}
+        onMouseLeave={() => {
+          if (openTimerRef.current) clearTimeout(openTimerRef.current)
+          setOpen(false)
+        }}
+      >
+        {thumbnail}
+      </HoverCardTrigger>
+      <HoverCardContent
+        side="right"
+        align="start"
+        sideOffset={8}
+        className="w-auto p-1"
+        onMouseEnter={() => setOpen(false)}
+        onPointerDownOutside={() => setOpen(false)}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt={alt}
+          className="max-h-72 max-w-64 rounded object-contain"
+        />
+      </HoverCardContent>
+    </HoverCard>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -181,6 +217,8 @@ export function LabelsTable({
   totalPages,
   tableTotal,
   pageSize,
+  queueMode,
+  searchTerm = '',
 }: LabelsTableProps) {
   const [currentPage, setCurrentPage] = useQueryState(
     'page',
@@ -188,13 +226,18 @@ export function LabelsTable({
   )
   const router = useRouter()
   const isApplicant = userRole === 'applicant'
+  const isReadyQueue = queueMode === 'ready'
+  const {
+    activeIds: reanalyzingIds,
+    startReanalyzing,
+    stopReanalyzing,
+  } = useReanalysisStore()
 
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   // Per-row re-analyze dialog
   const [confirmLabelId, setConfirmLabelId] = useState<string | null>(null)
-  const [rowPending, startRowTransition] = useTransition()
   const [rowError, setRowError] = useState<string | null>(null)
 
   // Bulk re-analyze dialog
@@ -203,6 +246,14 @@ export function LabelsTable({
   const [bulkProgress, setBulkProgress] = useState<Map<string, BulkItemStatus>>(
     new Map(),
   )
+
+  // Batch approve dialog
+  const [batchApproveDialogOpen, setBatchApproveDialogOpen] = useState(false)
+  const [batchApproveRunning, setBatchApproveRunning] = useState(false)
+  const [batchApproveResult, setBatchApproveResult] = useState<{
+    approvedCount: number
+    failedIds: string[]
+  } | null>(null)
 
   // Selectable rows: not pending/processing
   const selectableRows = rows.filter(
@@ -234,19 +285,28 @@ export function LabelsTable({
     })
   }
 
-  // Per-row re-analyze
+  // Per-row re-analyze — fire-and-forget with optimistic status update
   function handleRowReanalyze() {
     if (!confirmLabelId) return
     setRowError(null)
-    startRowTransition(async () => {
-      const result = await reanalyzeLabel(confirmLabelId)
-      if (result.success) {
-        setConfirmLabelId(null)
+    const labelId = confirmLabelId
+    setConfirmLabelId(null)
+
+    // Optimistically mark row as processing
+    startReanalyzing(labelId)
+
+    reanalyzeLabel(labelId)
+      .then((result) => {
+        stopReanalyzing(labelId)
+        if (!result.success) {
+          console.error('Reanalysis failed:', result.error)
+        }
         router.refresh()
-      } else {
-        setRowError(result.error)
-      }
-    })
+      })
+      .catch(() => {
+        stopReanalyzing(labelId)
+        router.refresh()
+      })
   }
 
   // Bulk re-analyze
@@ -260,6 +320,11 @@ export function LabelsTable({
     )
     setBulkProgress(new Map(progress))
 
+    // Optimistically mark all rows as processing
+    for (const id of ids) {
+      startReanalyzing(id)
+    }
+
     const limit = pLimit(3)
 
     await Promise.all(
@@ -272,6 +337,7 @@ export function LabelsTable({
 
           progress.set(id, result.success ? 'success' : 'error')
           setBulkProgress(new Map(progress))
+          stopReanalyzing(id)
         }),
       ),
     )
@@ -299,6 +365,39 @@ export function LabelsTable({
     router.refresh()
   }
 
+  // Batch approve selected
+  async function handleBatchApprove() {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+
+    setBatchApproveRunning(true)
+    setBatchApproveResult(null)
+
+    const result = await batchApprove(ids)
+    setBatchApproveResult({
+      approvedCount: result.approvedCount,
+      failedIds: result.failedIds,
+    })
+    setBatchApproveRunning(false)
+
+    // Auto-close on full success
+    if (result.failedIds.length === 0) {
+      setTimeout(() => {
+        setBatchApproveDialogOpen(false)
+        setSelectedIds(new Set())
+        setBatchApproveResult(null)
+        router.refresh()
+      }, 800)
+    }
+  }
+
+  function handleBatchApproveClose() {
+    setBatchApproveDialogOpen(false)
+    setSelectedIds(new Set())
+    setBatchApproveResult(null)
+    router.refresh()
+  }
+
   // Bulk progress stats
   const bulkCompleted = Array.from(bulkProgress.values()).filter(
     (s) => s === 'success' || s === 'error',
@@ -314,7 +413,7 @@ export function LabelsTable({
 
   return (
     <>
-      <Card className="overflow-hidden py-0">
+      <Card className="overflow-clip py-0">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/30 hover:bg-muted/30">
@@ -331,129 +430,157 @@ export function LabelsTable({
               )}
               <TableHead className="w-[60px]">Label</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Brand Name</TableHead>
-              <TableHead>Beverage Type</TableHead>
-              <TableHead className="text-right">Flagged</TableHead>
-              <TableHead className="text-right">Confidence</TableHead>
-              <TableHead>Deadline</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <ColumnHeader sortKey="brandName">Brand Name</ColumnHeader>
+              <ColumnHeader
+                sortKey="beverageType"
+                filterKey="beverageType"
+                filterOptions={BEVERAGE_OPTIONS}
+              >
+                Beverage Type
+              </ColumnHeader>
+              {!isApplicant && (
+                <ColumnHeader sortKey="flaggedCount" className="text-right">
+                  Flagged
+                </ColumnHeader>
+              )}
+              {!isApplicant && (
+                <ColumnHeader
+                  sortKey="overallConfidence"
+                  className="text-right"
+                >
+                  Confidence
+                </ColumnHeader>
+              )}
+              {!isApplicant && <TableHead>Deadline</TableHead>}
+              <ColumnHeader sortKey="createdAt" defaultSort="desc">
+                {isApplicant ? 'Submitted' : 'Date'}
+              </ColumnHeader>
+              {isApplicant && (
+                <ColumnHeader sortKey="lastReviewedAt">
+                  Last Reviewed
+                </ColumnHeader>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.map((label) => {
-              const isReviewable = REVIEWABLE_STATUSES.has(
-                label.effectiveStatus,
-              )
+              const isRowReanalyzing = reanalyzingIds.has(label.id)
+              const displayStatus = isRowReanalyzing
+                ? 'processing'
+                : label.effectiveStatus
               const canReanalyze =
                 !isApplicant &&
-                !NON_REANALYZABLE_STATUSES.has(label.effectiveStatus)
+                !NON_REANALYZABLE_STATUSES.has(displayStatus) &&
+                !isRowReanalyzing
               const isSelected = selectedIds.has(label.id)
 
               return (
-                <TableRow
-                  key={label.id}
-                  data-state={isSelected ? 'selected' : undefined}
-                >
-                  {!isApplicant && (
+                <React.Fragment key={label.id}>
+                  <TableRow
+                    data-state={isSelected ? 'selected' : undefined}
+                    className="cursor-pointer transition-colors hover:bg-muted/50"
+                    onClick={() =>
+                      router.push(
+                        isApplicant
+                          ? `/submissions/${label.id}`
+                          : `/labels/${label.id}`,
+                      )
+                    }
+                  >
+                    {!isApplicant && (
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        {canReanalyze || isReadyQueue ? (
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleSelect(label.id)}
+                            aria-label={`Select ${label.brandName ?? 'label'}`}
+                          />
+                        ) : (
+                          <div className="size-4" />
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell>
-                      {canReanalyze ? (
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => toggleSelect(label.id)}
-                          aria-label={`Select ${label.brandName ?? 'label'}`}
-                        />
-                      ) : (
-                        <div className="size-4" />
+                      <LabelThumbnail
+                        src={label.thumbnailUrl}
+                        alt={label.brandName ?? 'Label'}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <StatusBadge status={displayStatus} />
+                        {!isApplicant &&
+                          label.isPriority &&
+                          !isRowReanalyzing && (
+                            <Badge
+                              variant="outline"
+                              className="border-red-300 text-red-600 dark:border-red-800 dark:text-red-400"
+                            >
+                              Priority
+                            </Badge>
+                          )}
+                      </div>
+                      {!isApplicant && label.overrideReasonCode && (
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {REASON_CODE_LABELS[label.overrideReasonCode] ??
+                            label.overrideReasonCode}
+                        </p>
                       )}
                     </TableCell>
-                  )}
-                  <TableCell>
-                    <LabelThumbnail
-                      src={label.thumbnailUrl}
-                      alt={label.brandName ?? 'Label'}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <StatusBadge status={label.effectiveStatus} />
-                      {label.isPriority && (
-                        <Badge
-                          variant="outline"
-                          className="border-red-300 text-red-600 dark:border-red-800 dark:text-red-400"
-                        >
-                          Priority
-                        </Badge>
-                      )}
-                    </div>
-                    {label.overrideReasonCode && (
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {REASON_CODE_LABELS[label.overrideReasonCode] ??
-                          label.overrideReasonCode}
-                      </p>
+                    <TableCell className="font-medium">
+                      <Highlight
+                        text={label.brandName ?? 'Untitled'}
+                        query={searchTerm}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const BevIcon = BEVERAGE_ICON[label.beverageType]
+                        return BevIcon ? (
+                          <span className="inline-flex items-center gap-1.5 text-sm">
+                            <BevIcon className="size-3.5 text-muted-foreground" />
+                            <span className="text-xs">
+                              {BEVERAGE_LABEL_FULL[label.beverageType] ??
+                                label.beverageType}
+                            </span>
+                          </span>
+                        ) : (
+                          (BEVERAGE_LABEL_FULL[label.beverageType] ??
+                            label.beverageType)
+                        )
+                      })()}
+                    </TableCell>
+                    {!isApplicant && (
+                      <TableCell className="text-right font-mono">
+                        {label.flaggedCount > 0 ? label.flaggedCount : '--'}
+                      </TableCell>
                     )}
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    {label.brandName ?? 'Untitled'}
-                  </TableCell>
-                  <TableCell>
-                    {BEVERAGE_TYPE_LABELS[label.beverageType] ??
-                      label.beverageType}
-                  </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {label.flaggedCount > 0 ? label.flaggedCount : '--'}
-                  </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {formatConfidence(label.overallConfidence)}
-                  </TableCell>
-                  <TableCell>
-                    {getDeadlineDisplay(label.correctionDeadline)}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatDate(label.createdAt)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant={isReviewable ? 'default' : 'ghost'}
-                        size="sm"
-                        className={
-                          isReviewable
-                            ? 'h-7 text-xs'
-                            : 'h-7 text-xs text-muted-foreground'
-                        }
-                        asChild
-                      >
-                        <Link href={`/labels/${label.id}`}>
-                          {isReviewable ? 'Review' : 'View'}
-                          <ArrowRight className="size-3" />
-                        </Link>
-                      </Button>
-                      {canReanalyze && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="size-7 p-0"
-                            >
-                              <MoreHorizontal className="size-4" />
-                              <span className="sr-only">More actions</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onSelect={() => setConfirmLabelId(label.id)}
-                            >
-                              <RefreshCw className="size-4" />
-                              Re-Analyze
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
+                    {!isApplicant && (
+                      <TableCell className="text-right font-mono">
+                        {formatConfidence(label.overallConfidence)}
+                      </TableCell>
+                    )}
+                    {!isApplicant && (
+                      <TableCell>
+                        {getDeadlineDisplay(label.correctionDeadline)}
+                      </TableCell>
+                    )}
+                    <TableCell className="text-muted-foreground">
+                      {formatDate(label.createdAt)}
+                    </TableCell>
+                    {isApplicant && (
+                      <TableCell className="text-muted-foreground">
+                        {label.lastReviewedAt ? (
+                          formatDate(label.lastReviewedAt)
+                        ) : (
+                          <span className="text-muted-foreground/40">
+                            Pending
+                          </span>
+                        )}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                </React.Fragment>
               )
             })}
           </TableBody>
@@ -515,7 +642,20 @@ export function LabelsTable({
                 >
                   Clear Selection
                 </button>
-                <Button size="sm" onClick={() => setBulkDialogOpen(true)}>
+                {isReadyQueue && (
+                  <Button
+                    size="sm"
+                    onClick={() => setBatchApproveDialogOpen(true)}
+                  >
+                    <ShieldCheck className="size-4" />
+                    Approve Selected ({selectedIds.size})
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant={isReadyQueue ? 'outline' : 'default'}
+                  onClick={() => setBulkDialogOpen(true)}
+                >
                   <RefreshCw className="size-4" />
                   Re-Analyze Selected
                 </Button>
@@ -539,26 +679,17 @@ export function LabelsTable({
           <AlertDialogHeader>
             <AlertDialogTitle>Re-Analyze Label</AlertDialogTitle>
             <AlertDialogDescription>
-              This will re-run the AI pipeline (OCR + classification) on the
-              label images. Previous results will be superseded. Typically takes
-              2-4 seconds.
+              This will re-run AI text extraction and field classification on
+              the label images. Previous results will be superseded. No new
+              notification will be sent to the applicant. Typically takes 2-4
+              seconds.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {rowError && <p className="text-sm text-destructive">{rowError}</p>}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={rowPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleRowReanalyze}
-              disabled={rowPending}
-            >
-              {rowPending ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                'Re-Analyze'
-              )}
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRowReanalyze}>
+              Re-Analyze
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -605,6 +736,50 @@ export function LabelsTable({
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={handleBulkReanalyze}>
                   Re-Analyze {selectedIds.size} Label
+                  {selectedIds.size !== 1 ? 's' : ''}
+                </AlertDialogAction>
+              </>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Batch approve dialog */}
+      <AlertDialog
+        open={batchApproveDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && !batchApproveRunning) handleBatchApproveClose()
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Approve {selectedIds.size} Label
+              {selectedIds.size !== 1 ? 's' : ''}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {batchApproveResult
+                ? `Approved ${batchApproveResult.approvedCount} label${batchApproveResult.approvedCount !== 1 ? 's' : ''}${batchApproveResult.failedIds.length > 0 ? ` — ${batchApproveResult.failedIds.length} failed` : ''}`
+                : `All selected labels have been verified by AI with high confidence and all fields match. This will approve them in bulk with an audit trail.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+            {batchApproveRunning ? (
+              <Button disabled>
+                <Loader2 className="size-4 animate-spin" />
+                Approving...
+              </Button>
+            ) : batchApproveResult ? (
+              <AlertDialogAction onClick={handleBatchApproveClose}>
+                Done
+              </AlertDialogAction>
+            ) : (
+              <>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleBatchApprove}>
+                  <Check className="size-4" />
+                  Approve {selectedIds.size} Label
                   {selectedIds.size !== 1 ? 's' : ''}
                 </AlertDialogAction>
               </>

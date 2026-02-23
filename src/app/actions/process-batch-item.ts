@@ -22,6 +22,7 @@ import {
   addDays,
   type ValidationItemStatus,
 } from '@/lib/labels/validation-helpers'
+import { getAutoApprovalEnabled } from '@/lib/settings/get-settings'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -129,6 +130,7 @@ export async function processBatchItem(
         y: number
         width: number
         height: number
+        angle: number
       } | null
       imageIndex: number
     }> = []
@@ -167,6 +169,9 @@ export async function processBatchItem(
         aiRawResponse: extraction.rawResponse,
         processingTimeMs: extraction.processingTimeMs,
         modelUsed: extraction.modelUsed,
+        inputTokens: extraction.metrics.inputTokens,
+        outputTokens: extraction.metrics.outputTokens,
+        totalTokens: extraction.metrics.totalTokens,
         isCurrent: true,
       })
       .returning({ id: validationResults.id })
@@ -194,6 +199,7 @@ export async function processBatchItem(
             bboxHeight: comp.boundingBox
               ? String(comp.boundingBox.height)
               : null,
+            bboxAngle: comp.boundingBox ? String(comp.boundingBox.angle) : null,
           }
         }),
       )
@@ -224,30 +230,45 @@ export async function processBatchItem(
       ? addDays(new Date(), deadlineDays)
       : null
 
+    // Check auto-approval setting — route to pending_review when disabled
+    const autoApprovalEnabled = await getAutoApprovalEnabled()
+    const finalStatus =
+      autoApprovalEnabled && overallStatus === 'approved'
+        ? 'approved'
+        : 'pending_review'
+
     // Update label with final status
     await db
       .update(labels)
       .set({
-        status: overallStatus,
+        status: finalStatus,
+        aiProposedStatus:
+          finalStatus === 'pending_review' ? overallStatus : null,
         overallConfidence: String(overallConfidence),
-        correctionDeadline,
+        correctionDeadline:
+          finalStatus === 'pending_review' ? correctionDeadline : null,
       })
       .where(eq(labels.id, labelId))
 
     // Update batch counts — increment processedCount and the appropriate status counter
+    // Use finalStatus (not AI's overallStatus) so counters reflect actual label state
     const statusCountUpdates: Record<string, unknown> = {
       processedCount: sql`${batches.processedCount} + 1`,
       updatedAt: new Date(),
     }
 
-    if (overallStatus === 'approved') {
+    if (finalStatus === 'approved') {
       statusCountUpdates.approvedCount = sql`${batches.approvedCount} + 1`
-    } else if (overallStatus === 'conditionally_approved') {
-      statusCountUpdates.conditionallyApprovedCount = sql`${batches.conditionallyApprovedCount} + 1`
-    } else if (overallStatus === 'needs_correction') {
-      statusCountUpdates.needsCorrectionCount = sql`${batches.needsCorrectionCount} + 1`
-    } else if (overallStatus === 'rejected') {
-      statusCountUpdates.rejectedCount = sql`${batches.rejectedCount} + 1`
+    } else if (finalStatus === 'pending_review') {
+      // pending_review labels are counted based on AI's proposed status for reporting
+      if (overallStatus === 'conditionally_approved') {
+        statusCountUpdates.conditionallyApprovedCount = sql`${batches.conditionallyApprovedCount} + 1`
+      } else if (overallStatus === 'needs_correction') {
+        statusCountUpdates.needsCorrectionCount = sql`${batches.needsCorrectionCount} + 1`
+      } else if (overallStatus === 'rejected') {
+        statusCountUpdates.rejectedCount = sql`${batches.rejectedCount} + 1`
+      }
+      // overallStatus === 'approved' routed to pending_review — no specific counter
     }
 
     await db
@@ -275,7 +296,7 @@ export async function processBatchItem(
         .where(eq(batches.id, label.batchId))
     }
 
-    return { success: true, labelId, status: overallStatus }
+    return { success: true, labelId, status: finalStatus }
   } catch (error) {
     console.error('[processBatchItem] Unexpected error:', error)
     return {

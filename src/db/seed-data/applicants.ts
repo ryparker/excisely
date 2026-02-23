@@ -134,7 +134,7 @@ export const SEED_APPLICANTS: SeedApplicant[] = [
     companyName: 'First Batch Spirits',
     contactEmail: 'hello@firstbatchspirits.com',
     contactName: null,
-    notes: 'New distillery — first COLA submission',
+    notes: 'New distillery — first label submission',
   },
   {
     companyName: 'Smith Family Wines',

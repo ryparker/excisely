@@ -22,6 +22,8 @@ import {
 import { FIELD_DISPLAY_NAMES } from '@/config/field-display-names'
 import { FIELD_TOOLTIPS } from '@/config/field-tooltips'
 import { cn } from '@/lib/utils'
+import { ImageTabs } from '@/components/validation/image-tabs'
+import { ScanAnimation } from '@/components/validation/scan-animation'
 
 const MIN_ZOOM = 0.5
 const MAX_ZOOM = 4
@@ -78,6 +80,21 @@ const STATUS_BADGE_STYLE: Record<string, string> = {
   needs_correction:
     'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
   not_found: 'bg-secondary text-muted-foreground',
+  neutral:
+    'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+}
+
+const NEUTRAL_COLORS = {
+  border: 'border-indigo-400/50',
+  bg: '',
+  hoverBorder: 'group-hover/box:border-indigo-500',
+  hoverBg: 'group-hover/box:bg-indigo-500/10',
+}
+
+const NEUTRAL_ACTIVE_COLORS = {
+  border: 'border-indigo-500',
+  bg: 'bg-indigo-500/20',
+  shadow: '0 0 12px 2px rgba(99,102,241,0.5)',
 }
 
 type ResizeHandle = 'nw' | 'n' | 'ne' | 'w' | 'e' | 'sw' | 's' | 'se'
@@ -104,6 +121,39 @@ const HANDLE_POSITIONS: { handle: ResizeHandle; x: number; y: number }[] = [
   { handle: 'se', x: 1, y: 1 },
 ]
 
+/** Invert CSS transform (translate + scale with origin-center) to get normalized image coords. */
+function screenToNormalizedCoords(
+  clientX: number,
+  clientY: number,
+  container: HTMLDivElement | null,
+  currentScale: number,
+  currentTranslate: { x: number; y: number },
+): { x: number; y: number } | null {
+  if (!container) return null
+  const containerRect = container.getBoundingClientRect()
+  const imageEl = container.querySelector('img')
+  if (!imageEl) return null
+
+  const imageWidth = imageEl.naturalWidth || containerRect.width
+  const imageHeight = imageEl.naturalHeight || containerRect.height
+  const displayWidth = containerRect.width
+  const displayHeight = (imageHeight / imageWidth) * displayWidth
+
+  const relScreenX = clientX - containerRect.left
+  const relScreenY = clientY - containerRect.top
+  const relX =
+    (relScreenX - displayWidth / 2 - currentTranslate.x) / currentScale +
+    displayWidth / 2
+  const relY =
+    (relScreenY - displayHeight / 2 - currentTranslate.y) / currentScale +
+    displayHeight / 2
+
+  return {
+    x: Math.max(0, Math.min(1, relX / displayWidth)),
+    y: Math.max(0, Math.min(1, relY / displayHeight)),
+  }
+}
+
 export interface ValidationItemBox {
   fieldName: string
   status: string
@@ -113,6 +163,7 @@ export interface ValidationItemBox {
   bboxY: number | null
   bboxWidth: number | null
   bboxHeight: number | null
+  bboxAngle: number | null
   labelImageId?: string | null
 }
 
@@ -140,6 +191,18 @@ interface AnnotatedImageProps {
   onDrawingCancel?: () => void
   /** Previously drawn specialist annotations to render */
   annotations?: SpecialistAnnotation[]
+  /** Color mode: 'validation' uses status colors, 'neutral' uses uniform indigo */
+  colorMode?: 'validation' | 'neutral'
+  /** Local preview URL shown while the main imageUrl loads (prevents blank flash) */
+  placeholderUrl?: string
+  /** When true, shows the scan animation overlay on the placeholder */
+  isScanning?: boolean
+  /** Image tabs for the expanded lightbox (optional — when provided, tabs appear in expanded view) */
+  images?: Array<{ id: string; imageUrl: string; imageType: string }>
+  /** Currently selected image ID (paired with images) */
+  selectedImageId?: string
+  /** Called when the user switches images via the expanded view tabs */
+  onImageSelect?: (imageId: string) => void
 }
 
 /** Shared image content: pannable/zoomable image with optional bounding box overlays */
@@ -169,6 +232,8 @@ function ImageViewerContent({
   onImageLoad,
   onImageError,
   imageError,
+  colorMode = 'validation',
+  enableTransition = true,
 }: {
   imageUrl: string
   boxesWithCoords: ValidationItemBox[]
@@ -198,12 +263,15 @@ function ImageViewerContent({
   onImageLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void
   onImageError?: () => void
   imageError?: boolean
+  colorMode?: 'validation' | 'neutral'
+  /** When false, transform changes are applied instantly (no CSS transition). */
+  enableTransition?: boolean
 }) {
   return (
     <div
       ref={containerRef}
       className={cn(
-        'relative h-full overflow-hidden border bg-muted',
+        'relative h-full overflow-hidden border bg-muted bg-[linear-gradient(oklch(0.5_0_0/0.08)_1px,transparent_1px),linear-gradient(90deg,oklch(0.5_0_0/0.08)_1px,transparent_1px)] bg-[length:20px_20px]',
         hasTopBanner ? 'rounded-b-lg border-t-0' : 'rounded-lg',
         isDrawing
           ? 'cursor-crosshair'
@@ -218,7 +286,10 @@ function ImageViewerContent({
       onDoubleClick={isDrawing ? undefined : onDoubleClick}
     >
       <div
-        className="relative origin-center transition-transform duration-300 ease-out"
+        className={cn(
+          'relative origin-center',
+          enableTransition && 'transition-transform duration-300 ease-out',
+        )}
         style={{
           transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale}) rotate(${rotation}deg)`,
         }}
@@ -336,17 +407,23 @@ function ImageViewerContent({
         {showOverlays && (
           <TooltipProvider delayDuration={150}>
             {boxesWithCoords.map((item) => {
+              const isNeutral = colorMode === 'neutral'
               const isActive = activeField === item.fieldName
               const statusKey =
                 item.status in STATUS_COLORS ? item.status : 'match'
-              const colors = STATUS_COLORS[statusKey]
-              const activeColors = ACTIVE_COLORS[statusKey]
+              const colors = isNeutral
+                ? NEUTRAL_COLORS
+                : STATUS_COLORS[statusKey]
+              const activeColors = isNeutral
+                ? NEUTRAL_ACTIVE_COLORS
+                : ACTIVE_COLORS[statusKey]
               const label =
                 FIELD_DISPLAY_NAMES[item.fieldName] ??
                 item.fieldName.replace(/_/g, ' ')
               const confidencePercent = Math.round(item.confidence)
-              const statusLabel =
-                item.status === 'needs_correction'
+              const statusLabel = isNeutral
+                ? 'Detected'
+                : item.status === 'needs_correction'
                   ? 'Needs Correction'
                   : item.status === 'not_found'
                     ? 'Not Found'
@@ -400,24 +477,28 @@ function ImageViewerContent({
                     <div className="space-y-1.5 p-1">
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-xs font-semibold">{label}</span>
-                        <Badge
-                          variant="secondary"
-                          className={cn(
-                            'px-1.5 py-0 text-[10px]',
-                            STATUS_BADGE_STYLE[item.status] ?? '',
-                          )}
-                        >
-                          {statusLabel}
-                        </Badge>
+                        {!isNeutral && (
+                          <Badge
+                            variant="secondary"
+                            className={cn(
+                              'px-1.5 py-0 text-[10px]',
+                              STATUS_BADGE_STYLE[item.status] ?? '',
+                            )}
+                          >
+                            {statusLabel}
+                          </Badge>
+                        )}
                       </div>
                       {item.extractedValue && (
                         <p className="line-clamp-2 text-xs leading-snug text-muted-foreground">
                           {item.extractedValue}
                         </p>
                       )}
-                      <p className="font-mono text-[10px] text-muted-foreground">
-                        {confidencePercent}% confidence
-                      </p>
+                      {!isNeutral && (
+                        <p className="font-mono text-[10px] text-muted-foreground">
+                          {confidencePercent}% confidence
+                        </p>
+                      )}
                     </div>
                   </TooltipContent>
                 </Tooltip>
@@ -439,6 +520,12 @@ export function AnnotatedImage({
   onDrawingComplete,
   onDrawingCancel,
   annotations,
+  colorMode = 'validation',
+  placeholderUrl,
+  isScanning = false,
+  images,
+  selectedImageId,
+  onImageSelect,
 }: AnnotatedImageProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const expandedContainerRef = useRef<HTMLDivElement>(null)
@@ -449,6 +536,27 @@ export function AnnotatedImage({
   const [showOverlays, setShowOverlays] = useState(true)
   const [isExpanded, setIsExpanded] = useState(false)
   const [rotation, setRotation] = useState(0)
+  // Tracks whether the image has been loaded AND positioned (centered).
+  // While false, the viewer is hidden (opacity-0) and transitions are disabled
+  // so the image doesn't flash at (0,0) then slide to center.
+  const [isPositioned, setIsPositioned] = useState(false)
+  // Once true, subsequent image switches (e.g. multi-image tab changes) skip
+  // resetting isPositioned so the placeholder overlay doesn't cover bounding
+  // boxes while the next image loads from the proxy.
+  const hasBeenPositionedRef = useRef(false)
+
+  // Delayed scan animation visibility — stays true for 500ms after isScanning
+  // becomes false so the animation fades out with the placeholder overlay.
+  const [showScanAnim, setShowScanAnim] = useState(false)
+  useEffect(() => {
+    if (isScanning) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing derived visual state with isScanning prop
+      setShowScanAnim(true)
+    } else {
+      const t = setTimeout(() => setShowScanAnim(false), 500)
+      return () => clearTimeout(t)
+    }
+  }, [isScanning])
 
   // Drawing state
   const [isDrawingActive, setIsDrawingActive] = useState(false)
@@ -494,19 +602,19 @@ export function AnnotatedImage({
     setIsExpanded(false)
   }, [])
 
-  // Close expanded view on Escape
+  // Close expanded view on Escape (deferred when drawing — Escape first cancels drawing)
   useEffect(() => {
     if (!isExpanded) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && !drawingFieldName) {
         setIsExpanded(false)
       }
     }
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isExpanded])
+  }, [isExpanded, drawingFieldName])
 
   // Cancel drawing on Escape (two-level: adjustment → drawing → exit)
   useEffect(() => {
@@ -558,28 +666,14 @@ export function AnnotatedImage({
 
   // --- Coordinate conversion for drawing ---
   const screenToNormalized = useCallback(
-    (clientX: number, clientY: number) => {
-      const container = containerRef.current
-      if (!container) return null
-      const containerRect = container.getBoundingClientRect()
-      const imageEl = container.querySelector('img')
-      if (!imageEl) return null
-
-      const imageWidth = imageEl.naturalWidth || containerRect.width
-      const imageHeight = imageEl.naturalHeight || containerRect.height
-      const displayWidth = containerRect.width
-      const displayHeight = (imageHeight / imageWidth) * displayWidth
-
-      // Undo translate and scale to get position relative to unscaled image
-      const relX = (clientX - containerRect.left - translate.x) / scale
-      const relY = (clientY - containerRect.top - translate.y) / scale
-
-      // Normalize to 0-1 range
-      return {
-        x: Math.max(0, Math.min(1, relX / displayWidth)),
-        y: Math.max(0, Math.min(1, relY / displayHeight)),
-      }
-    },
+    (clientX: number, clientY: number) =>
+      screenToNormalizedCoords(
+        clientX,
+        clientY,
+        containerRef.current,
+        scale,
+        translate,
+      ),
     [scale, translate],
   )
 
@@ -717,11 +811,19 @@ export function AnnotatedImage({
     setIsDragging(false)
   }, [isDrawingActive, drawingRect, drawingFieldName, adjustMode])
 
-  // Start move or resize of pending rect
+  // Start move or resize of pending rect (works in both inline and expanded views)
   const handlePendingMouseDown = useCallback(
     (e: React.MouseEvent, handle: ResizeHandle | 'move') => {
       if (!pendingRect) return
-      const norm = screenToNormalized(e.clientX, e.clientY)
+      const norm = isExpanded
+        ? screenToNormalizedCoords(
+            e.clientX,
+            e.clientY,
+            expandedContainerRef.current,
+            expandedScale,
+            expandedTranslate,
+          )
+        : screenToNormalized(e.clientX, e.clientY)
       if (!norm) return
       setAdjustMode({
         type: handle,
@@ -729,7 +831,13 @@ export function AnnotatedImage({
         startRect: { ...pendingRect },
       })
     },
-    [pendingRect, screenToNormalized],
+    [
+      pendingRect,
+      screenToNormalized,
+      isExpanded,
+      expandedScale,
+      expandedTranslate,
+    ],
   )
 
   // Confirm pending rect → commit annotation
@@ -748,6 +856,10 @@ export function AnnotatedImage({
   }, [])
 
   // Compute the scale and translate needed to fit the image within the container
+  // Inset (px) — matches the placeholder's p-4 so the image sits in the
+  // same position during scanning and after the annotated viewer loads.
+  const FIT_INSET = 16
+
   const computeFitView = useCallback(
     (container: HTMLDivElement): { scale: number; translateY: number } => {
       const containerRect = container.getBoundingClientRect()
@@ -755,22 +867,39 @@ export function AnnotatedImage({
       if (!imageEl) return { scale: 1, translateY: 0 }
       const imageWidth = imageEl.naturalWidth || containerRect.width
       const imageHeight = imageEl.naturalHeight || containerRect.height
+      // Available area after inset padding on all sides
+      const availableWidth = containerRect.width - FIT_INSET * 2
+      const availableHeight = containerRect.height - FIT_INSET * 2
+      // Image displayed at container width; compute height at that width
       const displayWidth = containerRect.width
       const displayHeight = (imageHeight / imageWidth) * displayWidth
-      // Leave 8px padding so the image doesn't touch the container edge
-      const availableHeight = containerRect.height - 8
-      if (displayHeight > availableHeight) {
-        const fitScale = availableHeight / displayHeight
-        // Center the scaled image vertically within the container.
-        // transform-origin is the element's center (displayHeight/2),
-        // so we translate up to align with the container's center.
-        const translateY = containerRect.height / 2 - displayHeight / 2
-        return { scale: fitScale, translateY }
-      }
-      return { scale: 1, translateY: 0 }
+      // Scale so the image fits within the inset area (never upscale)
+      const scaleX = availableWidth / displayWidth
+      const scaleY = availableHeight / displayHeight
+      const fitScale = Math.min(scaleX, scaleY, 1)
+      // Horizontal centering is handled by transform-origin: center — scale
+      // shrinks symmetrically so translateX is always 0.
+      // Vertical centering: offset so the transform div (whose natural top
+      // is 0) is centered within the container.
+      const translateY = (containerRect.height - displayHeight) / 2
+      return { scale: fitScale, translateY }
     },
     [],
   )
+
+  // Center image vertically when expanded view opens
+  useEffect(() => {
+    if (!isExpanded) return
+    const container = expandedContainerRef.current
+    if (!container) return
+    // Wait a frame for the container to have layout dimensions
+    const raf = requestAnimationFrame(() => {
+      const fit = computeFitView(container)
+      setExpandedScale(fit.scale)
+      setExpandedTranslate({ x: 0, y: fit.translateY })
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [isExpanded, computeFitView])
 
   const handleRotate = useCallback(() => {
     setRotation((prev) => (prev + 90) % 360)
@@ -802,29 +931,144 @@ export function AnnotatedImage({
   const handleExpandedMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if (e.button !== 0) return
+
+      // Drawing mode
+      if (isDrawing && !pendingRect) {
+        const norm = screenToNormalizedCoords(
+          e.clientX,
+          e.clientY,
+          expandedContainerRef.current,
+          expandedScale,
+          expandedTranslate,
+        )
+        if (norm) {
+          setIsDrawingActive(true)
+          setDrawStart(norm)
+          setDrawingRect({ x: norm.x, y: norm.y, width: 0, height: 0 })
+        }
+        return
+      }
+
+      if (isDrawing) return // In adjustment mode, ignore background clicks
+
       setExpandedIsDragging(true)
       setExpandedDragStart({
         x: e.clientX - expandedTranslate.x,
         y: e.clientY - expandedTranslate.y,
       })
     },
-    [expandedTranslate],
+    [expandedTranslate, expandedScale, isDrawing, pendingRect],
   )
 
   const handleExpandedMouseMove = useCallback(
     (e: React.MouseEvent) => {
+      // Adjustment mode: move or resize pendingRect
+      if (adjustMode && pendingRect) {
+        const norm = screenToNormalizedCoords(
+          e.clientX,
+          e.clientY,
+          expandedContainerRef.current,
+          expandedScale,
+          expandedTranslate,
+        )
+        if (!norm) return
+
+        const dx = norm.x - adjustMode.startMouse.x
+        const dy = norm.y - adjustMode.startMouse.y
+        const r = adjustMode.startRect
+
+        if (adjustMode.type === 'move') {
+          setPendingRect({
+            x: Math.max(0, Math.min(1 - r.width, r.x + dx)),
+            y: Math.max(0, Math.min(1 - r.height, r.y + dy)),
+            width: r.width,
+            height: r.height,
+          })
+        } else {
+          let newX = r.x
+          let newY = r.y
+          let newW = r.width
+          let newH = r.height
+
+          const h = adjustMode.type
+          if (h === 'nw' || h === 'w' || h === 'sw') {
+            newX = Math.min(r.x + r.width - 0.01, r.x + dx)
+            newW = r.width - (newX - r.x)
+          }
+          if (h === 'ne' || h === 'e' || h === 'se') {
+            newW = Math.max(0.01, r.width + dx)
+          }
+          if (h === 'nw' || h === 'n' || h === 'ne') {
+            newY = Math.min(r.y + r.height - 0.01, r.y + dy)
+            newH = r.height - (newY - r.y)
+          }
+          if (h === 'sw' || h === 's' || h === 'se') {
+            newH = Math.max(0.01, r.height + dy)
+          }
+
+          setPendingRect({
+            x: Math.max(0, newX),
+            y: Math.max(0, newY),
+            width: Math.min(1 - Math.max(0, newX), newW),
+            height: Math.min(1 - Math.max(0, newY), newH),
+          })
+        }
+        return
+      }
+
+      if (isDrawingActive && drawStart) {
+        const norm = screenToNormalizedCoords(
+          e.clientX,
+          e.clientY,
+          expandedContainerRef.current,
+          expandedScale,
+          expandedTranslate,
+        )
+        if (norm) {
+          const x = Math.min(drawStart.x, norm.x)
+          const y = Math.min(drawStart.y, norm.y)
+          const width = Math.abs(norm.x - drawStart.x)
+          const height = Math.abs(norm.y - drawStart.y)
+          setDrawingRect({ x, y, width, height })
+        }
+        return
+      }
+
       if (!expandedIsDragging) return
       setExpandedTranslate({
         x: e.clientX - expandedDragStart.x,
         y: e.clientY - expandedDragStart.y,
       })
     },
-    [expandedIsDragging, expandedDragStart],
+    [
+      expandedIsDragging,
+      expandedDragStart,
+      isDrawingActive,
+      drawStart,
+      adjustMode,
+      pendingRect,
+      expandedScale,
+      expandedTranslate,
+    ],
   )
 
   const handleExpandedMouseUp = useCallback(() => {
+    if (adjustMode) {
+      setAdjustMode(null)
+      return
+    }
+
+    if (isDrawingActive && drawingRect && drawingFieldName) {
+      if (drawingRect.width > 0.005 && drawingRect.height > 0.005) {
+        setPendingRect(drawingRect)
+      }
+      setIsDrawingActive(false)
+      setDrawStart(null)
+      setDrawingRect(null)
+      return
+    }
     setExpandedIsDragging(false)
-  }, [])
+  }, [isDrawingActive, drawingRect, drawingFieldName, adjustMode])
 
   const handleExpandedDoubleClick = useCallback(() => {
     setExpandedScale(1)
@@ -841,6 +1085,19 @@ export function AnnotatedImage({
     // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing imageLoaded with imageUrl prop
     setImageLoaded(false)
     setImageError(false)
+    // Only hide behind the placeholder overlay on the very first image load.
+    // After the first image is positioned, keep isPositioned true during image
+    // switches so the overlay doesn't cover bounding boxes while the next
+    // image loads through the blob proxy.
+    if (!hasBeenPositionedRef.current) {
+      setIsPositioned(false)
+    }
+    // Reset transform so the old image's scale/translate doesn't show
+    // through the placeholder overlay if the new image has a different
+    // aspect ratio.
+    setScale(1)
+    setTranslate({ x: 0, y: 0 })
+    setRotation(0)
   }, [imageUrl])
 
   // Also check for already-cached images on mount / URL change
@@ -865,6 +1122,15 @@ export function AnnotatedImage({
   useEffect(() => {
     if (!imageLoaded) return
     applyFitView()
+    // Mark as positioned after the browser paints the centered position.
+    // Double-rAF ensures the un-transitioned position is rendered before we
+    // make the content visible and enable CSS transitions.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setIsPositioned(true)
+        hasBeenPositionedRef.current = true
+      })
+    })
   }, [imageLoaded, applyFitView])
 
   // Recalculate fit on container resize
@@ -923,16 +1189,24 @@ export function AnnotatedImage({
     const displayWidth = containerRect.width
     const displayHeight = (imageHeight / imageWidth) * displayWidth
 
-    // Detect sideways text using pixel-space aspect ratio
+    // Use stored text angle from OCR, fall back to aspect ratio heuristic
     const boxWidthPx = Number(item.bboxWidth) * displayWidth
     const boxHeightPx = Number(item.bboxHeight) * displayHeight
-    const isVerticalText = boxHeightPx / boxWidthPx > 2
-    const targetRotation = isVerticalText ? 90 : 0
+    let targetRotation = 0
+    if (item.bboxAngle !== null && item.bboxAngle !== 0) {
+      // Negate the text angle to correct the orientation
+      // e.g., text at 90° (reading top-to-bottom) → rotate image -90°
+      targetRotation = -item.bboxAngle
+    } else if (boxHeightPx / boxWidthPx > 2) {
+      // Legacy fallback: aspect ratio heuristic (assumes bottom-to-top reading)
+      targetRotation = 90
+    }
     setRotation(targetRotation)
 
-    // When rotated, the bbox's effective screen dimensions swap
-    const effectiveBoxW = isVerticalText ? boxHeightPx : boxWidthPx
-    const effectiveBoxH = isVerticalText ? boxWidthPx : boxHeightPx
+    // When rotated 90° or -90°, the bbox's effective screen dimensions swap
+    const isRotated90 = Math.abs(targetRotation) === 90
+    const effectiveBoxW = isRotated90 ? boxHeightPx : boxWidthPx
+    const effectiveBoxH = isRotated90 ? boxWidthPx : boxHeightPx
 
     // Target zoom: fit the bounding box with context padding.
     // Use 2x padding (bbox fills ~50% of the viewport).
@@ -984,7 +1258,33 @@ export function AnnotatedImage({
 
   return (
     <>
-      <div className="flex h-full flex-col">
+      <div className="relative flex h-full flex-col">
+        {/* Placeholder: show local preview while remote loads, with scan overlay when extracting.
+            Visible when: scanning OR remote image not yet positioned.
+            Fades out smoothly via CSS opacity transition when no longer needed. */}
+        {placeholderUrl && !imageError && (
+          <div
+            className={cn(
+              'absolute inset-0 z-10 overflow-hidden rounded-lg border bg-muted bg-[linear-gradient(oklch(0.5_0_0/0.08)_1px,transparent_1px),linear-gradient(90deg,oklch(0.5_0_0/0.08)_1px,transparent_1px)] bg-[length:20px_20px]',
+              // Fade OUT smoothly (500ms) but appear instantly (no transition)
+              // when !isPositioned. This prevents the user seeing the wrong
+              // scale/translate on the image underneath during a slow fade-in.
+              isScanning || !isPositioned
+                ? 'opacity-100'
+                : 'pointer-events-none opacity-0 transition-opacity duration-500 ease-out',
+            )}
+          >
+            <div className="flex h-full items-center justify-center p-4">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={placeholderUrl}
+                alt=""
+                className="max-h-full max-w-full object-contain"
+              />
+            </div>
+            {showScanAnim && <ScanAnimation />}
+          </div>
+        )}
         {/* Drawing mode banner — sits above the image, not overlapping */}
         {isDrawing && drawingFieldName && (
           <div
@@ -1023,7 +1323,7 @@ export function AnnotatedImage({
                     </TooltipTrigger>
                     {FIELD_TOOLTIPS[drawingFieldName] && (
                       <TooltipContent side="bottom" className="max-w-xs">
-                        {FIELD_TOOLTIPS[drawingFieldName]}
+                        {FIELD_TOOLTIPS[drawingFieldName].description}
                       </TooltipContent>
                     )}
                   </Tooltip>
@@ -1072,6 +1372,8 @@ export function AnnotatedImage({
               }
               setImageLoaded(true)
             }}
+            colorMode={colorMode}
+            enableTransition={isPositioned}
           />
 
           {/* Live crop preview — dynamically positioned to avoid the drawn rectangle */}
@@ -1147,71 +1449,73 @@ export function AnnotatedImage({
           })()}
 
           {/* Controls toolbar */}
-          <div className="absolute right-3 bottom-3 flex items-center gap-1.5">
+          <div className="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-lg border bg-background/90 p-1 shadow-sm backdrop-blur-md">
             {/* Toggle overlays */}
             <button
               type="button"
-              className="flex items-center justify-center rounded-md bg-background/80 p-2.5 text-muted-foreground backdrop-blur-sm transition-colors hover:bg-muted hover:text-foreground active:scale-95"
+              className="flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-95"
               onClick={() => setShowOverlays((prev) => !prev)}
               aria-label={showOverlays ? 'Hide highlights' : 'Show highlights'}
               title={showOverlays ? 'Hide highlights' : 'Show highlights'}
             >
               {showOverlays ? (
-                <Eye className="h-3.5 w-3.5" />
+                <Eye className="size-3.5" />
               ) : (
-                <EyeOff className="h-3.5 w-3.5" />
+                <EyeOff className="size-3.5" />
               )}
             </button>
 
             {/* Rotate */}
             <button
               type="button"
-              className="flex items-center justify-center rounded-md bg-background/80 p-2.5 text-muted-foreground backdrop-blur-sm transition-colors hover:bg-muted hover:text-foreground active:scale-95"
+              className="flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-95"
               onClick={handleRotate}
               aria-label="Rotate 90°"
               title="Rotate 90°"
             >
-              <RotateCw className="h-3.5 w-3.5" />
+              <RotateCw className="size-3.5" />
             </button>
 
             {/* Reset */}
             <button
               type="button"
-              className="flex items-center justify-center rounded-md bg-background/80 p-2.5 text-muted-foreground backdrop-blur-sm transition-colors hover:bg-muted hover:text-foreground active:scale-95"
+              className="flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-95"
               onClick={handleReset}
               aria-label="Reset view"
               title="Reset view"
             >
-              <Home className="h-3.5 w-3.5" />
+              <Home className="size-3.5" />
             </button>
 
             {/* Expand */}
             <button
               type="button"
-              className="flex items-center justify-center rounded-md bg-background/80 p-2.5 text-muted-foreground backdrop-blur-sm transition-colors hover:bg-muted hover:text-foreground active:scale-95"
+              className="flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-95"
               onClick={handleExpand}
               aria-label="Expand image"
               title="Expand image"
             >
-              <Maximize2 className="h-3.5 w-3.5" />
+              <Maximize2 className="size-3.5" />
             </button>
 
+            <div className="mx-0.5 h-5 w-px bg-border" />
+
             {/* Zoom controls */}
-            <div className="flex items-center gap-1 rounded-md bg-background/80 px-1 py-0.5 text-xs text-muted-foreground backdrop-blur-sm">
+            <div className="flex items-center text-xs text-muted-foreground">
               <button
                 type="button"
-                className="rounded px-2 py-1 transition-colors hover:bg-muted active:scale-95"
+                className="rounded-md px-2 py-1 transition-colors hover:bg-muted hover:text-foreground active:scale-95"
                 onClick={handleZoomOut}
                 aria-label="Zoom out"
               >
                 −
               </button>
-              <span className="min-w-[3ch] text-center tabular-nums">
+              <span className="min-w-[3ch] text-center text-[11px] tabular-nums">
                 {Math.round(scale * 100)}%
               </span>
               <button
                 type="button"
-                className="rounded px-2 py-1 transition-colors hover:bg-muted active:scale-95"
+                className="rounded-md px-2 py-1 transition-colors hover:bg-muted hover:text-foreground active:scale-95"
                 onClick={handleZoomIn}
                 aria-label="Zoom in"
               >
@@ -1226,29 +1530,99 @@ export function AnnotatedImage({
       {isExpanded && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          onClick={handleCollapse}
+          onClick={isDrawing ? undefined : handleCollapse}
         >
           <div
-            className="relative max-h-[85vh] max-w-[90vw] overflow-hidden rounded-xl border bg-background shadow-2xl"
+            className="relative flex max-h-[85vh] w-[90vw] max-w-[90vw] flex-col overflow-hidden rounded-xl border bg-background shadow-2xl"
+            style={{ height: '85vh' }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close button */}
             <button
               type="button"
-              className="absolute top-3 right-3 z-10 flex items-center justify-center rounded-md bg-background/80 p-2.5 text-muted-foreground backdrop-blur-sm transition-colors hover:bg-muted hover:text-foreground active:scale-95"
+              className="absolute top-3 right-3 z-20 flex items-center justify-center rounded-md bg-background/80 p-2.5 text-muted-foreground backdrop-blur-sm transition-colors hover:bg-muted hover:text-foreground active:scale-95"
               onClick={handleCollapse}
               aria-label="Close expanded view"
             >
               <X className="h-4 w-4" />
             </button>
 
-            <div className="h-[85vh] w-[90vw]">
+            {/* Image tabs (when multiple images available) */}
+            {images &&
+              images.length > 1 &&
+              selectedImageId &&
+              onImageSelect && (
+                <div className="shrink-0 border-b px-4 pt-3 pb-1">
+                  <ImageTabs
+                    images={images}
+                    selectedImageId={selectedImageId}
+                    onSelect={onImageSelect}
+                  />
+                </div>
+              )}
+
+            {/* Drawing mode banner */}
+            {isDrawing && drawingFieldName && (
+              <div
+                className="flex shrink-0 items-center justify-center gap-2 bg-indigo-600 px-4 py-2 text-sm font-medium text-white"
+                role="status"
+              >
+                {pendingRect ? (
+                  <>
+                    Adjust the rectangle, then{' '}
+                    <button
+                      type="button"
+                      className="rounded bg-white/20 px-1.5 py-0.5 font-semibold transition-colors hover:bg-white/30 active:scale-95"
+                      onClick={handleConfirmPending}
+                    >
+                      Confirm
+                    </button>{' '}
+                    or{' '}
+                    <button
+                      type="button"
+                      className="rounded bg-white/20 px-1.5 py-0.5 font-semibold transition-colors hover:bg-white/30 active:scale-95"
+                      onClick={handleRedrawPending}
+                    >
+                      Redraw
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    Draw a rectangle around{' '}
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <strong className="cursor-help border-b border-dashed border-white/40">
+                            {FIELD_DISPLAY_NAMES[drawingFieldName] ??
+                              drawingFieldName.replace(/_/g, ' ')}
+                          </strong>
+                        </TooltipTrigger>
+                        {FIELD_TOOLTIPS[drawingFieldName] && (
+                          <TooltipContent side="bottom" className="max-w-xs">
+                            {FIELD_TOOLTIPS[drawingFieldName].description}
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
+                  </>
+                )}
+                <kbd className="ml-1 rounded border border-indigo-400/50 bg-indigo-500/50 px-1.5 py-0.5 font-mono text-xs text-indigo-100">
+                  Esc
+                </kbd>
+                <span className="text-indigo-200">
+                  {pendingRect ? 'to redraw' : 'to cancel'}
+                </span>
+              </div>
+            )}
+
+            {/* Image viewer fills remaining space */}
+            <div className="relative min-h-0 flex-1">
               <ImageViewerContent
                 imageUrl={imageUrl}
                 boxesWithCoords={boxesWithCoords}
                 activeField={activeField}
-                onFieldClick={onFieldClick}
-                showOverlays={showOverlays}
+                onFieldClick={isDrawing ? undefined : onFieldClick}
+                showOverlays={effectiveShowOverlays}
                 scale={expandedScale}
                 translate={expandedTranslate}
                 rotation={rotation}
@@ -1256,10 +1630,87 @@ export function AnnotatedImage({
                 onMouseDown={handleExpandedMouseDown}
                 onMouseMove={handleExpandedMouseMove}
                 onMouseUp={handleExpandedMouseUp}
-                onDoubleClick={handleExpandedDoubleClick}
+                onDoubleClick={isDrawing ? () => {} : handleExpandedDoubleClick}
                 containerRef={expandedContainerRef}
+                isDrawing={isDrawing && !pendingRect}
+                drawingRect={drawingRect}
+                pendingRect={pendingRect}
+                onPendingMouseDown={handlePendingMouseDown}
+                onConfirmPending={handleConfirmPending}
+                onRedrawPending={handleRedrawPending}
                 annotations={annotations}
+                colorMode={colorMode}
               />
+
+              {/* Crop preview (expanded view) */}
+              {(() => {
+                const previewSource = pendingRect ?? drawingRect
+                if (
+                  !previewSource ||
+                  previewSource.width < 0.01 ||
+                  previewSource.height < 0.01
+                )
+                  return null
+
+                const cropAspect =
+                  (previewSource.width * imageAspect) / previewSource.height
+                const MAX_DIM = 220
+                const MIN_DIM = 80
+                let previewW: number
+                let previewH: number
+                if (cropAspect >= 1) {
+                  previewW = Math.min(MAX_DIM, Math.max(MIN_DIM, MAX_DIM))
+                  previewH = Math.max(
+                    MIN_DIM,
+                    Math.round(previewW / cropAspect),
+                  )
+                } else {
+                  previewH = Math.min(MAX_DIM, Math.max(MIN_DIM, MAX_DIM))
+                  previewW = Math.max(
+                    MIN_DIM,
+                    Math.round(previewH * cropAspect),
+                  )
+                }
+                const imgW = previewW / previewSource.width
+                const imgH = previewH / previewSource.height
+
+                const rectCenterX = previewSource.x + previewSource.width / 2
+                const rectCenterY = previewSource.y + previewSource.height / 2
+                const placeRight = rectCenterX < 0.5
+                const placeBottom = rectCenterY < 0.5
+
+                const positionStyle: React.CSSProperties = {
+                  width: previewW,
+                  height: previewH,
+                  ...(placeRight ? { right: 12 } : { left: 12 }),
+                  ...(placeBottom ? { bottom: 52 } : { top: 12 }),
+                }
+
+                return (
+                  <div
+                    className="pointer-events-none absolute z-20 overflow-hidden rounded-lg border-2 border-indigo-500/80 bg-black shadow-xl transition-[top,right,bottom,left] duration-200"
+                    style={positionStyle}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={imageUrl}
+                      alt="Crop preview"
+                      draggable={false}
+                      className="absolute block"
+                      style={{
+                        width: imgW,
+                        height: imgH,
+                        left: -previewSource.x * imgW,
+                        top: -previewSource.y * imgH,
+                        maxWidth: 'none',
+                      }}
+                    />
+                    <span className="absolute top-1 left-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                      Preview
+                    </span>
+                  </div>
+                )
+              })()}
 
               {/* Expanded view controls toolbar */}
               <div className="absolute right-3 bottom-3 flex items-center gap-1.5">
@@ -1296,9 +1747,16 @@ export function AnnotatedImage({
                   type="button"
                   className="flex items-center justify-center rounded-md bg-background/80 p-2.5 text-muted-foreground backdrop-blur-sm transition-colors hover:bg-muted hover:text-foreground active:scale-95"
                   onClick={() => {
-                    setExpandedScale(1)
-                    setExpandedTranslate({ x: 0, y: 0 })
                     setRotation(0)
+                    const container = expandedContainerRef.current
+                    if (container) {
+                      const fit = computeFitView(container)
+                      setExpandedScale(fit.scale)
+                      setExpandedTranslate({ x: 0, y: fit.translateY })
+                    } else {
+                      setExpandedScale(1)
+                      setExpandedTranslate({ x: 0, y: 0 })
+                    }
                   }}
                   aria-label="Reset view"
                   title="Reset view"

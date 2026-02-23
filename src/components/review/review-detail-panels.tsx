@@ -7,9 +7,9 @@ import {
   type SpecialistAnnotation,
   type ValidationItemBox,
 } from '@/components/validation/annotated-image'
+import { ImageTabs } from '@/components/validation/image-tabs'
 import { ReviewFieldList } from '@/components/review/review-field-list'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { cn } from '@/lib/utils'
 
 interface ValidationItemData {
   id: string
@@ -23,6 +23,7 @@ interface ValidationItemData {
   bboxY: string | null
   bboxWidth: string | null
   bboxHeight: string | null
+  bboxAngle: string | null
   labelImageId: string | null
 }
 
@@ -33,24 +34,24 @@ interface LabelImageData {
   sortOrder: number
 }
 
+interface ApplicantCorrection {
+  fieldName: string
+  aiExtractedValue: string
+  applicantSubmittedValue: string
+}
+
 interface ReviewDetailPanelsProps {
   labelId: string
   images: LabelImageData[]
   validationItems: ValidationItemData[]
-}
-
-const IMAGE_TYPE_LABELS: Record<string, string> = {
-  front: 'Front',
-  back: 'Back',
-  neck: 'Neck',
-  strip: 'Strip',
-  other: 'Other',
+  applicantCorrections?: ApplicantCorrection[]
 }
 
 export function ReviewDetailPanels({
   labelId,
   images,
   validationItems,
+  applicantCorrections,
 }: ReviewDetailPanelsProps) {
   const [activeField, setActiveField] = useState<string | null>(null)
   const [selectedImageId, setSelectedImageId] = useState<string>(
@@ -141,6 +142,10 @@ export function ReviewDetailPanels({
       item.labelImageId === selectedImageId && item.bboxHeight
         ? Number(item.bboxHeight)
         : null,
+    bboxAngle:
+      item.labelImageId === selectedImageId && item.bboxAngle
+        ? Number(item.bboxAngle)
+        : null,
     labelImageId: item.labelImageId,
   }))
 
@@ -152,64 +157,57 @@ export function ReviewDetailPanels({
   }))
 
   return (
-    <div className="flex gap-6" style={{ height: 'calc(100vh - 340px)' }}>
-      {/* Left panel — annotated image (55%) */}
-      <div className="flex w-[55%] shrink-0 flex-col">
-        {/* Image tabs (only show when multiple images) */}
-        {images.length > 1 && (
-          <div className="mb-2 flex gap-1">
-            {images.map((img) => (
-              <button
-                key={img.id}
-                type="button"
-                className={cn(
-                  'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
-                  img.id === selectedImageId
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-muted-foreground hover:bg-muted/80',
-                )}
-                onClick={() => {
-                  setSelectedImageId(img.id)
+    <div className="flex flex-col" style={{ height: 'calc(100vh - 310px)' }}>
+      <ImageTabs
+        images={images}
+        selectedImageId={selectedImageId}
+        onSelect={(id) => {
+          setSelectedImageId(id)
+          setActiveField(null)
+        }}
+      />
+
+      <div className="flex min-h-0 flex-1 gap-4">
+        {/* Left panel — annotated image (55%) */}
+        <div className="flex w-[55%] shrink-0 flex-col">
+          <div className="min-h-0 flex-1 overflow-hidden rounded-xl border bg-neutral-950/[0.03] dark:bg-neutral-950/30">
+            {selectedImage && (
+              <AnnotatedImage
+                imageUrl={selectedImage.imageUrl}
+                validationItems={annotationItems}
+                activeField={activeField}
+                onFieldClick={handleFieldClick}
+                drawingFieldName={drawingFieldName}
+                onDrawingComplete={handleDrawingComplete}
+                onDrawingCancel={handleDrawingCancel}
+                annotations={specialistAnnotations}
+                images={images}
+                selectedImageId={selectedImageId}
+                onImageSelect={(id) => {
+                  setSelectedImageId(id)
                   setActiveField(null)
                 }}
-              >
-                {IMAGE_TYPE_LABELS[img.imageType] ??
-                  `Image ${img.sortOrder + 1}`}
-              </button>
-            ))}
+              />
+            )}
           </div>
-        )}
+        </div>
 
-        <div className="min-h-0 flex-1">
-          {selectedImage && (
-            <AnnotatedImage
-              imageUrl={selectedImage.imageUrl}
-              validationItems={annotationItems}
+        {/* Right panel — review field list (45%) */}
+        <ScrollArea className="flex-1">
+          <div className="pr-4 pb-1 pl-1">
+            <ReviewFieldList
+              labelId={labelId}
+              validationItems={validationItems}
+              applicantCorrections={applicantCorrections}
               activeField={activeField}
               onFieldClick={handleFieldClick}
-              drawingFieldName={drawingFieldName}
-              onDrawingComplete={handleDrawingComplete}
-              onDrawingCancel={handleDrawingCancel}
-              annotations={specialistAnnotations}
+              onMarkLocation={handleMarkLocation}
+              onClearAnnotation={handleClearAnnotation}
+              annotations={annotationsMap}
             />
-          )}
-        </div>
+          </div>
+        </ScrollArea>
       </div>
-
-      {/* Right panel — review field list (45%) */}
-      <ScrollArea className="flex-1">
-        <div className="pr-4">
-          <ReviewFieldList
-            labelId={labelId}
-            validationItems={validationItems}
-            activeField={activeField}
-            onFieldClick={handleFieldClick}
-            onMarkLocation={handleMarkLocation}
-            onClearAnnotation={handleClearAnnotation}
-            annotations={annotationsMap}
-          />
-        </div>
-      </ScrollArea>
     </div>
   )
 }

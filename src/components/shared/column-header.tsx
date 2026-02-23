@@ -1,0 +1,166 @@
+'use client'
+
+import { useTransition } from 'react'
+import { ArrowDown, ArrowUp, ChevronsUpDown, ListFilter } from 'lucide-react'
+import { useQueryStates, parseAsString } from 'nuqs'
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { TableHead } from '@/components/ui/table'
+import { cn } from '@/lib/utils'
+
+interface FilterOption {
+  label: string
+  value: string
+}
+
+interface ColumnHeaderProps {
+  children: React.ReactNode
+  /** Sort key for this column (enables sort asc/desc in dropdown) */
+  sortKey?: string
+  /** Default sort direction when no sort param is in the URL (e.g. "desc" for Submitted column) */
+  defaultSort?: 'asc' | 'desc'
+  /** URL param key for filter state (e.g. "status", "beverageType") */
+  filterKey?: string
+  /** Options for the filter radio group */
+  filterOptions?: FilterOption[]
+  className?: string
+}
+
+export function ColumnHeader({
+  children,
+  sortKey,
+  defaultSort,
+  filterKey,
+  filterOptions,
+  className,
+}: ColumnHeaderProps) {
+  const [isPending, startTransition] = useTransition()
+  const [params, setParams] = useQueryStates(
+    {
+      page: parseAsString,
+      sort: parseAsString.withDefault(''),
+      order: parseAsString.withDefault(''),
+      ...(filterKey ? { [filterKey]: parseAsString.withDefault('') } : {}),
+    },
+    { shallow: false, startTransition },
+  )
+
+  const sort = params.sort
+  const order = params.order
+  const filterValue = filterKey
+    ? ((params as Record<string, string | null>)[filterKey] ?? '')
+    : ''
+
+  // This column is the active sort either explicitly (URL param) or implicitly (default when no sort in URL)
+  const isExplicitSort = sortKey ? sort === sortKey : false
+  const isDefaultSort = defaultSort && sortKey ? sort === '' : false
+  const isSortActive = isExplicitSort || isDefaultSort
+  const effectiveOrder = isExplicitSort
+    ? order
+    : isDefaultSort
+      ? defaultSort
+      : null
+  const isFilterActive = filterKey ? filterValue !== '' : false
+  const hasDropdown = !!sortKey || (!!filterKey && !!filterOptions)
+
+  function handleSort(direction: 'asc' | 'desc') {
+    if (isSortActive && effectiveOrder === direction) {
+      // Clicking the already-active sort clears to default
+      void setParams({ page: null, sort: null, order: null })
+    } else {
+      void setParams({ page: null, sort: sortKey!, order: direction })
+    }
+  }
+
+  function handleFilter(value: string) {
+    void setParams({ page: null, [filterKey!]: value || null })
+  }
+
+  if (!hasDropdown) {
+    return <TableHead className={className}>{children}</TableHead>
+  }
+
+  const TriggerIcon = isFilterActive
+    ? ListFilter
+    : isSortActive
+      ? effectiveOrder === 'asc'
+        ? ArrowUp
+        : ArrowDown
+      : ChevronsUpDown
+
+  return (
+    <TableHead className={cn('p-0', className)}>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              'flex h-full w-full cursor-pointer items-center gap-1 px-3 py-2 text-left text-xs font-medium whitespace-nowrap select-none hover:bg-muted/50',
+              isPending && 'opacity-70',
+            )}
+          >
+            {children}
+            <span className="relative ml-0.5 inline-flex items-center">
+              <TriggerIcon
+                className={cn(
+                  'size-3',
+                  isSortActive || isFilterActive
+                    ? 'text-foreground'
+                    : 'text-muted-foreground/40',
+                )}
+              />
+              {isFilterActive && (
+                <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-primary" />
+              )}
+            </span>
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-48">
+          {sortKey && (
+            <>
+              <DropdownMenuItem onClick={() => handleSort('asc')}>
+                <ArrowUp className="size-3.5" />
+                Sort ascending
+                {isSortActive && effectiveOrder === 'asc' && (
+                  <span className="ml-auto text-xs text-primary">✓</span>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleSort('desc')}>
+                <ArrowDown className="size-3.5" />
+                Sort descending
+                {isSortActive && effectiveOrder === 'desc' && (
+                  <span className="ml-auto text-xs text-primary">✓</span>
+                )}
+              </DropdownMenuItem>
+            </>
+          )}
+          {sortKey && filterKey && filterOptions && <DropdownMenuSeparator />}
+          {filterKey && filterOptions && (
+            <>
+              <DropdownMenuLabel>Filter</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={filterValue}
+                onValueChange={handleFilter}
+              >
+                {filterOptions.map((opt) => (
+                  <DropdownMenuRadioItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </TableHead>
+  )
+}

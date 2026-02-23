@@ -79,3 +79,15 @@ export async function getSLATargets(): Promise<SLATargets> {
   const value = await getSettingValue<SLATargets>('sla_targets')
   return value ?? { ...DEFAULT_SLA_TARGETS }
 }
+
+export async function getAutoApprovalEnabled(): Promise<boolean> {
+  const value = await getSettingValue<boolean>('auto_approval_enabled')
+  return value ?? false
+}
+
+const DEFAULT_APPROVAL_THRESHOLD = 95
+
+export async function getApprovalThreshold(): Promise<number> {
+  const value = await getSettingValue<number>('approval_threshold')
+  return value ?? DEFAULT_APPROVAL_THRESHOLD
+}

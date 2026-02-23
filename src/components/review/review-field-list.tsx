@@ -10,13 +10,21 @@ import {
   Send,
   Crosshair,
   MapPin,
+  Pencil,
   X,
+  Flag,
 } from 'lucide-react'
 
 import { submitReview } from '@/app/actions/submit-review'
 import { FieldComparisonRow } from '@/components/shared/field-comparison-row'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card'
 import { cn } from '@/lib/utils'
 
 // ---------------------------------------------------------------------------
@@ -44,9 +52,16 @@ interface FieldOverride {
   reviewerNotes: string
 }
 
+interface ApplicantCorrection {
+  fieldName: string
+  aiExtractedValue: string
+  applicantSubmittedValue: string
+}
+
 interface ReviewFieldListProps {
   labelId: string
   validationItems: ValidationItemData[]
+  applicantCorrections?: ApplicantCorrection[]
   activeField: string | null
   onFieldClick: (fieldName: string) => void
   onMarkLocation?: (fieldName: string) => void
@@ -99,12 +114,60 @@ const RESOLVE_OPTIONS: Array<{
 ]
 
 // ---------------------------------------------------------------------------
+// Applicant Correction Badge
+// ---------------------------------------------------------------------------
+
+function ApplicantCorrectionBadge({
+  correction,
+}: {
+  correction: ApplicantCorrection
+}) {
+  return (
+    <HoverCard>
+      <HoverCardTrigger asChild>
+        <Badge
+          variant="outline"
+          className="ml-1 h-5 cursor-help gap-1 border-amber-200 px-1.5 text-[10px] text-amber-700 dark:border-amber-800 dark:text-amber-400"
+        >
+          <Pencil className="size-2.5" />
+          Applicant edited
+        </Badge>
+      </HoverCardTrigger>
+      <HoverCardContent side="top" className="w-72">
+        <div className="space-y-2 text-xs">
+          <p className="font-medium">
+            The applicant changed the AI-extracted value for this field.
+          </p>
+          <div className="space-y-1">
+            <div>
+              <span className="text-muted-foreground">AI extracted: </span>
+              <span className="font-mono">
+                {correction.aiExtractedValue || '(empty)'}
+              </span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">
+                Applicant submitted:{' '}
+              </span>
+              <span className="font-mono">
+                {correction.applicantSubmittedValue || '(empty)'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </HoverCardContent>
+    </HoverCard>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 export function ReviewFieldList({
   labelId,
   validationItems,
+  applicantCorrections,
   activeField,
   onFieldClick,
   onMarkLocation,
@@ -115,8 +178,17 @@ export function ReviewFieldList({
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
-  // Track overrides for flagged fields only
+  // Build corrections map: fieldName → correction details
+  const correctionsMap = new Map<string, ApplicantCorrection>()
+  if (applicantCorrections) {
+    for (const c of applicantCorrections) {
+      correctionsMap.set(c.fieldName, c)
+    }
+  }
+
+  // Track overrides for flagged fields and manually flagged matched fields
   const [overrides, setOverrides] = useState<Record<string, FieldOverride>>({})
+  const [flaggedMatchIds, setFlaggedMatchIds] = useState<Set<string>>(new Set())
 
   const flaggedItems = validationItems.filter((item) =>
     FLAGGED_STATUSES.has(item.status),
@@ -151,10 +223,35 @@ export function ReviewFieldList({
     }))
   }
 
+  const handleFlagMatch = (itemId: string) => {
+    setFlaggedMatchIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(itemId)) {
+        next.delete(itemId)
+        // Clear override data when unflagging
+        setOverrides((prevOverrides) => {
+          const rest = { ...prevOverrides }
+          delete rest[itemId]
+          return rest
+        })
+      } else {
+        next.add(itemId)
+      }
+      return next
+    })
+  }
+
+  const matchOverrideCount = matchedItems.filter(
+    (item) =>
+      flaggedMatchIds.has(item.id) &&
+      overrides[item.id]?.resolvedStatus !== undefined,
+  ).length
+
   const handleSubmit = () => {
     setError(null)
 
-    const overrideEntries = flaggedItems
+    // Collect overrides from AI-flagged fields
+    const flaggedOverrides = flaggedItems
       .filter((item) => overrides[item.id]?.resolvedStatus !== undefined)
       .map((item) => ({
         validationItemId: item.id,
@@ -163,6 +260,23 @@ export function ReviewFieldList({
         reviewerNotes: overrides[item.id].reviewerNotes || undefined,
         annotationData: annotations?.[item.fieldName] ?? null,
       }))
+
+    // Collect overrides from specialist-flagged matched fields
+    const matchOverrides = matchedItems
+      .filter(
+        (item) =>
+          flaggedMatchIds.has(item.id) &&
+          overrides[item.id]?.resolvedStatus !== undefined,
+      )
+      .map((item) => ({
+        validationItemId: item.id,
+        originalStatus: item.status,
+        resolvedStatus: overrides[item.id].resolvedStatus,
+        reviewerNotes: overrides[item.id].reviewerNotes || undefined,
+        annotationData: annotations?.[item.fieldName] ?? null,
+      }))
+
+    const overrideEntries = [...flaggedOverrides, ...matchOverrides]
 
     if (overrideEntries.length === 0) {
       setError('Please resolve at least one flagged field before submitting.')
@@ -189,34 +303,42 @@ export function ReviewFieldList({
       {/* Flagged fields — require resolution */}
       {flaggedItems.length > 0 && (
         <div className="space-y-3">
-          <h2 className="font-heading text-lg font-semibold">
-            Flagged Fields ({flaggedItems.length})
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Resolve each flagged field by confirming the AI result or overriding
-            it with the correct status.
-          </p>
+          <div>
+            <h2 className="text-[11px] font-semibold tracking-widest text-red-600/70 uppercase dark:text-red-400/70">
+              Flagged Fields ({flaggedItems.length})
+            </h2>
+            <p className="mt-1 text-[13px] leading-snug text-muted-foreground">
+              Resolve each flagged field by confirming the AI result or
+              overriding it with the correct status.
+            </p>
+          </div>
           {flaggedItems.map((item) => {
             const override = overrides[item.id]
+            const correction = correctionsMap.get(item.fieldName)
 
             return (
               <div key={item.id} className="space-y-3">
-                <FieldComparisonRow
-                  fieldName={item.fieldName}
-                  expectedValue={item.expectedValue}
-                  extractedValue={
-                    item.status === 'not_found' ? null : item.extractedValue
-                  }
-                  status={override?.resolvedStatus ?? item.status}
-                  confidence={Number(item.confidence)}
-                  reasoning={item.matchReasoning}
-                  isActive={activeField === item.fieldName}
-                  onClick={() => onFieldClick(item.fieldName)}
-                />
+                <div className="space-y-1.5">
+                  <FieldComparisonRow
+                    fieldName={item.fieldName}
+                    expectedValue={item.expectedValue}
+                    extractedValue={
+                      item.status === 'not_found' ? null : item.extractedValue
+                    }
+                    status={override?.resolvedStatus ?? item.status}
+                    confidence={Number(item.confidence)}
+                    reasoning={item.matchReasoning}
+                    isActive={activeField === item.fieldName}
+                    onClick={() => onFieldClick(item.fieldName)}
+                  />
+                  {correction && (
+                    <ApplicantCorrectionBadge correction={correction} />
+                  )}
+                </div>
 
                 {/* Override controls */}
-                <div className="ml-4 space-y-2">
-                  <div className="flex flex-wrap gap-2">
+                <div className="mt-1 ml-1 space-y-2.5 border-l-2 border-muted pl-4">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {RESOLVE_OPTIONS.map((option) => {
                       const isSelected =
                         override?.resolvedStatus === option.status
@@ -227,7 +349,7 @@ export function ReviewFieldList({
                           variant="outline"
                           size="sm"
                           className={cn(
-                            'gap-1.5',
+                            'h-8 gap-1.5 text-xs',
                             isSelected
                               ? option.activeClassName
                               : option.className,
@@ -241,47 +363,50 @@ export function ReviewFieldList({
                         </Button>
                       )
                     })}
-                  </div>
 
-                  {/* Mark Location on Image */}
-                  {onMarkLocation && (
-                    <div className="flex items-center gap-2">
-                      {annotations?.[item.fieldName] ? (
-                        <>
+                    {/* Mark Location on Image — inline */}
+                    {onMarkLocation && (
+                      <>
+                        <div className="mx-1 h-5 w-px bg-border" />
+                        {annotations?.[item.fieldName] ? (
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1.5 border-indigo-200 text-xs text-indigo-700 dark:border-indigo-800 dark:text-indigo-400"
+                              onClick={() => onMarkLocation(item.fieldName)}
+                            >
+                              <MapPin className="size-3.5" />
+                              Redo
+                            </Button>
+                            {onClearAnnotation && (
+                              <Button
+                                variant="ghost"
+                                className="size-7 p-0 text-muted-foreground hover:text-destructive"
+                                onClick={() =>
+                                  onClearAnnotation(item.fieldName)
+                                }
+                                aria-label="Clear annotation"
+                                title="Remove marker"
+                              >
+                                <X className="size-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        ) : (
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
-                            className="gap-1.5 border-indigo-200 text-indigo-700 dark:border-indigo-800 dark:text-indigo-400"
+                            className="h-8 gap-1.5 text-xs text-muted-foreground"
                             onClick={() => onMarkLocation(item.fieldName)}
                           >
-                            <MapPin className="size-3.5" />
-                            Location Marked — Redo
+                            <Crosshair className="size-3.5" />
+                            Mark Location
                           </Button>
-                          {onClearAnnotation && (
-                            <Button
-                              variant="ghost"
-                              className="size-7 p-0 text-muted-foreground hover:text-destructive"
-                              onClick={() => onClearAnnotation(item.fieldName)}
-                              aria-label="Clear annotation"
-                              title="Remove marker"
-                            >
-                              <X className="size-3.5" />
-                            </Button>
-                          )}
-                        </>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-1.5"
-                          onClick={() => onMarkLocation(item.fieldName)}
-                        >
-                          <Crosshair className="size-3.5" />
-                          Mark Location on Image
-                        </Button>
-                      )}
-                    </div>
-                  )}
+                        )}
+                      </>
+                    )}
+                  </div>
 
                   {override?.resolvedStatus !== undefined && (
                     <Textarea
@@ -301,27 +426,166 @@ export function ReviewFieldList({
         </div>
       )}
 
-      {/* Matched fields — read-only */}
+      {/* Matched fields — flaggable by specialist */}
       {matchedItems.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="font-heading text-lg font-semibold">
+        <div className="space-y-2.5">
+          <h2 className="text-[11px] font-semibold tracking-widest text-muted-foreground/60 uppercase">
             Matched Fields ({matchedItems.length})
           </h2>
-          {matchedItems.map((item) => (
-            <FieldComparisonRow
-              key={item.id}
-              fieldName={item.fieldName}
-              expectedValue={item.expectedValue}
-              extractedValue={
-                item.status === 'not_found' ? null : item.extractedValue
-              }
-              status={item.status}
-              confidence={Number(item.confidence)}
-              reasoning={item.matchReasoning}
-              isActive={activeField === item.fieldName}
-              onClick={() => onFieldClick(item.fieldName)}
-            />
-          ))}
+          {matchedItems.map((item) => {
+            const isFlagged = flaggedMatchIds.has(item.id)
+            const override = overrides[item.id]
+            const correction = correctionsMap.get(item.fieldName)
+
+            const flagAction = (
+              <HoverCard openDelay={300}>
+                <HoverCardTrigger asChild>
+                  <button
+                    type="button"
+                    className={cn(
+                      'inline-flex size-7 items-center justify-center rounded-md transition-colors',
+                      isFlagged
+                        ? 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-400 dark:hover:bg-amber-900/60'
+                        : 'text-muted-foreground/40 hover:bg-muted hover:text-muted-foreground',
+                    )}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleFlagMatch(item.id)
+                    }}
+                    aria-label={
+                      isFlagged ? 'Remove AI error flag' : 'Flag as AI error'
+                    }
+                  >
+                    <Flag className="size-3.5" />
+                  </button>
+                </HoverCardTrigger>
+                <HoverCardContent side="top" className="w-56 text-xs">
+                  <p className="font-medium">
+                    {isFlagged ? 'Remove flag' : 'Flag AI error'}
+                  </p>
+                  <p className="mt-1 text-muted-foreground">
+                    {isFlagged
+                      ? 'Click to unflag this field and remove the override.'
+                      : 'Click to flag this match as incorrect. You can then override the AI result with the correct status.'}
+                  </p>
+                </HoverCardContent>
+              </HoverCard>
+            )
+
+            return (
+              <div key={item.id} className="space-y-3">
+                <div className="space-y-1.5">
+                  <FieldComparisonRow
+                    fieldName={item.fieldName}
+                    expectedValue={item.expectedValue}
+                    extractedValue={
+                      item.status === 'not_found' ? null : item.extractedValue
+                    }
+                    status={
+                      isFlagged
+                        ? (override?.resolvedStatus ?? item.status)
+                        : item.status
+                    }
+                    confidence={Number(item.confidence)}
+                    reasoning={item.matchReasoning}
+                    isActive={activeField === item.fieldName}
+                    onClick={() => onFieldClick(item.fieldName)}
+                    headerAction={flagAction}
+                  />
+                  {correction && (
+                    <ApplicantCorrectionBadge correction={correction} />
+                  )}
+                </div>
+
+                {/* Override controls for flagged matched fields */}
+                {isFlagged && (
+                  <div className="mt-1 ml-1 space-y-2.5 border-l-2 border-amber-300 pl-4 dark:border-amber-700">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {RESOLVE_OPTIONS.filter((o) => o.status !== 'match').map(
+                        (option) => {
+                          const isSelected =
+                            override?.resolvedStatus === option.status
+
+                          return (
+                            <Button
+                              key={option.status}
+                              variant="outline"
+                              size="sm"
+                              className={cn(
+                                'h-8 gap-1.5 text-xs',
+                                isSelected
+                                  ? option.activeClassName
+                                  : option.className,
+                              )}
+                              onClick={() =>
+                                handleOverrideStatus(item.id, option.status)
+                              }
+                            >
+                              {option.icon}
+                              {option.label}
+                            </Button>
+                          )
+                        },
+                      )}
+
+                      {/* Mark Location on Image — inline */}
+                      {onMarkLocation && (
+                        <>
+                          <div className="mx-1 h-5 w-px bg-border" />
+                          {annotations?.[item.fieldName] ? (
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 gap-1.5 border-indigo-200 text-xs text-indigo-700 dark:border-indigo-800 dark:text-indigo-400"
+                                onClick={() => onMarkLocation(item.fieldName)}
+                              >
+                                <MapPin className="size-3.5" />
+                                Redo
+                              </Button>
+                              {onClearAnnotation && (
+                                <Button
+                                  variant="ghost"
+                                  className="size-7 p-0 text-muted-foreground hover:text-destructive"
+                                  onClick={() =>
+                                    onClearAnnotation(item.fieldName)
+                                  }
+                                  aria-label="Clear annotation"
+                                  title="Remove marker"
+                                >
+                                  <X className="size-3.5" />
+                                </Button>
+                              )}
+                            </div>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 gap-1.5 text-xs text-muted-foreground"
+                              onClick={() => onMarkLocation(item.fieldName)}
+                            >
+                              <Crosshair className="size-3.5" />
+                              Mark Location
+                            </Button>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    <Textarea
+                      placeholder="Why is this AI match incorrect?"
+                      value={override?.reviewerNotes ?? ''}
+                      onChange={(e) =>
+                        handleOverrideNotes(item.id, e.target.value)
+                      }
+                      rows={2}
+                      className="text-sm"
+                    />
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -333,7 +597,7 @@ export function ReviewFieldList({
       )}
 
       {/* Submit button */}
-      <div className="sticky bottom-0 border-t bg-background pt-4 pb-2">
+      <div className="sticky bottom-0 rounded-lg border bg-background/95 px-4 pt-4 pb-3 shadow-sm backdrop-blur-sm">
         <Button
           size="lg"
           className="w-full active:scale-[0.98]"
@@ -355,13 +619,19 @@ export function ReviewFieldList({
                   remaining)
                 </span>
               )}
+              {matchOverrideCount > 0 && (
+                <span className="text-xs tabular-nums opacity-70">
+                  (+{matchOverrideCount} AI correction
+                  {matchOverrideCount !== 1 ? 's' : ''})
+                </span>
+              )}
             </>
           )}
         </Button>
         {!allFlaggedResolved && (
-          <p className="mt-2 text-center text-xs text-muted-foreground">
-            Resolve all {flaggedItems.length} flagged fields to enable
-            submission.
+          <p className="mt-2 text-center text-[11px] text-muted-foreground">
+            Resolve all {flaggedItems.length} flagged field
+            {flaggedItems.length !== 1 ? 's' : ''} to enable submission.
           </p>
         )}
       </div>

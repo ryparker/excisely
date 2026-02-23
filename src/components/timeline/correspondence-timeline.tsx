@@ -1,5 +1,4 @@
 import type { TimelineEvent } from '@/lib/timeline/types'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { TimelineEventItem } from '@/components/timeline/timeline-event-item'
 
 interface CorrespondenceTimelineProps {
@@ -12,24 +11,22 @@ export function CorrespondenceTimeline({
   if (events.length === 0) return null
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="font-heading text-lg">
-          Correspondence Timeline
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="relative">
-          {events.map((event, index) => (
-            <TimelineEventItem
-              key={event.id}
-              event={event}
-              index={index}
-              isLast={index === events.length - 1}
-            />
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+    <section>
+      <div className="mb-4 border-t pt-5">
+        <h2 className="font-heading text-sm font-semibold tracking-wide text-muted-foreground/70 uppercase">
+          Timeline
+        </h2>
+      </div>
+      <div className="relative">
+        {events.map((event, index) => (
+          <TimelineEventItem
+            key={event.id}
+            event={event}
+            index={index}
+            isLast={index === events.length - 1}
+          />
+        ))}
+      </div>
+    </section>
   )
 }

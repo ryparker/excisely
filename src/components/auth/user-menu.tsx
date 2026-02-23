@@ -44,15 +44,26 @@ export function UserMenu({
   const roleName = role === 'applicant' ? 'Applicant' : 'Specialist'
 
   async function handleSignOut() {
-    await signOut()
-    router.push('/login')
+    // Kill session immediately — no delay for security
+    signOut()
+
+    // Prefetch login page so it's ready when we navigate
+    router.prefetch('/login')
+
+    // Dispatch exit event — sidebar and page content animate out
+    window.dispatchEvent(new Event('app-exit'))
+
+    // Navigate after exit animations complete
+    setTimeout(() => {
+      router.push('/login')
+    }, 350)
   }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         className={cn(
-          'flex items-center rounded-md text-sm transition-colors outline-none hover:bg-sidebar-accent/50',
+          'flex items-center rounded-md text-sm ring-0 transition-colors outline-none hover:bg-sidebar-accent/50 focus-visible:ring-0 focus-visible:outline-none',
           collapsed
             ? 'w-full justify-center p-1.5'
             : 'w-full gap-2 px-2 py-1.5',
@@ -75,12 +86,12 @@ export function UserMenu({
       <DropdownMenuContent
         align="start"
         side={collapsed ? 'right' : 'top'}
-        className="w-48"
+        className="max-w-56"
       >
         <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium">{name}</p>
-            <p className="text-xs text-muted-foreground">{email}</p>
+          <div className="flex min-w-0 flex-col space-y-1">
+            <p className="truncate text-sm font-medium">{name}</p>
+            <p className="truncate text-xs text-muted-foreground">{email}</p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />

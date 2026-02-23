@@ -5,11 +5,14 @@ export interface BeverageTypeConfig {
   mandatoryFields: string[]
   optionalFields: string[]
   validSizesMl: number[] | null
+  /** CFR Part number governing this beverage type (4 = Wine, 5 = Spirits, 7 = Malt) */
+  cfrPart: number
 }
 
 export const BEVERAGE_TYPES: Record<BeverageType, BeverageTypeConfig> = {
   distilled_spirits: {
     label: 'Distilled Spirits',
+    cfrPart: 5,
     mandatoryFields: [
       'brand_name',
       'class_type',
@@ -33,6 +36,7 @@ export const BEVERAGE_TYPES: Record<BeverageType, BeverageTypeConfig> = {
   },
   wine: {
     label: 'Wine',
+    cfrPart: 4,
     mandatoryFields: [
       'brand_name',
       'class_type',
@@ -41,23 +45,29 @@ export const BEVERAGE_TYPES: Record<BeverageType, BeverageTypeConfig> = {
       'health_warning',
       'name_and_address',
       'qualifying_phrase',
-      'grape_varietal',
-      'appellation_of_origin',
       'sulfite_declaration',
     ],
     optionalFields: [
       'fanciful_name',
       'country_of_origin',
+      // Conditionally mandatory: required when varietal name is used as the
+      // class/type designation (27 CFR 4.23). Treated as optional here because
+      // not all wines use varietal labeling (e.g., "Table Wine", "Red Wine").
+      'grape_varietal',
+      'appellation_of_origin',
       'vintage_year',
       'standards_of_fill',
     ],
+    // Per 27 CFR 4.72 (updated Jan 2025 final rule).
+    // Does NOT include 200 or 250 mL (those are spirits-only sizes).
     validSizesMl: [
-      180, 187, 200, 250, 300, 330, 360, 375, 473, 500, 550, 568, 600, 620, 700,
+      50, 100, 180, 187, 300, 330, 360, 375, 473, 500, 550, 568, 600, 620, 700,
       720, 750, 1000, 1500, 1800, 2250, 3000,
     ],
   },
   malt_beverage: {
     label: 'Malt Beverages',
+    cfrPart: 7,
     mandatoryFields: [
       'brand_name',
       'class_type',

@@ -15,20 +15,26 @@ import {
   humanReviews,
   users,
 } from '@/db/schema'
-import { getSession } from '@/lib/auth/get-session'
+import { requireSpecialist } from '@/lib/auth/require-role'
 import { getEffectiveStatus } from '@/lib/labels/effective-status'
 import { getSignedImageUrl } from '@/lib/storage/blob'
 import { buildTimeline } from '@/lib/timeline/build-timeline'
 import { PageHeader } from '@/components/layout/page-header'
-import { StatusBadge } from '@/components/shared/status-badge'
+import { PageShell } from '@/components/layout/page-shell'
+import { StatusExplainer } from '@/components/shared/status-explainer'
 import { ReanalyzeButton } from '@/components/shared/reanalyze-button'
+import { ReanalysisGuard } from '@/components/shared/reanalysis-guard'
 import { StatusOverrideDialog } from '@/components/shared/status-override-dialog'
 import { ValidationSummary } from '@/components/validation/validation-summary'
 import { ValidationDetailPanels } from '@/components/validation/validation-detail-panels'
 import { ReviewDetailPanels } from '@/components/review/review-detail-panels'
-import { ProcessingPipelineCard } from '@/components/validation/processing-pipeline-card'
+import { ProcessingStatusBanner } from '@/components/validation/processing-status-banner'
+import { ProcessingDetailPanels } from '@/components/validation/processing-detail-panels'
+import { AnalysisHistory } from '@/components/validation/analysis-history'
+import { AutoRefresh } from '@/components/shared/auto-refresh'
 import { CorrespondenceTimeline } from '@/components/timeline/correspondence-timeline'
 import { Button } from '@/components/ui/button'
+import { timeAgo } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -45,8 +51,7 @@ interface LabelDetailPageProps {
 export default async function LabelDetailPage({
   params,
 }: LabelDetailPageProps) {
-  const session = await getSession()
-  if (!session) return null
+  await requireSpecialist()
 
   const { id } = await params
 
@@ -128,13 +133,35 @@ export default async function LabelDetailPage({
         .orderBy(humanReviews.reviewedAt),
     ])
 
-  // Fetch validation items for the current result
-  const items = results
-    ? await db
-        .select()
-        .from(validationItems)
-        .where(eq(validationItems.validationResultId, results.id))
-    : []
+  // Fetch validation items + superseded results (for analysis history)
+  const [items, supersededResults] = await Promise.all([
+    results
+      ? db
+          .select()
+          .from(validationItems)
+          .where(eq(validationItems.validationResultId, results.id))
+      : Promise.resolve([]),
+    results
+      ? db
+          .select({
+            id: validationResults.id,
+            createdAt: validationResults.createdAt,
+            modelUsed: validationResults.modelUsed,
+            processingTimeMs: validationResults.processingTimeMs,
+            totalTokens: validationResults.totalTokens,
+          })
+          .from(validationResults)
+          .where(
+            and(
+              eq(validationResults.labelId, id),
+              eq(validationResults.isCurrent, false),
+            ),
+          )
+          .orderBy(desc(validationResults.createdAt))
+      : Promise.resolve([]),
+  ])
+
+  const hasSupersededResults = supersededResults.length > 0
 
   // Compute effective status with lazy deadline expiration
   const effectiveStatus = getEffectiveStatus({
@@ -143,9 +170,7 @@ export default async function LabelDetailPage({
     deadlineExpired: label.deadlineExpired,
   })
 
-  const isReviewable =
-    REVIEWABLE_STATUSES.has(effectiveStatus) &&
-    session.user.role !== 'applicant'
+  const isReviewable = REVIEWABLE_STATUSES.has(effectiveStatus)
 
   // Compute field counts
   const fieldCounts = items.reduce(
@@ -182,108 +207,179 @@ export default async function LabelDetailPage({
     bboxY: item.bboxY,
     bboxWidth: item.bboxWidth,
     bboxHeight: item.bboxHeight,
+    bboxAngle: item.bboxAngle,
     labelImageId: item.labelImageId,
   }))
 
   return (
-    <div className="space-y-6">
+    <PageShell className="space-y-5">
       {/* Back link + header */}
-      <div className="space-y-4">
-        <Button variant="ghost" size="sm" asChild>
+      <div className="space-y-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="-ml-2 text-muted-foreground"
+          asChild
+        >
           <Link href="/">
             <ArrowLeft className="size-4" />
             Back to Labels
           </Link>
         </Button>
 
-        <PageHeader
-          title={brandName}
-          description={
-            appData?.serialNumber
-              ? `Serial Number: ${appData.serialNumber}`
-              : undefined
-          }
-        >
-          <StatusBadge status={effectiveStatus} className="px-3 py-1 text-sm" />
-          {session.user.role !== 'applicant' &&
-            effectiveStatus !== 'pending' &&
-            effectiveStatus !== 'processing' && (
-              <>
-                <ReanalyzeButton labelId={label.id} />
-                <StatusOverrideDialog
-                  labelId={label.id}
-                  currentStatus={effectiveStatus}
-                />
-              </>
-            )}
-        </PageHeader>
+        <div className="space-y-1">
+          <PageHeader
+            title={brandName}
+            description={
+              appData?.serialNumber
+                ? `Serial Number: ${appData.serialNumber}`
+                : undefined
+            }
+          >
+            <StatusExplainer
+              status={effectiveStatus}
+              role="specialist"
+              className="px-3 py-1 text-sm"
+            />
+            {effectiveStatus !== 'pending' &&
+              effectiveStatus !== 'processing' && (
+                <>
+                  <ReanalyzeButton labelId={label.id} />
+                  <StatusOverrideDialog
+                    labelId={label.id}
+                    currentStatus={effectiveStatus}
+                  />
+                </>
+              )}
+          </PageHeader>
 
-        {/* Applicant info */}
-        {applicant && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Building2 className="size-4 shrink-0" />
-            <Link
-              href={`/applicants/${applicant.id}`}
-              className="font-medium text-foreground hover:underline"
-            >
-              {applicant.companyName}
-            </Link>
-            {applicant.contactName && (
-              <>
-                <span className="text-muted-foreground/50">·</span>
-                <span>{applicant.contactName}</span>
-              </>
-            )}
-            {applicant.contactEmail && (
-              <>
-                <span className="text-muted-foreground/50">·</span>
-                <span>{applicant.contactEmail}</span>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Processing state — show pipeline card instead of empty results */}
-      {label.status === 'pending' || label.status === 'processing' ? (
-        <ProcessingPipelineCard
-          labelId={label.id}
-          imageCount={images.length}
-          imageNames={images.map((img) => img.imageFilename)}
-        />
-      ) : (
-        <>
-          {/* Summary bar */}
-          <ValidationSummary
-            status={effectiveStatus}
-            confidence={confidence}
-            processingTimeMs={results?.processingTimeMs ?? null}
-            modelUsed={results?.modelUsed ?? null}
-            fieldCounts={fieldCounts}
-            aiProposedStatus={label.aiProposedStatus}
-          />
-
-          {/* Two-panel layout: image + field list */}
-          {signedImages.length > 0 && items.length > 0 ? (
-            isReviewable ? (
-              <ReviewDetailPanels
-                labelId={label.id}
-                images={signedImages}
-                validationItems={mappedItems}
-              />
-            ) : (
-              <ValidationDetailPanels
-                images={signedImages}
-                validationItems={mappedItems}
-              />
-            )
-          ) : (
-            <div className="flex items-center justify-center rounded-lg border py-24 text-sm text-muted-foreground">
-              No validation data available for this label.
+          {/* Applicant info */}
+          {applicant && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Building2 className="size-4 shrink-0" />
+              <Link
+                href={`/applicants/${applicant.id}`}
+                className="font-medium text-foreground hover:underline"
+              >
+                {applicant.companyName}
+              </Link>
+              {applicant.contactName && (
+                <>
+                  <span className="text-muted-foreground/40">·</span>
+                  <span>{applicant.contactName}</span>
+                </>
+              )}
+              {applicant.contactEmail && (
+                <>
+                  <span className="text-muted-foreground/40">·</span>
+                  <span>{applicant.contactEmail}</span>
+                </>
+              )}
             </div>
           )}
-        </>
-      )}
+        </div>
+      </div>
+
+      {/* Content area — uses client guard to switch between processing and results */}
+      <ReanalysisGuard
+        labelId={label.id}
+        labelStatus={label.status}
+        processingContent={
+          <>
+            <AutoRefresh intervalMs={3_000} />
+            <ProcessingStatusBanner imageCount={images.length} />
+            {signedImages.length > 0 && (
+              <ProcessingDetailPanels
+                images={signedImages}
+                appData={appData as Record<string, unknown> | null}
+                beverageType={label.beverageType}
+                containerSizeMl={label.containerSizeMl}
+              />
+            )}
+          </>
+        }
+        normalContent={
+          <>
+            {/* Summary bar + specialist guidance */}
+            <div className="space-y-3 rounded-lg border bg-muted/30 px-4 py-3">
+              <ValidationSummary
+                status={effectiveStatus}
+                confidence={confidence}
+                processingTimeMs={results?.processingTimeMs ?? null}
+                modelUsed={results?.modelUsed ?? null}
+                fieldCounts={fieldCounts}
+                aiProposedStatus={label.aiProposedStatus}
+                inputTokens={results?.inputTokens}
+                outputTokens={results?.outputTokens}
+                totalTokens={results?.totalTokens}
+              />
+
+              {/* Specialist guidance */}
+              {isReviewable && (
+                <>
+                  <div className="h-px bg-border" />
+                  <p className="text-[12px] leading-relaxed text-muted-foreground">
+                    <span className="font-medium text-foreground/80">
+                      Review guidance:
+                    </span>{' '}
+                    Submitted {timeAgo(label.createdAt)}.
+                    {confidence !== null && confidence >= 90
+                      ? ' High AI confidence — verify the field comparisons and approve if everything looks correct.'
+                      : confidence !== null && confidence >= 70
+                        ? ` Moderate AI confidence (${Math.round(confidence)}%) — pay close attention to flagged fields before deciding.`
+                        : ` Low AI confidence${confidence !== null ? ` (${Math.round(confidence)}%)` : ''} — carefully review all fields, especially mismatches and not-found items.`}
+                    {fieldCounts.mismatch > 0 &&
+                      ` ${fieldCounts.mismatch} mismatch${fieldCounts.mismatch > 1 ? 'es' : ''} detected.`}
+                    {fieldCounts.notFound > 0 &&
+                      ` ${fieldCounts.notFound} field${fieldCounts.notFound > 1 ? 's' : ''} not found on label.`}
+                  </p>
+                </>
+              )}
+            </div>
+
+            {/* Two-panel layout: image + field list */}
+            {signedImages.length > 0 && items.length > 0 ? (
+              isReviewable ? (
+                <ReviewDetailPanels
+                  labelId={label.id}
+                  images={signedImages}
+                  validationItems={mappedItems}
+                  applicantCorrections={
+                    (results?.aiRawResponse as Record<string, unknown>)
+                      ?.applicantCorrections as
+                      | Array<{
+                          fieldName: string
+                          aiExtractedValue: string
+                          applicantSubmittedValue: string
+                        }>
+                      | undefined
+                  }
+                />
+              ) : (
+                <ValidationDetailPanels
+                  images={signedImages}
+                  validationItems={mappedItems}
+                />
+              )
+            ) : (
+              <div className="flex items-center justify-center rounded-lg border py-24 text-sm text-muted-foreground">
+                No validation data available for this label.
+              </div>
+            )}
+
+            {/* Analysis history (for re-analyzed labels) */}
+            <AnalysisHistory
+              runs={supersededResults.map((r) => ({
+                id: r.id,
+                createdAt: r.createdAt,
+                modelUsed: r.modelUsed,
+                processingTimeMs: r.processingTimeMs,
+                totalTokens: r.totalTokens,
+              }))}
+            />
+          </>
+        }
+      />
 
       {/* Correspondence timeline */}
       <CorrespondenceTimeline
@@ -327,8 +423,9 @@ export default async function LabelDetailPage({
             createdAt: o.createdAt,
             specialistName: o.specialistName,
           })),
+          isReanalysis: hasSupersededResults,
         })}
       />
-    </div>
+    </PageShell>
   )
 }

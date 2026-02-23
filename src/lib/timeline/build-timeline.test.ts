@@ -59,7 +59,7 @@ describe('buildTimeline', () => {
     )
     const submitted = events.find((e) => e.type === 'submitted')
     expect(submitted!.description).toBe(
-      'COLA application received for processing',
+      'Label application received for processing',
     )
   })
 

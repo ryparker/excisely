@@ -1,66 +1,75 @@
 import Link from 'next/link'
-import { eq, desc, count } from 'drizzle-orm'
-import { ArrowRight, Plus } from 'lucide-react'
-import { redirect } from 'next/navigation'
+import {
+  eq,
+  and,
+  desc,
+  asc,
+  count,
+  ilike,
+  or,
+  sql,
+  gt,
+  type SQL,
+} from 'drizzle-orm'
+import { FileText, Plus } from 'lucide-react'
 
 import { db } from '@/db'
 import { labels, applicationData, applicants } from '@/db/schema'
-import { getSession } from '@/lib/auth/get-session'
+import { requireApplicant } from '@/lib/auth/require-role'
 import { getEffectiveStatus } from '@/lib/labels/effective-status'
+import { getSignedImageUrl } from '@/lib/storage/blob'
+import { AutoRefresh } from '@/components/shared/auto-refresh'
 import { PageHeader } from '@/components/layout/page-header'
-import { StatusBadge } from '@/components/shared/status-badge'
+import { PageShell } from '@/components/layout/page-shell'
+import { ResetFiltersButton } from '@/components/shared/reset-filters-button'
+import { SearchInput } from '@/components/shared/search-input'
+import { SubmissionsSummaryCards } from '@/components/submissions/submissions-summary-cards'
+import { SubmissionsTable } from '@/components/submissions/submissions-table'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 
 export const dynamic = 'force-dynamic'
 
 const PAGE_SIZE = 20
 
-const BEVERAGE_TYPE_LABELS: Record<string, string> = {
-  distilled_spirits: 'Distilled Spirits',
-  wine: 'Wine',
-  malt_beverage: 'Malt Beverage',
-}
-
-function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(date)
-}
-
-function formatConfidence(value: string | null): string {
-  if (!value) return '--'
-  const num = Number(value)
-  return `${Math.round(num)}%`
+// Map sort keys to Drizzle columns
+const SORT_COLUMNS: Record<
+  string,
+  | typeof labels.createdAt
+  | typeof applicationData.brandName
+  | typeof labels.beverageType
+  | typeof labels.status
+> = {
+  brandName: applicationData.brandName,
+  beverageType: labels.beverageType,
+  createdAt: labels.createdAt,
+  status: labels.status,
 }
 
 interface SubmissionsPageProps {
-  searchParams: Promise<{ page?: string }>
+  searchParams: Promise<{
+    page?: string
+    search?: string
+    status?: string
+    beverageType?: string
+    sort?: string
+    order?: string
+  }>
 }
 
 export default async function SubmissionsPage({
   searchParams,
 }: SubmissionsPageProps) {
-  const session = await getSession()
-  if (!session) redirect('/login')
-
-  if (session.user.role !== 'applicant') {
-    redirect('/')
-  }
+  const session = await requireApplicant()
 
   const params = await searchParams
   const currentPage = Math.max(1, Number(params.page) || 1)
   const offset = (currentPage - 1) * PAGE_SIZE
+  const searchTerm = params.search?.trim() ?? ''
+  const statusFilter = params.status ?? ''
+  const beverageTypeFilter = params.beverageType ?? ''
+  const sortKey = params.sort ?? ''
+  const sortOrder = params.order === 'asc' ? 'asc' : 'desc'
 
   // Find applicant record by email
   const [applicantRecord] = await db
@@ -69,38 +78,179 @@ export default async function SubmissionsPage({
     .where(eq(applicants.contactEmail, session.user.email))
     .limit(1)
 
-  // Filter labels by applicant ID or those with no specialist (submitted by applicant)
-  const whereClause = applicantRecord
-    ? eq(labels.applicantId, applicantRecord.id)
-    : // Fallback: show nothing if no applicant record
-      eq(labels.id, '__none__')
+  // Build where conditions
+  const conditions: SQL[] = []
 
-  const [totalResult, rows] = await Promise.all([
-    db.select({ total: count() }).from(labels).where(whereClause),
-    db
-      .select({
-        id: labels.id,
-        status: labels.status,
-        beverageType: labels.beverageType,
-        overallConfidence: labels.overallConfidence,
-        correctionDeadline: labels.correctionDeadline,
-        deadlineExpired: labels.deadlineExpired,
-        createdAt: labels.createdAt,
-        brandName: applicationData.brandName,
-      })
-      .from(labels)
-      .leftJoin(applicationData, eq(labels.id, applicationData.labelId))
-      .where(whereClause)
-      .orderBy(desc(labels.createdAt))
-      .limit(PAGE_SIZE)
-      .offset(offset),
-  ])
+  if (applicantRecord) {
+    conditions.push(eq(labels.applicantId, applicantRecord.id))
+  } else {
+    conditions.push(eq(labels.id, '__none__'))
+  }
 
-  const total = totalResult[0]?.total ?? 0
-  const totalPages = Math.ceil(total / PAGE_SIZE)
+  // Multi-field search
+  if (searchTerm) {
+    conditions.push(
+      or(
+        ilike(applicationData.brandName, `%${searchTerm}%`),
+        ilike(applicationData.fancifulName, `%${searchTerm}%`),
+        ilike(applicationData.serialNumber, `%${searchTerm}%`),
+        ilike(applicationData.classType, `%${searchTerm}%`),
+      )!,
+    )
+  }
 
-  const labelsWithEffectiveStatus = rows.map((row) => ({
+  if (statusFilter === 'in_review') {
+    conditions.push(
+      or(
+        eq(labels.status, 'pending'),
+        eq(labels.status, 'processing'),
+        eq(labels.status, 'pending_review'),
+      )!,
+    )
+  } else if (statusFilter === 'needs_attention') {
+    conditions.push(
+      or(
+        eq(labels.status, 'needs_correction'),
+        eq(labels.status, 'conditionally_approved'),
+      )!,
+    )
+  } else if (statusFilter) {
+    conditions.push(
+      eq(
+        labels.status,
+        statusFilter as (typeof labels.status.enumValues)[number],
+      ),
+    )
+  }
+
+  if (beverageTypeFilter) {
+    conditions.push(
+      eq(
+        labels.beverageType,
+        beverageTypeFilter as (typeof labels.beverageType.enumValues)[number],
+      ),
+    )
+  }
+
+  const whereClause = and(...conditions)
+
+  // Flagged count subquery (reused in select and sort)
+  const flaggedCountSql = sql<number>`(
+    SELECT count(*)::int FROM validation_items vi
+    INNER JOIN validation_results vr ON vi.validation_result_id = vr.id
+    WHERE vr.label_id = ${labels.id}
+    AND vr.is_current = true
+    AND vi.status IN ('needs_correction', 'mismatch', 'not_found')
+  )`
+
+  // Build ORDER BY
+  let orderByClause
+  if (sortKey === 'flaggedCount') {
+    orderByClause =
+      sortOrder === 'asc' ? asc(flaggedCountSql) : desc(flaggedCountSql)
+  } else if (sortKey && SORT_COLUMNS[sortKey]) {
+    const col = SORT_COLUMNS[sortKey]
+    orderByClause = sortOrder === 'asc' ? asc(col) : desc(col)
+  } else {
+    orderByClause = desc(labels.createdAt)
+  }
+
+  const [tableCountResult, statusCountRows, rows, nearestDeadlineResult] =
+    await Promise.all([
+      db
+        .select({ total: count() })
+        .from(labels)
+        .leftJoin(applicationData, eq(labels.id, applicationData.labelId))
+        .where(whereClause),
+      // Unfiltered status counts (scoped to this applicant) for summary cards
+      applicantRecord
+        ? db
+            .select({ status: labels.status, count: count() })
+            .from(labels)
+            .where(eq(labels.applicantId, applicantRecord.id))
+            .groupBy(labels.status)
+        : Promise.resolve([]),
+      db
+        .select({
+          id: labels.id,
+          status: labels.status,
+          beverageType: labels.beverageType,
+          correctionDeadline: labels.correctionDeadline,
+          deadlineExpired: labels.deadlineExpired,
+          createdAt: labels.createdAt,
+          brandName: applicationData.brandName,
+          fancifulName: applicationData.fancifulName,
+          serialNumber: applicationData.serialNumber,
+          flaggedCount: flaggedCountSql,
+          thumbnailUrl: sql<string | null>`(
+          SELECT li.image_url FROM label_images li
+          WHERE li.label_id = ${labels.id}
+          ORDER BY
+            CASE WHEN li.image_type = 'front' THEN 0 ELSE 1 END,
+            li.sort_order
+          LIMIT 1
+        )`,
+        })
+        .from(labels)
+        .leftJoin(applicationData, eq(labels.id, applicationData.labelId))
+        .where(whereClause)
+        .orderBy(orderByClause)
+        .limit(PAGE_SIZE)
+        .offset(offset),
+      // Nearest correction deadline
+      applicantRecord
+        ? db
+            .select({ deadline: labels.correctionDeadline })
+            .from(labels)
+            .where(
+              and(
+                eq(labels.applicantId, applicantRecord.id),
+                gt(labels.correctionDeadline, new Date()),
+                eq(labels.deadlineExpired, false),
+              ),
+            )
+            .orderBy(asc(labels.correctionDeadline))
+            .limit(1)
+        : Promise.resolve([]),
+    ])
+
+  const tableTotal = tableCountResult[0]?.total ?? 0
+  const totalPages = Math.ceil(tableTotal / PAGE_SIZE)
+
+  // Build status count map for summary cards
+  const statusCounts: Record<string, number> = {}
+  let totalLabels = 0
+  for (const row of statusCountRows) {
+    statusCounts[row.status] = row.count
+    totalLabels += row.count
+  }
+
+  // Summary stats
+  const approvedCount = statusCounts['approved'] ?? 0
+  const inReviewCount =
+    (statusCounts['pending'] ?? 0) +
+    (statusCounts['processing'] ?? 0) +
+    (statusCounts['pending_review'] ?? 0)
+  const attentionCount =
+    (statusCounts['needs_correction'] ?? 0) +
+    (statusCounts['conditionally_approved'] ?? 0)
+  const approvalRate =
+    totalLabels > 0 ? Math.round((approvedCount / totalLabels) * 100) : 0
+
+  // Nearest deadline text
+  let nearestDeadlineText: string | null = null
+  if (nearestDeadlineResult[0]?.deadline) {
+    const dl = nearestDeadlineResult[0].deadline
+    const days = Math.ceil((dl.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    nearestDeadlineText =
+      days <= 0
+        ? 'Deadline expired'
+        : `Next deadline in ${days} day${days !== 1 ? 's' : ''}`
+  }
+
+  const labelsWithStatus = rows.map((row) => ({
     ...row,
+    thumbnailUrl: row.thumbnailUrl ? getSignedImageUrl(row.thumbnailUrl) : null,
     effectiveStatus: getEffectiveStatus({
       status: row.status,
       correctionDeadline: row.correctionDeadline,
@@ -108,105 +258,86 @@ export default async function SubmissionsPage({
     }),
   }))
 
+  const hasAnySubmissions = totalLabels > 0
+
   return (
-    <div className="space-y-6">
+    <PageShell className="space-y-6">
+      <AutoRefresh />
       <PageHeader
         title="My Submissions"
-        description="Your submitted COLA applications and their verification results."
-      >
-        <Button asChild>
-          <Link href="/submit">
-            <Plus className="size-4" />
-            Submit Label
-          </Link>
-        </Button>
-      </PageHeader>
+        description="Your submitted label applications and their verification results."
+      />
 
-      {labelsWithEffectiveStatus.length === 0 ? (
+      {hasAnySubmissions && (
+        <SubmissionsSummaryCards
+          total={totalLabels}
+          approved={approvedCount}
+          approvalRate={approvalRate}
+          inReview={inReviewCount}
+          needsAttention={attentionCount}
+          nearestDeadline={nearestDeadlineText}
+        />
+      )}
+
+      {hasAnySubmissions && (
+        <div className="flex items-center gap-2">
+          <SearchInput
+            paramKey="search"
+            placeholder="Search by name, serial number, or type..."
+            className="flex-1"
+          />
+          <ResetFiltersButton paramKeys={['status', 'beverageType']} />
+        </div>
+      )}
+
+      {!hasAnySubmissions ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="mb-4 text-sm text-muted-foreground">
-              No submissions yet. Start by submitting a COLA application.
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
+              <FileText className="size-6 text-muted-foreground" />
+            </div>
+            <h3 className="font-heading text-lg font-semibold">
+              No submissions yet
+            </h3>
+            <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+              Submit a label image with your application data and our AI will
+              verify it against TTB requirements.
             </p>
-            <Button asChild>
+            <Button asChild className="mt-5">
               <Link href="/submit">
                 <Plus className="size-4" />
-                Submit Label
+                Submit Your First Label
               </Link>
             </Button>
+            <p className="mt-3 text-xs text-muted-foreground/60">
+              Need to submit multiple labels? Use the{' '}
+              <Link
+                href="/submit?tab=batch"
+                className="text-primary hover:underline"
+              >
+                batch upload
+              </Link>{' '}
+              option.
+            </p>
+          </CardContent>
+        </Card>
+      ) : labelsWithStatus.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <p className="text-sm text-muted-foreground">
+              No submissions match your filters.
+            </p>
           </CardContent>
         </Card>
       ) : (
-        <Card className="py-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Status</TableHead>
-                <TableHead>Brand Name</TableHead>
-                <TableHead>Beverage Type</TableHead>
-                <TableHead className="text-right">Confidence</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {labelsWithEffectiveStatus.map((label) => (
-                <TableRow key={label.id}>
-                  <TableCell>
-                    <StatusBadge status={label.effectiveStatus} />
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    {label.brandName ?? 'Untitled'}
-                  </TableCell>
-                  <TableCell>
-                    {BEVERAGE_TYPE_LABELS[label.beverageType] ??
-                      label.beverageType}
-                  </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {formatConfidence(label.overallConfidence)}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatDate(label.createdAt)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/submissions/${label.id}`}>
-                        View
-                        <ArrowRight className="size-3" />
-                      </Link>
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between border-t px-6 py-4">
-              <p className="text-sm text-muted-foreground">
-                Showing {offset + 1}–{Math.min(offset + PAGE_SIZE, total)} of{' '}
-                {total} submissions
-              </p>
-              <div className="flex items-center gap-2">
-                {currentPage > 1 && (
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={`/submissions?page=${currentPage - 1}`}>
-                      Previous
-                    </Link>
-                  </Button>
-                )}
-                {currentPage < totalPages && (
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={`/submissions?page=${currentPage + 1}`}>
-                      Next
-                    </Link>
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-        </Card>
+        <SubmissionsTable
+          rows={labelsWithStatus}
+          totalPages={totalPages}
+          tableTotal={tableTotal}
+          pageSize={PAGE_SIZE}
+          searchTerm={searchTerm}
+        />
       )}
-    </div>
+    </PageShell>
   )
 }

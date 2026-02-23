@@ -15,7 +15,7 @@ describe('validateLabelSchema', () => {
   it('accepts input with all optional fields', () => {
     const result = validateLabelSchema.safeParse({
       ...validInput,
-      classTypeCode: '062',
+      classTypeCode: '140',
       serialNumber: 'SN12345',
       fancifulName: 'Heritage Collection',
       classType: 'Bourbon Whisky',
@@ -81,6 +81,30 @@ describe('validateLabelSchema', () => {
       containerSizeMl: 750.5,
     })
     expect(result.success).toBe(false)
+  })
+
+  it('shows human-friendly error for NaN containerSizeMl', () => {
+    const result = validateLabelSchema.safeParse({
+      ...validInput,
+      containerSizeMl: NaN,
+    })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      const message = result.error.issues[0]?.message
+      expect(message).toBe('Enter a valid number')
+    }
+  })
+
+  it('shows human-friendly error for missing beverageType', () => {
+    const result = validateLabelSchema.safeParse({
+      containerSizeMl: 750,
+      brandName: 'Test',
+    })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      const message = result.error.issues[0]?.message
+      expect(message).toBe('Select a beverage type')
+    }
   })
 
   it('trims whitespace from string fields', () => {

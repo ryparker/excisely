@@ -115,11 +115,11 @@ export function generateStatusEmail(
 
   switch (status) {
     case 'approved':
-      subject = `COLA Application Approved${serialSuffix}`
+      subject = `Label Application Approved${serialSuffix}`
       body = [
         `Dear ${contactName},`,
         '',
-        `Your COLA label application for "${brandName}" ${serialNumber ? `(Serial Number: ${serialNumber})` : ''} has been reviewed and approved by the Alcohol and Tobacco Tax and Trade Bureau.`,
+        `Your label application for "${brandName}" ${serialNumber ? `(Serial Number: ${serialNumber})` : ''} has been reviewed and approved by the Alcohol and Tobacco Tax and Trade Bureau.`,
         '',
         `All label fields have been verified against your submitted Form 5100.31 application data and meet TTB labeling requirements.`,
         '',
@@ -135,11 +135,11 @@ export function generateStatusEmail(
       const deadline = correctionDeadline
         ? formatDate(correctionDeadline)
         : '7 days from this notice'
-      subject = `COLA Application Conditionally Approved${serialSuffix}`
+      subject = `Label Application Conditionally Approved${serialSuffix}`
       body = [
         `Dear ${contactName},`,
         '',
-        `Your COLA label application for "${brandName}" ${serialNumber ? `(Serial Number: ${serialNumber})` : ''} has been conditionally approved. Minor discrepancies were identified during review that require correction.`,
+        `Your label application for "${brandName}" ${serialNumber ? `(Serial Number: ${serialNumber})` : ''} has been conditionally approved. Minor discrepancies were identified during review that require correction.`,
         '',
         `You must submit corrected labels by ${deadline}.`,
         '',
@@ -167,11 +167,11 @@ export function generateStatusEmail(
       const deadline = correctionDeadline
         ? formatDate(correctionDeadline)
         : '30 days from this notice'
-      subject = `COLA Application Requires Correction${serialSuffix}`
+      subject = `Label Application Requires Correction${serialSuffix}`
       body = [
         `Dear ${contactName},`,
         '',
-        `Your COLA label application for "${brandName}" ${serialNumber ? `(Serial Number: ${serialNumber})` : ''} has been reviewed and requires corrections before approval can be granted.`,
+        `Your label application for "${brandName}" ${serialNumber ? `(Serial Number: ${serialNumber})` : ''} has been reviewed and requires corrections before approval can be granted.`,
         '',
         `You have until ${deadline} to submit corrected labels addressing the issues below.`,
         '',
@@ -199,11 +199,11 @@ export function generateStatusEmail(
 
     default:
       // rejected or other
-      subject = `COLA Application ${statusLabel}${serialSuffix}`
+      subject = `Label Application ${statusLabel}${serialSuffix}`
       body = [
         `Dear ${contactName},`,
         '',
-        `Your COLA label application for "${brandName}" ${serialNumber ? `(Serial Number: ${serialNumber})` : ''} has been reviewed and ${status === 'rejected' ? 'rejected' : 'processed'}.`,
+        `Your label application for "${brandName}" ${serialNumber ? `(Serial Number: ${serialNumber})` : ''} has been reviewed and ${status === 'rejected' ? 'rejected' : 'processed'}.`,
         '',
         `The label does not comply with TTB labeling requirements.`,
         '',
@@ -262,7 +262,7 @@ export function generateOverrideEmail(
 
   const from = 'TTB Label Compliance <noreply@ttb.gov>'
   const to = `${contactName} <${contactEmail}>`
-  const subject = `COLA Application Status Updated to ${newStatusLabel}${serialSuffix}`
+  const subject = `Label Application Status Updated to ${newStatusLabel}${serialSuffix}`
 
   const deadlineNote =
     correctionDeadline &&
@@ -274,7 +274,7 @@ export function generateOverrideEmail(
   const body = [
     `Dear ${contactName},`,
     '',
-    `The status of your COLA label application for "${brandName}" ${serialNumber ? `(Serial Number: ${serialNumber})` : ''} has been updated by a TTB Labeling Specialist.`,
+    `The status of your label application for "${brandName}" ${serialNumber ? `(Serial Number: ${serialNumber})` : ''} has been updated by a TTB Labeling Specialist.`,
     '',
     `Previous status: ${prevStatusLabel}`,
     `Updated status: ${newStatusLabel}`,

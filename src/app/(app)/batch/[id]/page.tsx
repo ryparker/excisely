@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { eq } from 'drizzle-orm'
+import { eq, asc, desc } from 'drizzle-orm'
 import {
   ArrowLeft,
   CheckCircle,
@@ -11,8 +11,10 @@ import {
 
 import { db } from '@/db'
 import { batches, labels, applicationData } from '@/db/schema'
-import { getSession } from '@/lib/auth/get-session'
+import { requireSpecialist } from '@/lib/auth/require-role'
 import { PageHeader } from '@/components/layout/page-header'
+import { PageShell } from '@/components/layout/page-shell'
+import { ColumnHeader } from '@/components/shared/column-header'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -31,15 +33,19 @@ export const dynamic = 'force-dynamic'
 
 interface BatchDetailPageProps {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ sort?: string; order?: string }>
 }
 
 export default async function BatchDetailPage({
   params,
+  searchParams,
 }: BatchDetailPageProps) {
-  const session = await getSession()
-  if (!session) return null
+  await requireSpecialist()
 
   const { id } = await params
+  const sp = await searchParams
+  const sortKey = sp.sort ?? ''
+  const sortOrder = sp.order === 'asc' ? 'asc' : 'desc'
 
   // Fetch batch
   const [batch] = await db
@@ -50,6 +56,25 @@ export default async function BatchDetailPage({
 
   if (!batch) {
     notFound()
+  }
+
+  // Map sort keys to DB columns
+  const SORT_COLUMNS: Record<
+    string,
+    | typeof labels.createdAt
+    | typeof applicationData.brandName
+    | typeof labels.overallConfidence
+  > = {
+    brandName: applicationData.brandName,
+    overallConfidence: labels.overallConfidence,
+  }
+
+  let orderByClause
+  if (sortKey && SORT_COLUMNS[sortKey]) {
+    const col = SORT_COLUMNS[sortKey]
+    orderByClause = sortOrder === 'asc' ? asc(col) : desc(col)
+  } else {
+    orderByClause = asc(labels.createdAt)
   }
 
   // Fetch all labels in this batch with their application data
@@ -65,7 +90,7 @@ export default async function BatchDetailPage({
     .from(labels)
     .leftJoin(applicationData, eq(applicationData.labelId, labels.id))
     .where(eq(labels.batchId, id))
-    .orderBy(labels.createdAt)
+    .orderBy(orderByClause)
 
   const progressPercent =
     batch.totalLabels > 0
@@ -76,7 +101,7 @@ export default async function BatchDetailPage({
   const batchName = batch.name || `Batch ${batch.id.slice(0, 8)}`
 
   return (
-    <div className="space-y-6">
+    <PageShell className="space-y-6">
       {/* Back link + header */}
       <div className="space-y-4">
         <Button variant="ghost" size="sm" asChild>
@@ -199,19 +224,24 @@ export default async function BatchDetailPage({
       )}
 
       {/* Results Table */}
-      <Card>
+      <Card className="overflow-clip">
         <CardHeader>
           <CardTitle className="font-heading text-lg">Labels</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-muted/30 hover:bg-muted/30">
                 <TableHead className="w-16">#</TableHead>
-                <TableHead>Brand Name</TableHead>
+                <ColumnHeader sortKey="brandName">Brand Name</ColumnHeader>
                 <TableHead>Serial Number</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right">Confidence</TableHead>
+                <ColumnHeader
+                  sortKey="overallConfidence"
+                  className="text-right"
+                >
+                  Confidence
+                </ColumnHeader>
                 <TableHead className="w-20" />
               </TableRow>
             </TableHeader>
@@ -260,6 +290,6 @@ export default async function BatchDetailPage({
           </Table>
         </CardContent>
       </Card>
-    </div>
+    </PageShell>
   )
 }

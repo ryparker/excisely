@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { Search, X } from 'lucide-react'
+import { Loader2, Search, X } from 'lucide-react'
 import { useQueryState, parseAsString } from 'nuqs'
 
 import { Input } from '@/components/ui/input'
@@ -18,6 +18,9 @@ interface SearchInputProps {
  * Debounced search input that auto-navigates on type.
  * Reads initial value from URL params via nuqs; updates the URL after 300ms idle.
  * Enter submits immediately; X button clears and refocuses.
+ *
+ * Uses a controlled input with a draft state so the DOM element persists
+ * across URL changes — no focus loss during typing.
  */
 export function SearchInput({
   paramKey = 'search',
@@ -32,7 +35,11 @@ export function SearchInput({
 
   const inputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [hasValue, setHasValue] = useState(() => search.length > 0)
+
+  // Draft holds the user's in-progress typing. When null, fall back to URL value.
+  // This avoids effects and ref reads during render (React compiler safe).
+  const [draft, setDraft] = useState<string | null>(null)
+  const displayValue = draft ?? search
 
   function navigate(term: string) {
     const trimmed = term.trim()
@@ -41,14 +48,13 @@ export function SearchInput({
   }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setHasValue(e.target.value.length > 0)
+    setDraft(e.target.value)
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => navigate(e.target.value), 300)
   }
 
   function handleClear() {
-    if (inputRef.current) inputRef.current.value = ''
-    setHasValue(false)
+    setDraft(null)
     if (debounceRef.current) clearTimeout(debounceRef.current)
     navigate('')
     inputRef.current?.focus()
@@ -62,27 +68,45 @@ export function SearchInput({
     }
   }
 
-  // Key the input on the URL param value so that external changes (back/forward,
-  // filter clicks) reset the uncontrolled input without needing setState in an effect.
+  function handleBlur() {
+    // Flush any pending debounce so the URL stays in sync
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+      debounceRef.current = null
+    }
+    // Submit any un-flushed draft before clearing
+    if (draft !== null && draft.trim() !== search) {
+      navigate(draft)
+    }
+    setDraft(null)
+  }
+
+  const isSearching = draft !== null && draft.trim() !== search
+
   return (
     <div className={cn('relative', className)}>
-      <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+      {isSearching ? (
+        <Loader2 className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+      ) : (
+        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+      )}
       <Input
-        key={search}
         ref={inputRef}
-        type="search"
-        defaultValue={search}
+        type="text"
+        value={displayValue}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
+        onBlur={handleBlur}
         placeholder={placeholder}
         className="pr-8 pl-9"
         spellCheck={false}
         autoComplete="off"
         data-1p-ignore
       />
-      {hasValue && (
+      {displayValue.length > 0 && (
         <button
           type="button"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={handleClear}
           className="ease absolute top-1/2 right-2.5 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground transition-colors duration-150 hover:text-foreground"
           aria-label="Clear search"

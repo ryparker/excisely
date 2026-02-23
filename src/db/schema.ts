@@ -338,6 +338,9 @@ export const validationResults = pgTable('validation_results', {
   aiRawResponse: jsonb('ai_raw_response').notNull(),
   processingTimeMs: integer('processing_time_ms').notNull(),
   modelUsed: text('model_used').notNull(),
+  inputTokens: integer('input_tokens'),
+  outputTokens: integer('output_tokens'),
+  totalTokens: integer('total_tokens'),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -365,6 +368,7 @@ export const validationItems = pgTable('validation_items', {
   bboxY: numeric('bbox_y'),
   bboxWidth: numeric('bbox_width'),
   bboxHeight: numeric('bbox_height'),
+  bboxAngle: numeric('bbox_angle'),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
     .$defaultFn(() => new Date()),

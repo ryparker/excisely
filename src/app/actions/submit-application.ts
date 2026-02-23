@@ -11,7 +11,10 @@ import {
   validationItems,
   validationResults,
 } from '@/db/schema'
-import { extractLabelFields } from '@/lib/ai/extract-label'
+import {
+  extractLabelFieldsForSubmission,
+  PipelineTimeoutError,
+} from '@/lib/ai/extract-label'
 import { compareField } from '@/lib/ai/compare-fields'
 import { getSession } from '@/lib/auth/get-session'
 import { validateLabelSchema } from '@/lib/validators/label-schema'
@@ -22,14 +25,15 @@ import {
   MINOR_DISCREPANCY_FIELDS,
   type ValidationItemStatus,
 } from '@/lib/labels/validation-helpers'
+import { getAutoApprovalEnabled } from '@/lib/settings/get-settings'
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 type SubmitApplicationResult =
-  | { success: true; labelId: string }
-  | { success: false; error: string }
+  | { success: true; labelId: string; status: 'approved' | 'pending_review' }
+  | { success: false; error: string; timeout?: boolean }
 
 // ---------------------------------------------------------------------------
 // Server Action
@@ -43,6 +47,8 @@ export async function submitApplication(
   if (!session?.user) {
     return { success: false, error: 'Authentication required' }
   }
+
+  let labelId: string | null = null
 
   try {
     // 2. Parse and validate form data
@@ -125,6 +131,8 @@ export async function submitApplication(
       })
       .returning({ id: labels.id })
 
+    labelId = label.id
+
     // 6. Create application data record
     await db.insert(applicationData).values({
       labelId: label.id,
@@ -169,7 +177,7 @@ export async function submitApplication(
 
     // 9. Run AI pipeline with application data for disambiguation
     const appDataForAI = Object.fromEntries(expectedFields)
-    const extraction = await extractLabelFields(
+    const extraction = await extractLabelFieldsForSubmission(
       imageUrls,
       input.beverageType,
       appDataForAI,
@@ -235,14 +243,74 @@ export async function submitApplication(
       })
     }
 
+    // 10b. Compute correction delta from applicant's AI extraction edits
+    let aiRawResponseWithCorrections = extraction.rawResponse as Record<
+      string,
+      unknown
+    >
+    const aiExtractedFieldsRaw = formData.get('aiExtractedFields')
+    if (aiExtractedFieldsRaw && typeof aiExtractedFieldsRaw === 'string') {
+      try {
+        const aiExtractedFields: Record<string, string> =
+          JSON.parse(aiExtractedFieldsRaw)
+        const applicantCorrections: Array<{
+          fieldName: string
+          aiExtractedValue: string
+          applicantSubmittedValue: string
+        }> = []
+
+        const camelToSnake: Record<string, string> = {
+          brandName: 'brand_name',
+          fancifulName: 'fanciful_name',
+          classType: 'class_type',
+          alcoholContent: 'alcohol_content',
+          netContents: 'net_contents',
+          nameAndAddress: 'name_and_address',
+          qualifyingPhrase: 'qualifying_phrase',
+          countryOfOrigin: 'country_of_origin',
+          grapeVarietal: 'grape_varietal',
+          appellationOfOrigin: 'appellation_of_origin',
+          vintageYear: 'vintage_year',
+          ageStatement: 'age_statement',
+          stateOfDistillation: 'state_of_distillation',
+        }
+
+        for (const [camelKey, snakeKey] of Object.entries(camelToSnake)) {
+          const aiValue = aiExtractedFields[snakeKey]
+          if (!aiValue) continue
+          const submittedValue =
+            (input[camelKey as keyof typeof input] as string) ?? ''
+          if (submittedValue && submittedValue.trim() !== aiValue.trim()) {
+            applicantCorrections.push({
+              fieldName: snakeKey,
+              aiExtractedValue: aiValue,
+              applicantSubmittedValue: submittedValue.trim(),
+            })
+          }
+        }
+
+        if (applicantCorrections.length > 0) {
+          aiRawResponseWithCorrections = {
+            ...aiRawResponseWithCorrections,
+            applicantCorrections,
+          }
+        }
+      } catch {
+        // Invalid JSON — skip correction delta
+      }
+    }
+
     // 11. Create validation result record
     const [validationResult] = await db
       .insert(validationResults)
       .values({
         labelId: label.id,
-        aiRawResponse: extraction.rawResponse,
+        aiRawResponse: aiRawResponseWithCorrections,
         processingTimeMs: extraction.processingTimeMs,
         modelUsed: extraction.modelUsed,
+        inputTokens: extraction.metrics.inputTokens,
+        outputTokens: extraction.metrics.outputTokens,
+        totalTokens: extraction.metrics.totalTokens,
         isCurrent: true,
       })
       .returning({ id: validationResults.id })
@@ -297,8 +365,10 @@ export async function submitApplication(
         : 0
 
     // 15. Update label with final status and confidence
-    // Auto-approve labels the AI deems approved; route everything else through human review
-    if (overallStatus === 'approved') {
+    // Only auto-approve when the setting is enabled; otherwise route all labels through specialist review
+    const autoApprovalEnabled = await getAutoApprovalEnabled()
+
+    if (autoApprovalEnabled && overallStatus === 'approved') {
       await db
         .update(labels)
         .set({
@@ -317,9 +387,36 @@ export async function submitApplication(
         .where(eq(labels.id, label.id))
     }
 
-    return { success: true, labelId: label.id }
+    const finalStatus =
+      autoApprovalEnabled && overallStatus === 'approved'
+        ? ('approved' as const)
+        : ('pending_review' as const)
+
+    return { success: true, labelId: label.id, status: finalStatus }
   } catch (error) {
     console.error('[submitApplication] Unexpected error:', error)
+
+    // Best-effort: reset partially-created label to pending so it can be retried
+    if (labelId) {
+      try {
+        await db
+          .update(labels)
+          .set({ status: 'pending' })
+          .where(eq(labels.id, labelId))
+      } catch {
+        // Cleanup failed — label stays in 'processing' state
+      }
+    }
+
+    if (error instanceof PipelineTimeoutError) {
+      return {
+        success: false,
+        error:
+          'Analysis is taking longer than expected. Your submission has been saved and will continue processing.',
+        timeout: true,
+      }
+    }
+
     return {
       success: false,
       error:

@@ -63,6 +63,8 @@ interface BuildTimelineInput {
   validationItems: TimelineValidationItem[]
   humanReviews: TimelineHumanReview[]
   overrides: TimelineOverride[]
+  /** When true, suppresses the initial status email event (re-analysis should not re-notify applicant) */
+  isReanalysis?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -90,6 +92,7 @@ export function buildTimeline(input: BuildTimelineInput): TimelineEvent[] {
     validationItems,
     humanReviews,
     overrides,
+    isReanalysis,
   } = input
 
   const events: TimelineEvent[] = []
@@ -101,8 +104,8 @@ export function buildTimeline(input: BuildTimelineInput): TimelineEvent[] {
     timestamp: label.createdAt,
     title: 'Application Submitted',
     description: appData?.brandName
-      ? `COLA application received for "${appData.brandName}"`
-      : 'COLA application received for processing',
+      ? `Label application received for "${appData.brandName}"`
+      : 'Label application received for processing',
     status: 'pending',
   })
 
@@ -138,7 +141,12 @@ export function buildTimeline(input: BuildTimelineInput): TimelineEvent[] {
   }
 
   // 4. Initial email sent (for applicant-facing statuses)
-  if (validationResult && APPLICANT_FACING_STATUSES.has(label.status)) {
+  // Skip email generation on re-analysis — don't re-notify applicant
+  if (
+    validationResult &&
+    APPLICANT_FACING_STATUSES.has(label.status) &&
+    !isReanalysis
+  ) {
     const emailSentAt = new Date(validationResult.createdAt.getTime() + 62000) // +~1 min after processing
     const email = generateStatusEmail(
       label.status,
@@ -245,6 +253,43 @@ export function buildTimeline(input: BuildTimelineInput): TimelineEvent[] {
   events.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
 
   return events
+}
+
+// ---------------------------------------------------------------------------
+// Applicant-safe timeline — filters out internal/specialist events
+// ---------------------------------------------------------------------------
+
+const APPLICANT_SAFE_EVENT_TYPES = new Set([
+  'submitted',
+  'status_determined',
+  'email_sent',
+  'override_email_sent',
+  'deadline_warning',
+])
+
+/**
+ * Wraps `buildTimeline` and filters to applicant-safe events only.
+ * Removes: processing_complete, specialist_review, status_override.
+ * Rewrites pending_review descriptions to generic text.
+ */
+export function buildApplicantTimeline(
+  input: BuildTimelineInput,
+): TimelineEvent[] {
+  const events = buildTimeline(input)
+
+  return events
+    .filter((e) => APPLICANT_SAFE_EVENT_TYPES.has(e.type))
+    .map((e) => {
+      // Rewrite "pending_review" status_determined to hide AI internals
+      if (e.type === 'status_determined' && e.status === 'pending_review') {
+        return {
+          ...e,
+          title: 'Status: Under Review',
+          description: 'Your submission is being reviewed',
+        }
+      }
+      return e
+    })
 }
 
 // ---------------------------------------------------------------------------

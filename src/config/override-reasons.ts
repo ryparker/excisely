@@ -111,6 +111,12 @@ export const OVERRIDE_REASONS: Record<string, OverrideReason[]> = {
       description:
         'Discrepancies resolved after applicant provided clarification',
     },
+    {
+      code: 'batch_approved',
+      label: 'Batch approved',
+      description:
+        'Batch approved — all fields verified by AI with high confidence',
+    },
   ],
 }
 

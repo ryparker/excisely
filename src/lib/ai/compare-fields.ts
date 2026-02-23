@@ -1,3 +1,5 @@
+import { QUALIFYING_PHRASES as QUALIFYING_PHRASES_CONFIG } from '@/config/qualifying-phrases'
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -34,23 +36,10 @@ const FIELD_MATCH_STRATEGY: Record<string, MatchType> = {
 
 // ---------------------------------------------------------------------------
 // Known qualifying phrases (case-insensitive matching)
+// Derived from the canonical config to avoid duplicate lists.
 // ---------------------------------------------------------------------------
 
-const QUALIFYING_PHRASES = [
-  'bottled by',
-  'packed by',
-  'distilled by',
-  'blended by',
-  'produced by',
-  'prepared by',
-  'manufactured by',
-  'made by',
-  'brewed by',
-  'imported by',
-  'cellared and bottled by',
-  'vinted and bottled by',
-  'estate bottled',
-]
+const QUALIFYING_PHRASES = QUALIFYING_PHRASES_CONFIG.map((p) => p.toLowerCase())
 
 // ---------------------------------------------------------------------------
 // Helper: normalize whitespace

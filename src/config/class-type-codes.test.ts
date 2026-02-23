@@ -40,12 +40,14 @@ describe('getCodesByBeverageType', () => {
 
   it('includes known specific codes', () => {
     const spirits = getCodesByBeverageType('distilled_spirits')
-    expect(spirits.find((c) => c.code === '062')?.description).toBe(
-      'Bourbon Whisky',
+    expect(spirits.find((c) => c.code === '101')?.description).toBe(
+      'Straight Bourbon Whisky',
     )
 
     const wines = getCodesByBeverageType('wine')
-    expect(wines.find((c) => c.code === '221')?.description).toBe('Champagne')
+    expect(wines.find((c) => c.code === '84')?.description).toBe(
+      'Sparkling Wine / Champagne',
+    )
 
     const malts = getCodesByBeverageType('malt_beverage')
     expect(malts.find((c) => c.code === '901')?.description).toBe('Beer')

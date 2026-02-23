@@ -2,8 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
-import { Clock, Gauge, Zap, Inbox, type LucideIcon } from 'lucide-react'
+import { Clock, Gauge, Zap, Inbox, Info, type LucideIcon } from 'lucide-react'
 
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card'
 import {
   type SLAStatus,
   STATUS_BAR_COLORS,
@@ -24,6 +29,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
 interface SLAMetricCardProps {
   icon: string
   label: string
+  description: string
   value: number | null
   target: number
   unit: string
@@ -62,6 +68,7 @@ function useCountUp(end: number | null, duration = 600) {
 export function SLAMetricCard({
   icon: iconName,
   label,
+  description,
   value,
   target,
   unit,
@@ -95,6 +102,28 @@ export function SLAMetricCard({
       <div className="flex items-center gap-2 text-muted-foreground">
         <Icon className="size-3.5" strokeWidth={1.75} />
         <span className="text-[13px] font-medium">{label}</span>
+        <HoverCard openDelay={200} closeDelay={100}>
+          <HoverCardTrigger asChild>
+            <button
+              type="button"
+              className="ml-auto flex size-4 items-center justify-center rounded-full text-muted-foreground/40 transition-colors hover:text-muted-foreground"
+              aria-label={`About ${label}`}
+            >
+              <Info className="size-3" />
+            </button>
+          </HoverCardTrigger>
+          <HoverCardContent
+            side="top"
+            sideOffset={4}
+            align="end"
+            className="w-52 p-3"
+          >
+            <p className="text-xs font-semibold">{label}</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              {description}
+            </p>
+          </HoverCardContent>
+        </HoverCard>
       </div>
 
       {/* Value + target */}
@@ -144,6 +173,7 @@ export function SLAMetricCard({
 export interface SLAMetricCardData {
   icon: string
   label: string
+  description: string
   value: number | null
   target: number
   unit: string

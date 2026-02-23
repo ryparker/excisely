@@ -21,6 +21,7 @@ import {
   MINOR_DISCREPANCY_FIELDS,
   type ValidationItemStatus,
 } from '@/lib/labels/validation-helpers'
+import { getAutoApprovalEnabled } from '@/lib/settings/get-settings'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -198,6 +199,7 @@ export async function validateLabel(
         y: number
         width: number
         height: number
+        angle: number
       } | null
       imageIndex: number
     }> = []
@@ -242,6 +244,9 @@ export async function validateLabel(
         aiRawResponse: extraction.rawResponse,
         processingTimeMs: extraction.processingTimeMs,
         modelUsed: extraction.modelUsed,
+        inputTokens: extraction.metrics.inputTokens,
+        outputTokens: extraction.metrics.outputTokens,
+        totalTokens: extraction.metrics.totalTokens,
         isCurrent: true,
       })
       .returning({ id: validationResults.id })
@@ -270,6 +275,7 @@ export async function validateLabel(
             bboxHeight: comp.boundingBox
               ? String(comp.boundingBox.height)
               : null,
+            bboxAngle: comp.boundingBox ? String(comp.boundingBox.angle) : null,
           }
         }),
       )
@@ -297,8 +303,10 @@ export async function validateLabel(
         : 0
 
     // 14. Update label with final status and confidence
-    // Auto-approve labels the AI deems approved; route everything else through human review
-    if (overallStatus === 'approved') {
+    // Only auto-approve when the setting is enabled; otherwise route all labels through specialist review
+    const autoApprovalEnabled = await getAutoApprovalEnabled()
+
+    if (autoApprovalEnabled && overallStatus === 'approved') {
       await db
         .update(labels)
         .set({

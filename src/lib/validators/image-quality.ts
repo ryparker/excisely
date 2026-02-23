@@ -66,7 +66,7 @@ export function assessImageQuality(
   ) {
     issues.push({
       code: 'low_resolution',
-      message: `Image is ${width} × ${height}px — ${RECOMMENDED_DIMENSION_PX}px+ recommended for reliable OCR`,
+      message: `Image is ${width} × ${height}px — ${RECOMMENDED_DIMENSION_PX}px+ recommended for accurate text reading`,
     })
     level = 'warning'
   }

@@ -6,11 +6,10 @@ import {
   Clock,
   Cpu,
   Bot,
+  Zap,
 } from 'lucide-react'
 
-import { StatusBadge } from '@/components/shared/status-badge'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
 
 interface FieldCounts {
   match: number
@@ -26,6 +25,9 @@ interface ValidationSummaryProps {
   modelUsed: string | null
   fieldCounts: FieldCounts
   aiProposedStatus?: string | null
+  inputTokens?: number | null
+  outputTokens?: number | null
+  totalTokens?: number | null
 }
 
 function formatConfidence(value: number | null): string {
@@ -51,6 +53,9 @@ export function ValidationSummary({
   modelUsed,
   fieldCounts,
   aiProposedStatus,
+  inputTokens,
+  outputTokens,
+  totalTokens,
 }: ValidationSummaryProps) {
   const totalFields =
     fieldCounts.match +
@@ -59,70 +64,80 @@ export function ValidationSummary({
     fieldCounts.needsCorrection
 
   return (
-    <Card>
-      <CardContent className="flex flex-wrap items-center gap-6">
-        <div className="flex items-center gap-3">
-          <StatusBadge status={status} className="px-3 py-1 text-sm" />
+    <div className="space-y-2.5">
+      {/* Primary row: AI recommendation + field counts */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
           {aiProposedStatus && status === 'pending_review' && (
             <Badge
               variant="outline"
-              className="gap-1 border-indigo-300 text-indigo-700 dark:border-indigo-700 dark:text-indigo-400"
+              className="gap-1.5 border-indigo-200 bg-indigo-50/50 text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-400"
             >
-              <Bot className="size-3" />
+              <Bot className="size-3.5" />
               AI Recommended:{' '}
               {AI_STATUS_LABELS[aiProposedStatus] ?? aiProposedStatus}
             </Badge>
           )}
-          <span className="text-sm font-medium text-muted-foreground tabular-nums">
+          <span className="text-sm text-muted-foreground tabular-nums">
             {formatConfidence(confidence)} confidence
           </span>
         </div>
 
-        <div className="h-8 w-px bg-border" />
-
-        <div className="flex items-center gap-4 text-sm tabular-nums">
-          <span className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
-            <CheckCircle2 className="size-4" />
-            {fieldCounts.match} match
+        {/* Field counts — right-aligned */}
+        <div className="flex items-center gap-2 text-sm tabular-nums">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-0.5 text-green-700 dark:bg-green-950/30 dark:text-green-400">
+            <CheckCircle2 className="size-3.5" />
+            {fieldCounts.match}
           </span>
           {fieldCounts.mismatch > 0 && (
-            <span className="flex items-center gap-1.5 text-red-600 dark:text-red-400">
-              <XCircle className="size-4" />
-              {fieldCounts.mismatch} mismatch
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-0.5 text-red-700 dark:bg-red-950/30 dark:text-red-400">
+              <XCircle className="size-3.5" />
+              {fieldCounts.mismatch}
             </span>
           )}
           {fieldCounts.needsCorrection > 0 && (
-            <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
-              <AlertTriangle className="size-4" />
-              {fieldCounts.needsCorrection} needs correction
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+              <AlertTriangle className="size-3.5" />
+              {fieldCounts.needsCorrection}
             </span>
           )}
           {fieldCounts.notFound > 0 && (
-            <span className="flex items-center gap-1.5 text-muted-foreground">
-              <SearchX className="size-4" />
-              {fieldCounts.notFound} not found
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-muted-foreground">
+              <SearchX className="size-3.5" />
+              {fieldCounts.notFound}
             </span>
           )}
-          <span className="text-muted-foreground">
-            ({totalFields} fields total)
+          <span className="text-xs text-muted-foreground">
+            of {totalFields} fields
           </span>
         </div>
+      </div>
 
-        <div className="h-8 w-px bg-border" />
-
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <Clock className="size-4" />
-            {formatProcessingTime(processingTimeMs)}
+      {/* Secondary row: Processing metadata */}
+      <div className="flex items-center gap-3 text-[11px] text-muted-foreground/60 tabular-nums">
+        <span className="inline-flex items-center gap-1">
+          <Clock className="size-3" />
+          {formatProcessingTime(processingTimeMs)}
+        </span>
+        {modelUsed && (
+          <span className="inline-flex items-center gap-1">
+            <Cpu className="size-3" />
+            {modelUsed}
           </span>
-          {modelUsed && (
-            <span className="flex items-center gap-1.5">
-              <Cpu className="size-4" />
-              {modelUsed}
-            </span>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+        )}
+        {totalTokens != null && (
+          <span className="inline-flex items-center gap-1">
+            <Zap className="size-3" />
+            {totalTokens.toLocaleString()} tokens
+            {inputTokens != null && outputTokens != null && (
+              <span className="text-muted-foreground/40">
+                ({inputTokens.toLocaleString()} in /{' '}
+                {outputTokens.toLocaleString()} out)
+              </span>
+            )}
+          </span>
+        )}
+      </div>
+    </div>
   )
 }

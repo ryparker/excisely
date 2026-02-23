@@ -8,8 +8,16 @@ import { db } from '@/db'
 import { settings } from '@/db/schema'
 import { getSession } from '@/lib/auth/get-session'
 
+const updateAutoApprovalSchema = z.object({
+  enabled: z.boolean(),
+})
+
 const updateConfidenceSchema = z.object({
   confidenceThreshold: z.number().min(0).max(100),
+})
+
+const updateApprovalThresholdSchema = z.object({
+  approvalThreshold: z.number().min(80).max(100),
 })
 
 const updateStrictnessSchema = z.object({
@@ -44,6 +52,33 @@ async function upsertSetting(key: string, value: unknown): Promise<void> {
   }
 }
 
+export async function updateAutoApproval(
+  enabled: boolean,
+): Promise<UpdateSettingsResult> {
+  const session = await getSession()
+  if (!session?.user) {
+    return { success: false, error: 'Authentication required' }
+  }
+
+  if (session.user.role === 'applicant') {
+    return { success: false, error: 'Specialist access required' }
+  }
+
+  const parsed = updateAutoApprovalSchema.safeParse({ enabled })
+  if (!parsed.success) {
+    return { success: false, error: 'Invalid value' }
+  }
+
+  try {
+    await upsertSetting('auto_approval_enabled', parsed.data.enabled)
+    revalidatePath('/settings')
+    return { success: true }
+  } catch (error) {
+    console.error('[updateAutoApproval] Error:', error)
+    return { success: false, error: 'Failed to save auto-approval setting' }
+  }
+}
+
 export async function updateConfidenceThreshold(
   threshold: number,
 ): Promise<UpdateSettingsResult> {
@@ -70,6 +105,36 @@ export async function updateConfidenceThreshold(
   } catch (error) {
     console.error('[updateConfidenceThreshold] Error:', error)
     return { success: false, error: 'Failed to save threshold' }
+  }
+}
+
+export async function updateApprovalThreshold(
+  threshold: number,
+): Promise<UpdateSettingsResult> {
+  const session = await getSession()
+  if (!session?.user) {
+    return { success: false, error: 'Authentication required' }
+  }
+
+  if (session.user.role === 'applicant') {
+    return { success: false, error: 'Specialist access required' }
+  }
+
+  const parsed = updateApprovalThresholdSchema.safeParse({
+    approvalThreshold: threshold,
+  })
+  if (!parsed.success) {
+    return { success: false, error: 'Threshold must be between 80 and 100' }
+  }
+
+  try {
+    await upsertSetting('approval_threshold', parsed.data.approvalThreshold)
+    revalidatePath('/settings')
+    revalidatePath('/')
+    return { success: true }
+  } catch (error) {
+    console.error('[updateApprovalThreshold] Error:', error)
+    return { success: false, error: 'Failed to save approval threshold' }
   }
 }
 

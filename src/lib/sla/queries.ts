@@ -1,7 +1,7 @@
-import { and, count, eq, gte, sql } from 'drizzle-orm'
+import { and, count, eq, gte, isNotNull, sql, sum } from 'drizzle-orm'
 
 import { db } from '@/db'
-import { humanReviews, labels } from '@/db/schema'
+import { humanReviews, labels, validationResults } from '@/db/schema'
 
 export interface SLAMetrics {
   avgReviewResponseHours: number | null
@@ -75,5 +75,50 @@ export async function fetchSLAMetrics(): Promise<SLAMetrics> {
           )
         : null,
     queueDepth: queueResult[0]?.total ?? 0,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Token Usage Metrics
+// ---------------------------------------------------------------------------
+
+export interface TokenUsageMetrics {
+  totalInputTokens: number
+  totalOutputTokens: number
+  totalTokens: number
+  validationCount: number
+  avgTokensPerValidation: number | null
+}
+
+/** Fetch aggregated token usage from validation results (last 30 days). */
+export async function fetchTokenUsageMetrics(): Promise<TokenUsageMetrics> {
+  const thirtyDaysAgo = new Date()
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+  const [result] = await db
+    .select({
+      totalInputTokens: sum(validationResults.inputTokens),
+      totalOutputTokens: sum(validationResults.outputTokens),
+      totalTokens: sum(validationResults.totalTokens),
+      validationCount: count(),
+    })
+    .from(validationResults)
+    .where(
+      and(
+        isNotNull(validationResults.totalTokens),
+        gte(validationResults.createdAt, thirtyDaysAgo),
+      ),
+    )
+
+  const totalTokens = Number(result?.totalTokens) || 0
+  const validationCount = result?.validationCount ?? 0
+
+  return {
+    totalInputTokens: Number(result?.totalInputTokens) || 0,
+    totalOutputTokens: Number(result?.totalOutputTokens) || 0,
+    totalTokens,
+    validationCount,
+    avgTokensPerValidation:
+      validationCount > 0 ? Math.round(totalTokens / validationCount) : null,
   }
 }

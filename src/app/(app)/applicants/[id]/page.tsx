@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { and, eq, desc, sql } from 'drizzle-orm'
+import { and, eq, desc, asc, sql } from 'drizzle-orm'
 import {
   ArrowLeft,
   ArrowRight,
@@ -18,9 +18,12 @@ import {
   statusOverrides,
 } from '@/db/schema'
 import { REASON_CODE_LABELS } from '@/config/override-reasons'
-import { getSession } from '@/lib/auth/get-session'
+import { BEVERAGE_ICON, BEVERAGE_LABEL_FULL } from '@/config/beverage-display'
+import { requireSpecialist } from '@/lib/auth/require-role'
 import { getEffectiveStatus } from '@/lib/labels/effective-status'
 import { PageHeader } from '@/components/layout/page-header'
+import { PageShell } from '@/components/layout/page-shell'
+import { ColumnHeader } from '@/components/shared/column-header'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -37,14 +40,19 @@ import {
 export const dynamic = 'force-dynamic'
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Constants
 // ---------------------------------------------------------------------------
 
-const BEVERAGE_TYPE_LABELS: Record<string, string> = {
-  distilled_spirits: 'Distilled Spirits',
-  wine: 'Wine',
-  malt_beverage: 'Malt Beverage',
-}
+const BEVERAGE_OPTIONS = [
+  { label: 'All Types', value: '' },
+  { label: 'Spirits', value: 'distilled_spirits' },
+  { label: 'Wine', value: 'wine' },
+  { label: 'Malt Beverage', value: 'malt_beverage' },
+]
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 function formatDate(date: Date): string {
   return new Intl.DateTimeFormat('en-US', {
@@ -98,18 +106,26 @@ function getRiskBadge(approvalRate: number | null) {
 
 interface ApplicantDetailPageProps {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ status?: string }>
+  searchParams: Promise<{
+    status?: string
+    sort?: string
+    order?: string
+    beverageType?: string
+  }>
 }
 
 export default async function ApplicantDetailPage({
   params,
   searchParams,
 }: ApplicantDetailPageProps) {
-  const session = await getSession()
-  if (!session) return null
+  await requireSpecialist()
 
   const { id } = await params
-  const { status: statusFilter } = await searchParams
+  const sp = await searchParams
+  const statusFilter = sp.status
+  const sortKey = sp.sort ?? ''
+  const sortOrder = sp.order === 'asc' ? 'asc' : 'desc'
+  const beverageTypeFilter = sp.beverageType ?? ''
 
   // Fetch the applicant
   const [applicant] = await db
@@ -120,6 +136,39 @@ export default async function ApplicantDetailPage({
 
   if (!applicant) {
     notFound()
+  }
+
+  // Build where conditions
+  const conditions = [eq(labels.applicantId, id)]
+  if (beverageTypeFilter) {
+    conditions.push(
+      eq(
+        labels.beverageType,
+        beverageTypeFilter as (typeof labels.beverageType.enumValues)[number],
+      ),
+    )
+  }
+
+  // Map sort keys to DB columns
+  const SORT_COLUMNS: Record<
+    string,
+    | typeof labels.createdAt
+    | typeof applicationData.brandName
+    | typeof labels.beverageType
+    | typeof labels.overallConfidence
+  > = {
+    brandName: applicationData.brandName,
+    beverageType: labels.beverageType,
+    overallConfidence: labels.overallConfidence,
+    createdAt: labels.createdAt,
+  }
+
+  let orderByClause
+  if (sortKey && SORT_COLUMNS[sortKey]) {
+    const col = SORT_COLUMNS[sortKey]
+    orderByClause = sortOrder === 'asc' ? asc(col) : desc(col)
+  } else {
+    orderByClause = desc(labels.createdAt)
   }
 
   // Fetch all labels for this applicant
@@ -136,8 +185,8 @@ export default async function ApplicantDetailPage({
     })
     .from(labels)
     .leftJoin(applicationData, eq(labels.id, applicationData.labelId))
-    .where(eq(labels.applicantId, id))
-    .orderBy(desc(labels.createdAt))
+    .where(and(...conditions))
+    .orderBy(orderByClause)
 
   // Compute effective statuses
   const labelsWithStatus = labelRows.map((row) => ({
@@ -149,15 +198,41 @@ export default async function ApplicantDetailPage({
     }),
   }))
 
-  // Compute compliance stats
-  const totalLabels = labelsWithStatus.length
-  const approvedCount = labelsWithStatus.filter(
+  // For stats we need the full (unfiltered) set
+  const allLabelRows = beverageTypeFilter
+    ? await db
+        .select({
+          id: labels.id,
+          status: labels.status,
+          correctionDeadline: labels.correctionDeadline,
+          deadlineExpired: labels.deadlineExpired,
+          createdAt: labels.createdAt,
+        })
+        .from(labels)
+        .where(eq(labels.applicantId, id))
+        .orderBy(desc(labels.createdAt))
+    : labelRows
+
+  const allLabelsWithStatus = beverageTypeFilter
+    ? allLabelRows.map((row) => ({
+        ...row,
+        effectiveStatus: getEffectiveStatus({
+          status: row.status,
+          correctionDeadline: row.correctionDeadline,
+          deadlineExpired: row.deadlineExpired,
+        }),
+      }))
+    : labelsWithStatus
+
+  // Compute compliance stats (from unfiltered set)
+  const totalLabels = allLabelsWithStatus.length
+  const approvedCount = allLabelsWithStatus.filter(
     (l) => l.effectiveStatus === 'approved',
   ).length
   const approvalRate =
     totalLabels > 0 ? Math.round((approvedCount / totalLabels) * 100) : null
   const lastSubmission =
-    labelsWithStatus.length > 0 ? labelsWithStatus[0].createdAt : null
+    allLabelsWithStatus.length > 0 ? allLabelRows[0].createdAt : null
 
   // Find most common override reason code for this applicant
   const overrideReasonRows = await db
@@ -183,18 +258,18 @@ export default async function ApplicantDetailPage({
       overrideReasonRows[0].reasonCode)
     : null
 
-  // Apply status filter
+  // Apply status filter (from tab buttons)
   const filteredLabels = statusFilter
     ? labelsWithStatus.filter((l) => l.effectiveStatus === statusFilter)
     : labelsWithStatus
 
-  // Collect unique statuses for filter tabs
+  // Collect unique statuses for filter tabs (from unfiltered set)
   const availableStatuses = [
-    ...new Set(labelsWithStatus.map((l) => l.effectiveStatus)),
+    ...new Set(allLabelsWithStatus.map((l) => l.effectiveStatus)),
   ].sort()
 
   return (
-    <div className="space-y-6">
+    <PageShell className="space-y-6">
       {/* Back link + header */}
       <div className="space-y-4">
         <Button variant="ghost" size="sm" asChild>
@@ -314,7 +389,7 @@ export default async function ApplicantDetailPage({
               <Link href={`/applicants/${id}`}>All ({totalLabels})</Link>
             </Button>
             {availableStatuses.map((status) => {
-              const statusCount = labelsWithStatus.filter(
+              const statusCount = allLabelsWithStatus.filter(
                 (l) => l.effectiveStatus === status,
               ).length
               return (
@@ -345,52 +420,78 @@ export default async function ApplicantDetailPage({
             </CardContent>
           </Card>
         ) : (
-          <Card className="py-0">
+          <Card className="overflow-clip py-0">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-muted/30 hover:bg-muted/30">
                   <TableHead>Status</TableHead>
-                  <TableHead>Brand Name</TableHead>
-                  <TableHead>Beverage Type</TableHead>
-                  <TableHead className="text-right">Confidence</TableHead>
-                  <TableHead>Date</TableHead>
+                  <ColumnHeader sortKey="brandName">Brand Name</ColumnHeader>
+                  <ColumnHeader
+                    sortKey="beverageType"
+                    filterKey="beverageType"
+                    filterOptions={BEVERAGE_OPTIONS}
+                  >
+                    Beverage Type
+                  </ColumnHeader>
+                  <ColumnHeader
+                    sortKey="overallConfidence"
+                    className="text-right"
+                  >
+                    Confidence
+                  </ColumnHeader>
+                  <ColumnHeader sortKey="createdAt" defaultSort="desc">
+                    Date
+                  </ColumnHeader>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredLabels.map((label) => (
-                  <TableRow key={label.id}>
-                    <TableCell>
-                      <StatusBadge status={label.effectiveStatus} />
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {label.brandName ?? 'Untitled'}
-                    </TableCell>
-                    <TableCell>
-                      {BEVERAGE_TYPE_LABELS[label.beverageType] ??
-                        label.beverageType}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {formatConfidence(label.overallConfidence)}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatDate(label.createdAt)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/labels/${label.id}`}>
-                          View
-                          <ArrowRight className="size-3" />
-                        </Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filteredLabels.map((label) => {
+                  const BevIcon = BEVERAGE_ICON[label.beverageType]
+                  return (
+                    <TableRow key={label.id}>
+                      <TableCell>
+                        <StatusBadge status={label.effectiveStatus} />
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {label.brandName ?? 'Untitled'}
+                      </TableCell>
+                      <TableCell>
+                        {BevIcon ? (
+                          <span className="inline-flex items-center gap-1.5 text-sm">
+                            <BevIcon className="size-3.5 text-muted-foreground" />
+                            <span className="text-xs">
+                              {BEVERAGE_LABEL_FULL[label.beverageType] ??
+                                label.beverageType}
+                            </span>
+                          </span>
+                        ) : (
+                          (BEVERAGE_LABEL_FULL[label.beverageType] ??
+                          label.beverageType)
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {formatConfidence(label.overallConfidence)}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {formatDate(label.createdAt)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link href={`/labels/${label.id}`}>
+                            View
+                            <ArrowRight className="size-3" />
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           </Card>
         )}
       </div>
-    </div>
+    </PageShell>
   )
 }

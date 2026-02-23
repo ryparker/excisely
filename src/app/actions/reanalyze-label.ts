@@ -21,6 +21,7 @@ import {
   MINOR_DISCREPANCY_FIELDS,
   type ValidationItemStatus,
 } from '@/lib/labels/validation-helpers'
+import { getAutoApprovalEnabled } from '@/lib/settings/get-settings'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -135,6 +136,7 @@ export async function reanalyzeLabel(
         y: number
         width: number
         height: number
+        angle: number
       } | null
       imageIndex: number
     }> = []
@@ -169,120 +171,117 @@ export async function reanalyzeLabel(
       })
     }
 
-    // 9. Inside a transaction: create new result, supersede old, insert items, update label
-    await db.transaction(async (tx) => {
-      // Find the current validation result to supersede
-      const [currentResult] = await tx
-        .select({ id: validationResults.id })
-        .from(validationResults)
-        .where(
-          and(
-            eq(validationResults.labelId, labelId),
-            eq(validationResults.isCurrent, true),
-          ),
-        )
-        .limit(1)
-
-      // Create new validation result
-      const [newResult] = await tx
-        .insert(validationResults)
-        .values({
-          labelId,
-          aiRawResponse: extraction.rawResponse,
-          processingTimeMs: extraction.processingTimeMs,
-          modelUsed: extraction.modelUsed,
-          isCurrent: true,
-        })
-        .returning({ id: validationResults.id })
-
-      // Supersede old result
-      if (currentResult) {
-        await tx
-          .update(validationResults)
-          .set({
-            isCurrent: false,
-            supersededBy: newResult.id,
-          })
-          .where(eq(validationResults.id, currentResult.id))
-      }
-
-      // Bulk insert validation items
-      if (fieldComparisons.length > 0) {
-        await tx.insert(validationItems).values(
-          fieldComparisons.map((comp) => {
-            const labelImageId =
-              images[comp.imageIndex]?.id ?? images[0]?.id ?? null
-
-            return {
-              validationResultId: newResult.id,
-              labelImageId,
-              fieldName:
-                comp.fieldName as typeof validationItems.$inferInsert.fieldName,
-              expectedValue: comp.expectedValue,
-              extractedValue: comp.extractedValue,
-              status: comp.status,
-              confidence: String(comp.confidence),
-              matchReasoning: comp.reasoning,
-              bboxX: comp.boundingBox ? String(comp.boundingBox.x) : null,
-              bboxY: comp.boundingBox ? String(comp.boundingBox.y) : null,
-              bboxWidth: comp.boundingBox
-                ? String(comp.boundingBox.width)
-                : null,
-              bboxHeight: comp.boundingBox
-                ? String(comp.boundingBox.height)
-                : null,
-            }
-          }),
-        )
-      }
-
-      // Determine overall status
-      const itemStatuses = fieldComparisons.map((comp) => ({
-        fieldName: comp.fieldName,
-        status: comp.status,
-      }))
-
-      const { status: overallStatus, deadlineDays } = determineOverallStatus(
-        itemStatuses,
-        label.beverageType,
-        label.containerSizeMl,
+    // 9. Create new result, supersede old, insert items, update label
+    // (No transaction — neon-http driver doesn't support them)
+    const [currentResult] = await db
+      .select({ id: validationResults.id })
+      .from(validationResults)
+      .where(
+        and(
+          eq(validationResults.labelId, labelId),
+          eq(validationResults.isCurrent, true),
+        ),
       )
+      .limit(1)
 
-      const confidences = fieldComparisons.map((c) => c.confidence)
-      const overallConfidence =
-        confidences.length > 0
-          ? Math.round(
-              confidences.reduce((sum, c) => sum + c, 0) / confidences.length,
-            )
-          : 0
+    const [newResult] = await db
+      .insert(validationResults)
+      .values({
+        labelId,
+        aiRawResponse: extraction.rawResponse,
+        processingTimeMs: extraction.processingTimeMs,
+        modelUsed: extraction.modelUsed,
+        inputTokens: extraction.metrics.inputTokens,
+        outputTokens: extraction.metrics.outputTokens,
+        totalTokens: extraction.metrics.totalTokens,
+        isCurrent: true,
+      })
+      .returning({ id: validationResults.id })
 
-      // Update label with new status
-      if (overallStatus === 'approved') {
-        await tx
-          .update(labels)
-          .set({
-            status: 'approved',
-            overallConfidence: String(overallConfidence),
-            aiProposedStatus: null,
-            correctionDeadline: null,
-            deadlineExpired: false,
-          })
-          .where(eq(labels.id, labelId))
-      } else {
-        await tx
-          .update(labels)
-          .set({
-            status: 'pending_review',
-            aiProposedStatus: overallStatus,
-            overallConfidence: String(overallConfidence),
-            correctionDeadline: deadlineDays
-              ? addDays(new Date(), deadlineDays)
+    if (currentResult) {
+      await db
+        .update(validationResults)
+        .set({
+          isCurrent: false,
+          supersededBy: newResult.id,
+        })
+        .where(eq(validationResults.id, currentResult.id))
+    }
+
+    if (fieldComparisons.length > 0) {
+      await db.insert(validationItems).values(
+        fieldComparisons.map((comp) => {
+          const labelImageId =
+            images[comp.imageIndex]?.id ?? images[0]?.id ?? null
+
+          return {
+            validationResultId: newResult.id,
+            labelImageId,
+            fieldName:
+              comp.fieldName as typeof validationItems.$inferInsert.fieldName,
+            expectedValue: comp.expectedValue,
+            extractedValue: comp.extractedValue,
+            status: comp.status,
+            confidence: String(comp.confidence),
+            matchReasoning: comp.reasoning,
+            bboxX: comp.boundingBox ? String(comp.boundingBox.x) : null,
+            bboxY: comp.boundingBox ? String(comp.boundingBox.y) : null,
+            bboxWidth: comp.boundingBox ? String(comp.boundingBox.width) : null,
+            bboxHeight: comp.boundingBox
+              ? String(comp.boundingBox.height)
               : null,
-            deadlineExpired: false,
-          })
-          .where(eq(labels.id, labelId))
-      }
-    })
+            bboxAngle: comp.boundingBox ? String(comp.boundingBox.angle) : null,
+          }
+        }),
+      )
+    }
+
+    const itemStatuses = fieldComparisons.map((comp) => ({
+      fieldName: comp.fieldName,
+      status: comp.status,
+    }))
+
+    const { status: overallStatus, deadlineDays } = determineOverallStatus(
+      itemStatuses,
+      label.beverageType,
+      label.containerSizeMl,
+    )
+
+    const confidences = fieldComparisons.map((c) => c.confidence)
+    const overallConfidence =
+      confidences.length > 0
+        ? Math.round(
+            confidences.reduce((sum, c) => sum + c, 0) / confidences.length,
+          )
+        : 0
+
+    const autoApprovalEnabled = await getAutoApprovalEnabled()
+
+    if (autoApprovalEnabled && overallStatus === 'approved') {
+      await db
+        .update(labels)
+        .set({
+          status: 'approved',
+          overallConfidence: String(overallConfidence),
+          aiProposedStatus: null,
+          correctionDeadline: null,
+          deadlineExpired: false,
+        })
+        .where(eq(labels.id, labelId))
+    } else {
+      await db
+        .update(labels)
+        .set({
+          status: 'pending_review',
+          aiProposedStatus: overallStatus,
+          overallConfidence: String(overallConfidence),
+          correctionDeadline: deadlineDays
+            ? addDays(new Date(), deadlineDays)
+            : null,
+          deadlineExpired: false,
+        })
+        .where(eq(labels.id, labelId))
+    }
 
     revalidatePath('/')
     revalidatePath(`/labels/${labelId}`)

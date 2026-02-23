@@ -22,12 +22,14 @@ describe('getMandatoryFields', () => {
     expect(fields).toContain('qualifying_phrase')
   })
 
-  it('returns 10 mandatory fields for wine', () => {
+  it('returns 8 mandatory fields for wine', () => {
     const fields = getMandatoryFields('wine')
-    expect(fields).toHaveLength(10)
-    expect(fields).toContain('grape_varietal')
-    expect(fields).toContain('appellation_of_origin')
+    expect(fields).toHaveLength(8)
     expect(fields).toContain('sulfite_declaration')
+    // grape_varietal and appellation_of_origin are conditionally mandatory
+    // (required when varietal labeling is used, per 27 CFR 4.23)
+    expect(fields).not.toContain('grape_varietal')
+    expect(fields).not.toContain('appellation_of_origin')
   })
 
   it('returns 6 mandatory fields for malt beverages', () => {

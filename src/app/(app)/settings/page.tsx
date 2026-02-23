@@ -1,11 +1,18 @@
-import { redirect } from 'next/navigation'
 import { sql } from 'drizzle-orm'
 
 import { db } from '@/db'
 import { labels, validationItems, humanReviews } from '@/db/schema'
-import { getSession } from '@/lib/auth/get-session'
-import { getSettings, getSLATargets } from '@/lib/settings/get-settings'
+import { requireSpecialist } from '@/lib/auth/require-role'
+import {
+  getApprovalThreshold,
+  getAutoApprovalEnabled,
+  getSettings,
+  getSLATargets,
+} from '@/lib/settings/get-settings'
 import { PageHeader } from '@/components/layout/page-header'
+import { PageShell } from '@/components/layout/page-shell'
+import { ApprovalThreshold } from '@/components/settings/approval-threshold'
+import { AutoApprovalToggle } from '@/components/settings/auto-approval-toggle'
 import { ConfidenceThreshold } from '@/components/settings/confidence-threshold'
 import { FieldStrictness } from '@/components/settings/field-strictness'
 import { SLASettings } from '@/components/settings/sla-settings'
@@ -13,16 +20,13 @@ import { SLASettings } from '@/components/settings/sla-settings'
 export const dynamic = 'force-dynamic'
 
 export default async function SettingsPage() {
-  const session = await getSession()
-  if (!session) return null
-
-  if (session.user.role === 'applicant') {
-    redirect('/')
-  }
+  await requireSpecialist()
 
   const [
     { confidenceThreshold, fieldStrictness },
     slaTargets,
+    autoApprovalEnabled,
+    approvalThreshold,
     avgAllResult,
     avgNotAutoApprovedResult,
     fieldMatchRateRows,
@@ -30,6 +34,8 @@ export default async function SettingsPage() {
   ] = await Promise.all([
     getSettings(),
     getSLATargets(),
+    getAutoApprovalEnabled(),
+    getApprovalThreshold(),
     // Average confidence across all analyzed labels
     db
       .select({
@@ -98,7 +104,7 @@ export default async function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <PageShell className="space-y-6">
       <PageHeader
         title="Settings"
         description="Configure AI verification thresholds and field comparison rules."
@@ -109,12 +115,14 @@ export default async function SettingsPage() {
         avgConfidence={avgConfidence}
         avgNotAutoApproved={avgNotAutoApproved}
       />
+      <AutoApprovalToggle defaultValue={autoApprovalEnabled} />
+      <ApprovalThreshold defaultValue={approvalThreshold} />
       <FieldStrictness
         defaults={fieldStrictness}
         fieldMatchRates={fieldMatchRates}
         fieldOverrideRates={fieldOverrideRates}
       />
       <SLASettings defaults={slaTargets} />
-    </div>
+    </PageShell>
   )
 }

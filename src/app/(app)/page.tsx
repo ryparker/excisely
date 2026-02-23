@@ -1,12 +1,15 @@
-import { eq, count, and, desc, sql, ilike, type SQL } from 'drizzle-orm'
+import { eq, count, and, desc, asc, sql, ilike, type SQL } from 'drizzle-orm'
 import { ShieldCheck } from 'lucide-react'
 
 import { db } from '@/db'
 import { labels, applicationData } from '@/db/schema'
-import { getSession } from '@/lib/auth/get-session'
+import { requireSpecialist } from '@/lib/auth/require-role'
 import { getEffectiveStatus } from '@/lib/labels/effective-status'
-import { getSLATargets } from '@/lib/settings/get-settings'
-import { fetchSLAMetrics } from '@/lib/sla/queries'
+import {
+  getSLATargets,
+  getApprovalThreshold,
+} from '@/lib/settings/get-settings'
+import { fetchSLAMetrics, fetchTokenUsageMetrics } from '@/lib/sla/queries'
 import { getSLAStatus } from '@/lib/sla/status'
 import { getSignedImageUrl } from '@/lib/storage/blob'
 import { PageHeader } from '@/components/layout/page-header'
@@ -15,8 +18,10 @@ import {
   type SLAMetricCardData,
 } from '@/components/dashboard/sla-metric-card'
 import { DashboardAnimatedShell } from '@/components/dashboard/dashboard-animated-shell'
+import { TokenUsageSummary } from '@/components/dashboard/token-usage-summary'
 import { SearchInput } from '@/components/shared/search-input'
 import { FilterBar } from '@/components/shared/filter-bar'
+import { ResetFiltersButton } from '@/components/shared/reset-filters-button'
 import { LabelsTable } from '@/components/labels/labels-table'
 import { Card } from '@/components/ui/card'
 
@@ -27,19 +32,26 @@ const PAGE_SIZE = 20
 const STATUS_FILTERS = [
   { label: 'All', value: '' },
   { label: 'Approved', value: 'approved' },
-  { label: 'Pending Review', value: 'pending_review' },
+  { label: 'Pending Review', value: 'pending_review', attention: true },
   { label: 'Conditionally Approved', value: 'conditionally_approved' },
-  { label: 'Needs Correction', value: 'needs_correction' },
+  { label: 'Needs Correction', value: 'needs_correction', attention: true },
   { label: 'Rejected', value: 'rejected' },
 ] as const
 
 interface HomePageProps {
-  searchParams: Promise<{ page?: string; search?: string; status?: string }>
+  searchParams: Promise<{
+    page?: string
+    search?: string
+    status?: string
+    queue?: string
+    sort?: string
+    order?: string
+    beverageType?: string
+  }>
 }
 
 export default async function HomePage({ searchParams }: HomePageProps) {
-  const session = await getSession()
-  if (!session) return null
+  const session = await requireSpecialist()
 
   const params = await searchParams
   const { user } = session
@@ -48,6 +60,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const offset = (currentPage - 1) * PAGE_SIZE
   const searchTerm = params.search?.trim() ?? ''
   const statusFilter = params.status ?? ''
+  const queueFilter = params.queue ?? ''
+  const sortKey = params.sort ?? ''
+  const sortOrder = params.order === 'asc' ? 'asc' : 'desc'
+  const beverageTypeFilter = params.beverageType ?? ''
 
   // Build where conditions for the table query
   const tableConditions: SQL[] = []
@@ -62,18 +78,113 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       ),
     )
   }
+  if (beverageTypeFilter) {
+    tableConditions.push(
+      eq(
+        labels.beverageType,
+        beverageTypeFilter as (typeof labels.beverageType.enumValues)[number],
+      ),
+    )
+  }
+
+  // Fetch approval threshold for queue classification
+  const approvalThreshold = await getApprovalThreshold()
+
+  // Queue filter: "ready" = pending_review + AI approved + all match + high confidence
+  //               "review" = pending_review but not ready
+  if (queueFilter === 'ready') {
+    tableConditions.push(eq(labels.status, 'pending_review'))
+    tableConditions.push(eq(labels.aiProposedStatus, 'approved'))
+    tableConditions.push(
+      sql`${labels.overallConfidence}::numeric >= ${approvalThreshold}`,
+    )
+    // All validation items must be 'match'
+    tableConditions.push(sql`NOT EXISTS (
+      SELECT 1 FROM validation_items vi
+      INNER JOIN validation_results vr ON vi.validation_result_id = vr.id
+      WHERE vr.label_id = ${labels.id}
+      AND vr.is_current = true
+      AND vi.status != 'match'
+    )`)
+  } else if (queueFilter === 'review') {
+    tableConditions.push(eq(labels.status, 'pending_review'))
+    // NOT ready: either AI didn't approve, or confidence too low, or has non-match items
+    tableConditions.push(sql`(
+      ${labels.aiProposedStatus} IS DISTINCT FROM 'approved'
+      OR ${labels.overallConfidence}::numeric < ${approvalThreshold}
+      OR EXISTS (
+        SELECT 1 FROM validation_items vi
+        INNER JOIN validation_results vr ON vi.validation_result_id = vr.id
+        WHERE vr.label_id = ${labels.id}
+        AND vr.is_current = true
+        AND vi.status != 'match'
+      )
+    )`)
+  }
+
   const tableWhere =
     tableConditions.length > 0 ? and(...tableConditions) : undefined
 
-  const [slaMetrics, slaTargets, tableCountResult, rows] = await Promise.all([
+  // Flagged count subquery (reused in select and sort)
+  const flaggedCountSql = sql<number>`(
+    SELECT count(*)::int FROM validation_items vi
+    INNER JOIN validation_results vr ON vi.validation_result_id = vr.id
+    WHERE vr.label_id = ${labels.id}
+    AND vr.is_current = true
+    AND vi.status IN ('needs_correction', 'mismatch', 'not_found')
+  )`
+
+  // Determine sort order: explicit sort param > queue default > global default
+  const SORT_COLUMNS: Record<
+    string,
+    | ReturnType<typeof sql>
+    | typeof labels.createdAt
+    | typeof applicationData.brandName
+    | typeof labels.beverageType
+    | typeof labels.overallConfidence
+  > = {
+    brandName: applicationData.brandName,
+    beverageType: labels.beverageType,
+    flaggedCount: flaggedCountSql,
+    overallConfidence: labels.overallConfidence,
+    createdAt: labels.createdAt,
+  }
+
+  let orderByClause
+  if (sortKey && SORT_COLUMNS[sortKey]) {
+    const col = SORT_COLUMNS[sortKey]
+    orderByClause = [sortOrder === 'asc' ? asc(col) : desc(col)]
+  } else if (queueFilter === 'ready') {
+    orderByClause = [desc(labels.overallConfidence)]
+  } else {
+    orderByClause = [desc(labels.isPriority), desc(labels.createdAt)]
+  }
+
+  const [
+    slaMetrics,
+    slaTargets,
+    tokenUsageMetrics,
+    tableCountResult,
+    statusCountRows,
+    rows,
+  ] = await Promise.all([
     fetchSLAMetrics(),
     getSLATargets(),
+    fetchTokenUsageMetrics(),
     // Table: filtered count
     db
       .select({ total: count() })
       .from(labels)
       .leftJoin(applicationData, eq(labels.id, applicationData.labelId))
       .where(tableWhere),
+    // Status counts (unfiltered, for filter badges)
+    db
+      .select({
+        status: labels.status,
+        count: count(),
+      })
+      .from(labels)
+      .groupBy(labels.status),
     // Table: filtered rows
     db
       .select({
@@ -86,18 +197,13 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         isPriority: labels.isPriority,
         createdAt: labels.createdAt,
         brandName: applicationData.brandName,
-        flaggedCount: sql<number>`(
-          SELECT count(*)::int FROM validation_items vi
-          INNER JOIN validation_results vr ON vi.validation_result_id = vr.id
-          WHERE vr.label_id = ${labels.id}
-          AND vr.is_current = true
-          AND vi.status IN ('needs_correction', 'mismatch', 'not_found')
-        )`,
+        flaggedCount: flaggedCountSql,
         thumbnailUrl: sql<string | null>`(
           SELECT li.image_url FROM label_images li
           WHERE li.label_id = ${labels.id}
-          AND li.image_type = 'front'
-          ORDER BY li.sort_order
+          ORDER BY
+            CASE WHEN li.image_type = 'front' THEN 0 ELSE 1 END,
+            li.sort_order
           LIMIT 1
         )`,
         overrideReasonCode: sql<string | null>`(
@@ -110,7 +216,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       .from(labels)
       .leftJoin(applicationData, eq(labels.id, applicationData.labelId))
       .where(tableWhere)
-      .orderBy(desc(labels.isPriority), desc(labels.createdAt))
+      .orderBy(...orderByClause)
       .limit(PAGE_SIZE)
       .offset(offset),
   ])
@@ -118,11 +224,22 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const tableTotal = tableCountResult[0]?.total ?? 0
   const totalPages = Math.ceil(tableTotal / PAGE_SIZE)
 
+  // Build status count map for filter badges
+  const statusCounts: Record<string, number> = {}
+  let totalLabels = 0
+  for (const row of statusCountRows) {
+    statusCounts[row.status] = row.count
+    totalLabels += row.count
+  }
+  statusCounts[''] = totalLabels // "All" filter
+
   // Build SLA card data
   const slaCards: SLAMetricCardData[] = [
     {
       icon: 'Clock',
       label: 'Review Response Time',
+      description:
+        'Average time from label submission to first specialist review. Lower is better.',
       value:
         slaMetrics.avgReviewResponseHours !== null
           ? Math.round(slaMetrics.avgReviewResponseHours)
@@ -140,6 +257,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     {
       icon: 'Gauge',
       label: 'Total Turnaround',
+      description:
+        'Average time from submission to final decision (approved, rejected, or needs correction). Lower is better.',
       value:
         slaMetrics.avgTotalTurnaroundHours !== null
           ? Math.round(slaMetrics.avgTotalTurnaroundHours)
@@ -157,6 +276,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     {
       icon: 'Zap',
       label: 'Auto-Approval Rate',
+      description:
+        'Percentage of labels approved automatically by AI without specialist review. Higher is better.',
       value: slaMetrics.autoApprovalRate,
       target: slaTargets.autoApprovalRateTarget,
       unit: '%',
@@ -172,6 +293,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     {
       icon: 'Inbox',
       label: 'Queue Depth',
+      description:
+        'Number of labels waiting for specialist review. Lower means the team is keeping up with incoming submissions.',
       value: slaMetrics.queueDepth,
       target: slaTargets.maxQueueDepth,
       unit: '',
@@ -197,19 +320,36 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           description="All label verification activity and review queue."
         />
       }
-      stats={<SLAMetricCards metrics={slaCards} />}
+      stats={
+        <>
+          <SLAMetricCards metrics={slaCards} />
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <TokenUsageSummary metrics={tokenUsageMetrics} />
+          </div>
+        </>
+      }
       filters={
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <SearchInput
-            paramKey="search"
-            placeholder="Search by brand name..."
-            className="flex-1"
-          />
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <SearchInput
+              paramKey="search"
+              placeholder="Search by brand name..."
+              className="flex-1"
+            />
+            <ResetFiltersButton
+              paramKeys={['status', 'beverageType', 'queue']}
+            />
+          </div>
           <FilterBar
             paramKey="status"
             options={STATUS_FILTERS.map((f) => ({
               label: f.label,
               value: f.value,
+              count: statusCounts[f.value] ?? 0,
+              attention:
+                'attention' in f &&
+                f.attention &&
+                (statusCounts[f.value] ?? 0) > 0,
             }))}
           />
         </div>
@@ -238,6 +378,14 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             totalPages={totalPages}
             tableTotal={tableTotal}
             pageSize={PAGE_SIZE}
+            queueMode={
+              queueFilter === 'ready'
+                ? 'ready'
+                : queueFilter === 'review'
+                  ? 'review'
+                  : undefined
+            }
+            searchTerm={searchTerm}
           />
         )
       }
