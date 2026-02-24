@@ -1,11 +1,11 @@
 'use server'
 
-import { eq } from 'drizzle-orm'
 import { updateTag } from 'next/cache'
 import { z } from 'zod'
 
-import { db } from '@/db'
-import { labels, statusOverrides } from '@/db/schema'
+import { getLabelById } from '@/db/queries/labels'
+import { updateLabelStatus } from '@/db/mutations/labels'
+import { insertStatusOverride } from '@/db/mutations/reviews'
 import {
   CONDITIONAL_DEADLINE_DAYS,
   CORRECTION_DEADLINE_DAYS,
@@ -60,11 +60,7 @@ export async function overrideStatus(
 
   try {
     // Fetch current label
-    const [label] = await db
-      .select()
-      .from(labels)
-      .where(eq(labels.id, labelId))
-      .limit(1)
+    const label = await getLabelById(labelId)
 
     if (!label) {
       return { success: false, error: 'Label not found' }
@@ -95,7 +91,7 @@ export async function overrideStatus(
     }
 
     // Insert audit trail
-    await db.insert(statusOverrides).values({
+    await insertStatusOverride({
       labelId,
       specialistId: session.user.id,
       previousStatus: label.status,
@@ -105,14 +101,11 @@ export async function overrideStatus(
     })
 
     // Update label
-    await db
-      .update(labels)
-      .set({
-        status: newStatus,
-        correctionDeadline,
-        deadlineExpired: false,
-      })
-      .where(eq(labels.id, labelId))
+    await updateLabelStatus(labelId, {
+      status: newStatus,
+      correctionDeadline,
+      deadlineExpired: false,
+    })
 
     updateTag('labels')
     updateTag('sla-metrics')

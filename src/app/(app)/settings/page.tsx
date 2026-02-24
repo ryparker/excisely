@@ -1,17 +1,20 @@
 import type { Metadata } from 'next'
 import { connection } from 'next/server'
 import { Suspense } from 'react'
-import { sql } from 'drizzle-orm'
 
-import { db } from '@/db'
-import { labels, validationItems, humanReviews } from '@/db/schema'
-import { requireSpecialist } from '@/lib/auth/require-role'
 import {
   getApprovalThreshold,
   getAutoApprovalEnabled,
   getSettings,
   getSLATargets,
-} from '@/lib/settings/get-settings'
+} from '@/db/queries/settings'
+import {
+  getAvgConfidence,
+  getAvgConfidenceNonAutoApproved,
+  getFieldMatchRates,
+  getFieldOverrideRates,
+} from '@/db/queries/stats'
+import { requireSpecialist } from '@/lib/auth/require-role'
 import { PageHeader } from '@/components/layout/page-header'
 import { PageShell } from '@/components/layout/page-shell'
 import { ApprovalThreshold } from '@/components/settings/approval-threshold'
@@ -38,35 +41,18 @@ function SettingsSkeleton({ height = 'h-[200px]' }: { height?: string }) {
 // ---------------------------------------------------------------------------
 
 async function ConfidenceSectionData() {
-  const [{ confidenceThreshold }, avgAllResult, avgNotAutoApprovedResult] =
+  const [{ confidenceThreshold }, avgConfidence, avgNotAutoApproved] =
     await Promise.all([
       getSettings(),
-      db
-        .select({
-          avg: sql<number>`round(avg(${labels.overallConfidence}::numeric))::int`,
-        })
-        .from(labels)
-        .where(sql`${labels.overallConfidence} IS NOT NULL`),
-      db
-        .select({
-          avg: sql<number>`round(avg(${labels.overallConfidence}::numeric))::int`,
-        })
-        .from(labels)
-        .where(
-          sql`${labels.overallConfidence} IS NOT NULL AND (
-            ${labels.status} IN ('pending_review', 'needs_correction', 'conditionally_approved', 'rejected')
-            OR (${labels.status} = 'approved' AND EXISTS (
-              SELECT 1 FROM human_reviews hr WHERE hr.label_id = ${labels.id}
-            ))
-          )`,
-        ),
+      getAvgConfidence(),
+      getAvgConfidenceNonAutoApproved(),
     ])
 
   return (
     <ConfidenceThreshold
       defaultValue={confidenceThreshold}
-      avgConfidence={avgAllResult[0]?.avg ?? null}
-      avgNotAutoApproved={avgNotAutoApprovedResult[0]?.avg ?? null}
+      avgConfidence={avgConfidence}
+      avgNotAutoApproved={avgNotAutoApproved}
     />
   )
 }
@@ -94,48 +80,12 @@ async function ApprovalThresholdSectionData() {
 // ---------------------------------------------------------------------------
 
 async function FieldStrictnessSectionData() {
-  const [{ fieldStrictness }, fieldMatchRateRows, fieldOverrideRateRows] =
+  const [{ fieldStrictness }, fieldMatchRates, fieldOverrideRates] =
     await Promise.all([
       getSettings(),
-      db
-        .select({
-          fieldName: validationItems.fieldName,
-          matchRate: sql<number>`round(
-            count(CASE WHEN ${validationItems.status} = 'match' THEN 1 END)::numeric
-            / NULLIF(count(*), 0)::numeric * 100
-          )::int`,
-        })
-        .from(validationItems)
-        .groupBy(validationItems.fieldName),
-      db
-        .select({
-          fieldName: validationItems.fieldName,
-          flaggedTotal: sql<number>`count(*)::int`,
-          overriddenCount: sql<number>`count(
-            CASE WHEN ${humanReviews.resolvedStatus} = 'match' THEN 1 END
-          )::int`,
-        })
-        .from(validationItems)
-        .leftJoin(
-          humanReviews,
-          sql`${humanReviews.validationItemId} = ${validationItems.id}`,
-        )
-        .where(sql`${validationItems.status} != 'match'`)
-        .groupBy(validationItems.fieldName),
+      getFieldMatchRates(),
+      getFieldOverrideRates(),
     ])
-
-  const fieldMatchRates: Record<string, number> = {}
-  for (const row of fieldMatchRateRows) {
-    fieldMatchRates[row.fieldName] = row.matchRate
-  }
-  const fieldOverrideRates: Record<string, number> = {}
-  for (const row of fieldOverrideRateRows) {
-    if (row.flaggedTotal > 0) {
-      fieldOverrideRates[row.fieldName] = Math.round(
-        (row.overriddenCount / row.flaggedTotal) * 100,
-      )
-    }
-  }
 
   return (
     <FieldStrictness

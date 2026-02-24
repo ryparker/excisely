@@ -3,12 +3,11 @@ import { connection } from 'next/server'
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { eq, count } from 'drizzle-orm'
 import { Plus } from 'lucide-react'
 
 import { routes } from '@/config/routes'
-import { db } from '@/db'
-import { labels, applicants } from '@/db/schema'
+import { getApplicantByEmail } from '@/db/queries/applicants'
+import { getApplicantLabelCount } from '@/db/queries/labels'
 import { requireApplicant } from '@/lib/auth/require-role'
 import { searchParamsCache } from '@/lib/search-params-cache'
 import { AutoRefresh } from '@/components/shared/auto-refresh'
@@ -48,20 +47,13 @@ export default async function ApplicantDashboard({
   const beverageTypeFilter = searchParamsCache.get('beverageType')
 
   // Find applicant record by email
-  const [applicantRecord] = await db
-    .select({ id: applicants.id })
-    .from(applicants)
-    .where(eq(applicants.contactEmail, session.user.email))
-    .limit(1)
+  const applicantRecord = await getApplicantByEmail(session.user.email)
 
   // No applicant record means no submissions — go straight to submit
   if (!applicantRecord) redirect(routes.submit())
 
   // Quick count check — redirect first-time applicants before rendering
-  const [{ total }] = await db
-    .select({ total: count() })
-    .from(labels)
-    .where(eq(labels.applicantId, applicantRecord.id))
+  const total = await getApplicantLabelCount(applicantRecord.id)
 
   if (total === 0) redirect(routes.submit())
 

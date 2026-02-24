@@ -15,7 +15,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
-import type { SLATargets } from '@/lib/settings/get-settings'
+import type { SLATargets } from '@/db/queries/settings'
 
 interface SLASettingsProps {
   defaults: SLATargets

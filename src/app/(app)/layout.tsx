@@ -1,13 +1,11 @@
 import { redirect } from 'next/navigation'
 import { connection } from 'next/server'
-import { sql } from 'drizzle-orm'
 
 import { routes } from '@/config/routes'
-import { db } from '@/db'
-import { labels } from '@/db/schema'
+import { getPendingReviewCount } from '@/db/queries/labels'
+import { getSLATargets } from '@/db/queries/settings'
+import { fetchSLAMetrics } from '@/db/queries/sla'
 import { getSession } from '@/lib/auth/get-session'
-import { getSLATargets } from '@/lib/settings/get-settings'
-import { fetchSLAMetrics } from '@/lib/sla/queries'
 import { getSLAStatus, worstSLAStatus, type SLAStatus } from '@/lib/sla/status'
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import { MobileHeader } from '@/components/layout/mobile-header'
@@ -38,18 +36,13 @@ export default async function AppLayout({
 
   if (userRole !== 'applicant') {
     try {
-      const [pendingResult, slaMetrics, slaTargets] = await Promise.all([
-        db
-          .select({ total: sql<number>`count(*)::int` })
-          .from(labels)
-          .where(
-            sql`${labels.status} IN ('pending_review', 'needs_correction', 'conditionally_approved')`,
-          ),
+      const [pendingCount, slaMetrics, slaTargets] = await Promise.all([
+        getPendingReviewCount(),
         fetchSLAMetrics(),
         getSLATargets(),
       ])
 
-      reviewCount = pendingResult[0]?.total ?? 0
+      reviewCount = pendingCount
 
       const statuses: SLAStatus[] = [
         getSLAStatus(slaMetrics.queueDepth, slaTargets.maxQueueDepth),

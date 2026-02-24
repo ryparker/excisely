@@ -1,16 +1,20 @@
 'use server'
 
-import { eq, and } from 'drizzle-orm'
 import { updateTag } from 'next/cache'
 
-import { db } from '@/db'
 import {
-  applicationData,
-  labelImages,
-  labels,
-  validationItems,
-  validationResults,
-} from '@/db/schema'
+  getLabelById,
+  getLabelAppData,
+  getLabelImages,
+} from '@/db/queries/labels'
+import { getCurrentValidationResult } from '@/db/queries/validation'
+import { updateImageTypes, updateLabelStatus } from '@/db/mutations/labels'
+import {
+  insertValidationResult,
+  insertValidationItems,
+  supersedeValidationResult,
+} from '@/db/mutations/validation'
+import { type NewValidationItem } from '@/db/schema'
 import { extractLabelFieldsForSubmission } from '@/lib/ai/extract-label'
 import { compareField } from '@/lib/ai/compare-fields'
 import { guardSpecialist } from '@/lib/auth/action-guards'
@@ -21,7 +25,7 @@ import {
   MINOR_DISCREPANCY_FIELDS,
   type ValidationItemStatus,
 } from '@/lib/labels/validation-helpers'
-import { getAutoApprovalEnabled } from '@/lib/settings/get-settings'
+import { getAutoApprovalEnabled } from '@/db/queries/settings'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -43,11 +47,7 @@ export async function reanalyzeLabel(
   if (!guard.success) return guard
 
   // 2. Fetch the label
-  const [label] = await db
-    .select()
-    .from(labels)
-    .where(eq(labels.id, labelId))
-    .limit(1)
+  const label = await getLabelById(labelId)
 
   if (!label) {
     return { success: false, error: 'Label not found' }
@@ -62,24 +62,12 @@ export async function reanalyzeLabel(
 
   try {
     // 4. Set label to processing (optimistic lock)
-    await db
-      .update(labels)
-      .set({ status: 'processing' })
-      .where(eq(labels.id, labelId))
+    await updateLabelStatus(labelId, { status: 'processing' })
 
     // 5. Fetch existing application data and images
     const [appData, images] = await Promise.all([
-      db
-        .select()
-        .from(applicationData)
-        .where(eq(applicationData.labelId, labelId))
-        .limit(1)
-        .then((rows) => rows[0] ?? null),
-      db
-        .select()
-        .from(labelImages)
-        .where(eq(labelImages.labelId, labelId))
-        .orderBy(labelImages.sortOrder),
+      getLabelAppData(labelId),
+      getLabelImages(labelId),
     ])
 
     if (!appData) {
@@ -104,14 +92,14 @@ export async function reanalyzeLabel(
 
     // 7b. Update image types from AI classification
     if (extraction.imageClassifications.length > 0) {
-      for (const ic of extraction.imageClassifications) {
-        const imageRecord = images[ic.imageIndex]
-        if (imageRecord && ic.confidence >= 60) {
-          await db
-            .update(labelImages)
-            .set({ imageType: ic.imageType })
-            .where(eq(labelImages.id, imageRecord.id))
-        }
+      const imageTypeUpdates = extraction.imageClassifications
+        .filter((ic) => images[ic.imageIndex] && ic.confidence >= 60)
+        .map((ic) => ({
+          id: images[ic.imageIndex].id,
+          imageType: ic.imageType,
+        }))
+      if (imageTypeUpdates.length > 0) {
+        await updateImageTypes(imageTypeUpdates)
       }
     }
 
@@ -165,43 +153,25 @@ export async function reanalyzeLabel(
 
     // 9. Create new result, supersede old, insert items, update label
     // (No transaction — neon-http driver doesn't support them)
-    const [currentResult] = await db
-      .select({ id: validationResults.id })
-      .from(validationResults)
-      .where(
-        and(
-          eq(validationResults.labelId, labelId),
-          eq(validationResults.isCurrent, true),
-        ),
-      )
-      .limit(1)
+    const currentResult = await getCurrentValidationResult(labelId)
 
-    const [newResult] = await db
-      .insert(validationResults)
-      .values({
-        labelId,
-        aiRawResponse: extraction.rawResponse,
-        processingTimeMs: extraction.processingTimeMs,
-        modelUsed: extraction.modelUsed,
-        inputTokens: extraction.metrics.inputTokens,
-        outputTokens: extraction.metrics.outputTokens,
-        totalTokens: extraction.metrics.totalTokens,
-        isCurrent: true,
-      })
-      .returning({ id: validationResults.id })
+    const newResult = await insertValidationResult({
+      labelId,
+      aiRawResponse: extraction.rawResponse,
+      processingTimeMs: extraction.processingTimeMs,
+      modelUsed: extraction.modelUsed,
+      inputTokens: extraction.metrics.inputTokens,
+      outputTokens: extraction.metrics.outputTokens,
+      totalTokens: extraction.metrics.totalTokens,
+      isCurrent: true,
+    })
 
     if (currentResult) {
-      await db
-        .update(validationResults)
-        .set({
-          isCurrent: false,
-          supersededBy: newResult.id,
-        })
-        .where(eq(validationResults.id, currentResult.id))
+      await supersedeValidationResult(currentResult.id, newResult.id)
     }
 
     if (fieldComparisons.length > 0) {
-      await db.insert(validationItems).values(
+      await insertValidationItems(
         fieldComparisons.map((comp) => {
           const labelImageId =
             images[comp.imageIndex]?.id ?? images[0]?.id ?? null
@@ -209,8 +179,7 @@ export async function reanalyzeLabel(
           return {
             validationResultId: newResult.id,
             labelImageId,
-            fieldName:
-              comp.fieldName as typeof validationItems.$inferInsert.fieldName,
+            fieldName: comp.fieldName as NewValidationItem['fieldName'],
             expectedValue: comp.expectedValue,
             extractedValue: comp.extractedValue,
             status: comp.status,
@@ -250,29 +219,23 @@ export async function reanalyzeLabel(
     const autoApprovalEnabled = await getAutoApprovalEnabled()
 
     if (autoApprovalEnabled && overallStatus === 'approved') {
-      await db
-        .update(labels)
-        .set({
-          status: 'approved',
-          overallConfidence: String(overallConfidence),
-          aiProposedStatus: null,
-          correctionDeadline: null,
-          deadlineExpired: false,
-        })
-        .where(eq(labels.id, labelId))
+      await updateLabelStatus(labelId, {
+        status: 'approved',
+        overallConfidence: String(overallConfidence),
+        aiProposedStatus: null,
+        correctionDeadline: null,
+        deadlineExpired: false,
+      })
     } else {
-      await db
-        .update(labels)
-        .set({
-          status: 'pending_review',
-          aiProposedStatus: overallStatus,
-          overallConfidence: String(overallConfidence),
-          correctionDeadline: deadlineDays
-            ? addDays(new Date(), deadlineDays)
-            : null,
-          deadlineExpired: false,
-        })
-        .where(eq(labels.id, labelId))
+      await updateLabelStatus(labelId, {
+        status: 'pending_review',
+        aiProposedStatus: overallStatus,
+        overallConfidence: String(overallConfidence),
+        correctionDeadline: deadlineDays
+          ? addDays(new Date(), deadlineDays)
+          : null,
+        deadlineExpired: false,
+      })
     }
 
     updateTag('labels')
@@ -283,10 +246,7 @@ export async function reanalyzeLabel(
     // Error recovery: restore original status
     console.error('[reanalyzeLabel] Error:', error)
     try {
-      await db
-        .update(labels)
-        .set({ status: originalStatus })
-        .where(eq(labels.id, labelId))
+      await updateLabelStatus(labelId, { status: originalStatus })
     } catch (restoreError) {
       console.error(
         '[reanalyzeLabel] Failed to restore original status:',

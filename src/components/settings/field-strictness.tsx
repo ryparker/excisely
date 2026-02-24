@@ -21,7 +21,7 @@ import {
   HoverCardTrigger,
 } from '@/components/ui/hover-card'
 import { updateFieldStrictness } from '@/app/actions/update-settings'
-import type { StrictnessLevel } from '@/lib/settings/get-settings'
+import type { StrictnessLevel } from '@/db/queries/settings'
 
 const STRICTNESS_LEVELS: readonly StrictnessLevel[] = [
   'strict',

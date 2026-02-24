@@ -1,5 +1,5 @@
 import { createSession } from '@/test/factories'
-import type { StrictnessLevel } from '@/lib/settings/get-settings'
+import type { StrictnessLevel } from '@/db/queries/settings'
 
 // ---------------------------------------------------------------------------
 // Hoisted mock refs

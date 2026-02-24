@@ -1,16 +1,17 @@
 'use server'
 
-import { and, eq } from 'drizzle-orm'
 import { updateTag } from 'next/cache'
 import { z } from 'zod'
 
-import { db } from '@/db'
+import { getLabelById } from '@/db/queries/labels'
 import {
-  humanReviews,
-  labels,
-  validationItems,
-  validationResults,
-} from '@/db/schema'
+  getCurrentValidationResult,
+  getValidationItems,
+  getValidationItemsForLabel,
+} from '@/db/queries/validation'
+import { updateLabelStatus } from '@/db/mutations/labels'
+import { insertHumanReview } from '@/db/mutations/reviews'
+import { updateValidationItemStatus } from '@/db/mutations/validation'
 import { guardSpecialist } from '@/lib/auth/action-guards'
 import { formatZodError } from '@/lib/actions/parse-zod-error'
 import {
@@ -98,11 +99,7 @@ export async function submitReview(
     const { labelId, overrides } = parsed.data
 
     // 3. Verify label exists and is in a reviewable state
-    const [label] = await db
-      .select()
-      .from(labels)
-      .where(eq(labels.id, labelId))
-      .limit(1)
+    const label = await getLabelById(labelId)
 
     if (!label) {
       return { success: false, error: 'Label not found' }
@@ -122,14 +119,7 @@ export async function submitReview(
     }
 
     // 4. Validate that all override validationItemIds belong to this label
-    const validItems = await db
-      .select({ id: validationItems.id })
-      .from(validationItems)
-      .innerJoin(
-        validationResults,
-        eq(validationItems.validationResultId, validationResults.id),
-      )
-      .where(eq(validationResults.labelId, labelId))
+    const validItems = await getValidationItemsForLabel(labelId)
 
     const validItemIds = new Set(validItems.map((v) => v.id))
 
@@ -141,7 +131,7 @@ export async function submitReview(
 
     // 5. Apply each override: create human review + update validation item
     for (const override of overrides) {
-      await db.insert(humanReviews).values({
+      await insertHumanReview({
         specialistId: session.user.id,
         labelId,
         validationItemId: override.validationItemId,
@@ -151,35 +141,24 @@ export async function submitReview(
         annotationData: override.annotationData ?? null,
       })
 
-      await db
-        .update(validationItems)
-        .set({ status: override.resolvedStatus })
-        .where(eq(validationItems.id, override.validationItemId))
+      await updateValidationItemStatus(
+        override.validationItemId,
+        override.resolvedStatus,
+      )
     }
 
-    // 5. Fetch all current validation items to determine new overall status
-    const [currentResult] = await db
-      .select()
-      .from(validationResults)
-      .where(
-        and(
-          eq(validationResults.labelId, labelId),
-          eq(validationResults.isCurrent, true),
-        ),
-      )
-      .limit(1)
+    // 6. Fetch all current validation items to determine new overall status
+    const currentResult = await getCurrentValidationResult(labelId)
 
     if (!currentResult) {
       return { success: false, error: 'No validation result found for label' }
     }
 
-    const finalItems = await db
-      .select({
-        fieldName: validationItems.fieldName,
-        status: validationItems.status,
-      })
-      .from(validationItems)
-      .where(eq(validationItems.validationResultId, currentResult.id))
+    const allItems = await getValidationItems(currentResult.id)
+    const finalItems = allItems.map((item) => ({
+      fieldName: item.fieldName,
+      status: item.status,
+    }))
 
     // 6. Determine new overall label status (no containerSizeMl — reviews don't re-validate size)
     const { status: newStatus, deadlineDays } = determineOverallStatus(
@@ -192,13 +171,10 @@ export async function submitReview(
       : null
 
     // 7. Update label status
-    await db
-      .update(labels)
-      .set({
-        status: newStatus,
-        correctionDeadline,
-      })
-      .where(eq(labels.id, labelId))
+    await updateLabelStatus(labelId, {
+      status: newStatus,
+      correctionDeadline,
+    })
 
     updateTag('labels')
     updateTag('sla-metrics')

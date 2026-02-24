@@ -1,10 +1,8 @@
 'use server'
 
-import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 
-import { db } from '@/db'
-import { applicants } from '@/db/schema'
+import { updateApplicantNotes as updateApplicantNotesDb } from '@/db/mutations/applicants'
 import { guardSpecialist } from '@/lib/auth/action-guards'
 
 const updateNotesSchema = z.object({
@@ -28,10 +26,7 @@ export async function updateApplicantNotes(
 
   try {
     const trimmed = parsed.data.notes?.trim() || null
-    await db
-      .update(applicants)
-      .set({ notes: trimmed })
-      .where(eq(applicants.id, parsed.data.applicantId))
+    await updateApplicantNotesDb(parsed.data.applicantId, trimmed)
     return { success: true }
   } catch (error) {
     console.error('[updateApplicantNotes] Error:', error)

@@ -3,23 +3,24 @@ import { connection } from 'next/server'
 import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { eq, and, desc } from 'drizzle-orm'
 import { ArrowLeft, Building2 } from 'lucide-react'
 
 import { routes } from '@/config/routes'
-import { db } from '@/db'
-import {
-  labels,
-  applicationData,
-  labelImages,
-  validationResults,
-  validationItems,
-  applicants,
-  statusOverrides,
-  humanReviews,
-  users,
-} from '@/db/schema'
 import type { Label, ApplicationData, Applicant } from '@/db/schema'
+import {
+  getLabelById,
+  getLabelAppData,
+  getLabelImages,
+  getBrandNameForLabel,
+  getLabelApplicant,
+} from '@/db/queries/labels'
+import {
+  getCurrentValidationResult,
+  getValidationItems,
+  getHumanReviews,
+  getStatusOverrides,
+  getSupersededResults,
+} from '@/db/queries/validation'
 import { requireSpecialist } from '@/lib/auth/require-role'
 import { getEffectiveStatus } from '@/lib/labels/effective-status'
 import { getSignedImageUrl } from '@/lib/storage/blob'
@@ -46,12 +47,8 @@ export async function generateMetadata({
   params: Promise<{ id: string }>
 }): Promise<Metadata> {
   const { id } = await params
-  const [row] = await db
-    .select({ brandName: applicationData.brandName })
-    .from(applicationData)
-    .where(eq(applicationData.labelId, id))
-    .limit(1)
-  return { title: row?.brandName ?? 'Label Detail' }
+  const brandName = await getBrandNameForLabel(id)
+  return { title: brandName ?? 'Label Detail' }
 }
 
 const REVIEWABLE_STATUSES = new Set([
@@ -106,31 +103,12 @@ async function LabelContentSection({
 }) {
   // Fetch images + current results in parallel
   const [images, results] = await Promise.all([
-    db
-      .select()
-      .from(labelImages)
-      .where(eq(labelImages.labelId, labelId))
-      .orderBy(labelImages.sortOrder),
-    db
-      .select()
-      .from(validationResults)
-      .where(
-        and(
-          eq(validationResults.labelId, labelId),
-          eq(validationResults.isCurrent, true),
-        ),
-      )
-      .limit(1)
-      .then((rows) => rows[0] ?? null),
+    getLabelImages(labelId),
+    getCurrentValidationResult(labelId),
   ])
 
   // Fetch items (depends on results.id)
-  const items = results
-    ? await db
-        .select()
-        .from(validationItems)
-        .where(eq(validationItems.validationResultId, results.id))
-    : []
+  const items = results ? await getValidationItems(results.id) : []
 
   // Compute field counts
   const fieldCounts = items.reduce(
@@ -258,74 +236,14 @@ async function LabelTimelineSection({
 }) {
   // Fetch results, reviews, overrides, superseded results ALL in parallel
   const [results, reviews, overrides, supersededResults] = await Promise.all([
-    db
-      .select()
-      .from(validationResults)
-      .where(
-        and(
-          eq(validationResults.labelId, labelId),
-          eq(validationResults.isCurrent, true),
-        ),
-      )
-      .limit(1)
-      .then((rows) => rows[0] ?? null),
-    db
-      .select({
-        id: humanReviews.id,
-        fieldName: validationItems.fieldName,
-        originalStatus: humanReviews.originalStatus,
-        resolvedStatus: humanReviews.resolvedStatus,
-        reviewerNotes: humanReviews.reviewerNotes,
-        reviewedAt: humanReviews.reviewedAt,
-        specialistName: users.name,
-      })
-      .from(humanReviews)
-      .innerJoin(users, eq(humanReviews.specialistId, users.id))
-      .leftJoin(
-        validationItems,
-        eq(humanReviews.validationItemId, validationItems.id),
-      )
-      .where(eq(humanReviews.labelId, labelId))
-      .orderBy(humanReviews.reviewedAt),
-    db
-      .select({
-        id: statusOverrides.id,
-        previousStatus: statusOverrides.previousStatus,
-        newStatus: statusOverrides.newStatus,
-        justification: statusOverrides.justification,
-        reasonCode: statusOverrides.reasonCode,
-        createdAt: statusOverrides.createdAt,
-        specialistName: users.name,
-      })
-      .from(statusOverrides)
-      .innerJoin(users, eq(statusOverrides.specialistId, users.id))
-      .where(eq(statusOverrides.labelId, labelId))
-      .orderBy(desc(statusOverrides.createdAt)),
-    db
-      .select({
-        id: validationResults.id,
-        createdAt: validationResults.createdAt,
-        modelUsed: validationResults.modelUsed,
-        processingTimeMs: validationResults.processingTimeMs,
-        totalTokens: validationResults.totalTokens,
-      })
-      .from(validationResults)
-      .where(
-        and(
-          eq(validationResults.labelId, labelId),
-          eq(validationResults.isCurrent, false),
-        ),
-      )
-      .orderBy(desc(validationResults.createdAt)),
+    getCurrentValidationResult(labelId),
+    getHumanReviews(labelId),
+    getStatusOverrides(labelId),
+    getSupersededResults(labelId),
   ])
 
   // Fetch items (depends on results.id)
-  const items = results
-    ? await db
-        .select()
-        .from(validationItems)
-        .where(eq(validationItems.validationResultId, results.id))
-    : []
+  const items = results ? await getValidationItems(results.id) : []
 
   const hasSupersededResults = supersededResults.length > 0
 
@@ -407,11 +325,7 @@ export default async function LabelDetailPage({
   const { id } = await params
 
   // Stage 1: Fetch label (needed for notFound check)
-  const [label] = await db
-    .select()
-    .from(labels)
-    .where(eq(labels.id, id))
-    .limit(1)
+  const label = await getLabelById(id)
 
   if (!label) {
     notFound()
@@ -419,20 +333,8 @@ export default async function LabelDetailPage({
 
   // Stage 2: Fetch appData + applicant in parallel (needed for header)
   const [appData, applicant] = await Promise.all([
-    db
-      .select()
-      .from(applicationData)
-      .where(eq(applicationData.labelId, id))
-      .limit(1)
-      .then((rows) => rows[0] ?? null),
-    label.applicantId
-      ? db
-          .select()
-          .from(applicants)
-          .where(eq(applicants.id, label.applicantId))
-          .limit(1)
-          .then((rows) => rows[0] ?? null)
-      : null,
+    getLabelAppData(id),
+    label.applicantId ? getLabelApplicant(label.applicantId) : null,
   ])
 
   // Compute effective status with lazy deadline expiration

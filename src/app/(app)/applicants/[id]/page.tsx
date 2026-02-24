@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { connection } from 'next/server'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { and, eq, desc, asc, sql } from 'drizzle-orm'
 import {
   ArrowLeft,
   Building2,
@@ -12,13 +11,12 @@ import {
 } from 'lucide-react'
 
 import { routes } from '@/config/routes'
-import { db } from '@/db'
 import {
-  applicants,
-  labels,
-  applicationData,
-  statusOverrides,
-} from '@/db/schema'
+  getApplicantById,
+  getApplicantCompanyName,
+  getTopOverrideReason,
+} from '@/db/queries/applicants'
+import { getStatusCounts, getApplicantDetailLabels } from '@/db/queries/labels'
 import { REASON_CODE_LABELS } from '@/config/override-reasons'
 import { requireSpecialist } from '@/lib/auth/require-role'
 import { searchParamsCache } from '@/lib/search-params-cache'
@@ -41,12 +39,8 @@ export async function generateMetadata({
   params: Promise<{ id: string }>
 }): Promise<Metadata> {
   const { id } = await params
-  const [row] = await db
-    .select({ companyName: applicants.companyName })
-    .from(applicants)
-    .where(eq(applicants.id, id))
-    .limit(1)
-  return { title: row?.companyName ?? 'Applicant Detail' }
+  const companyName = await getApplicantCompanyName(id)
+  return { title: companyName ?? 'Applicant Detail' }
 }
 
 // ---------------------------------------------------------------------------
@@ -73,65 +67,24 @@ export default async function ApplicantDetailPage({
   const beverageTypeFilter = searchParamsCache.get('beverageType')
 
   // Fetch the applicant
-  const [applicant] = await db
-    .select()
-    .from(applicants)
-    .where(eq(applicants.id, id))
-    .limit(1)
+  const applicant = await getApplicantById(id)
 
   if (!applicant) {
     notFound()
   }
 
-  // Build where conditions
-  const conditions = [eq(labels.applicantId, id)]
-  if (beverageTypeFilter) {
-    conditions.push(
-      eq(
-        labels.beverageType,
-        beverageTypeFilter as (typeof labels.beverageType.enumValues)[number],
-      ),
-    )
-  }
-
-  // Map sort keys to DB columns
-  const SORT_COLUMNS: Record<
-    string,
-    | typeof labels.createdAt
-    | typeof applicationData.brandName
-    | typeof labels.beverageType
-    | typeof labels.overallConfidence
-  > = {
-    brandName: applicationData.brandName,
-    beverageType: labels.beverageType,
-    overallConfidence: labels.overallConfidence,
-    createdAt: labels.createdAt,
-  }
-
-  let orderByClause
-  if (sortKey && SORT_COLUMNS[sortKey]) {
-    const col = SORT_COLUMNS[sortKey]
-    orderByClause = sortOrder === 'asc' ? asc(col) : desc(col)
-  } else {
-    orderByClause = desc(labels.createdAt)
-  }
-
-  // Fetch all labels for this applicant
-  const labelRows = await db
-    .select({
-      id: labels.id,
-      status: labels.status,
-      beverageType: labels.beverageType,
-      overallConfidence: labels.overallConfidence,
-      correctionDeadline: labels.correctionDeadline,
-      deadlineExpired: labels.deadlineExpired,
-      createdAt: labels.createdAt,
-      brandName: applicationData.brandName,
-    })
-    .from(labels)
-    .leftJoin(applicationData, eq(labels.id, applicationData.labelId))
-    .where(and(...conditions))
-    .orderBy(orderByClause)
+  // Fetch labels + status counts + top override reason in parallel
+  const [labelRows, statusCountRows, topOverrideReasonCode] = await Promise.all(
+    [
+      getApplicantDetailLabels(id, {
+        beverageTypeFilter: beverageTypeFilter || undefined,
+        sortKey,
+        sortOrder,
+      }),
+      getStatusCounts(id),
+      getTopOverrideReason(id),
+    ],
+  )
 
   // Compute effective statuses
   const labelsWithStatus = labelRows.map((row) => ({
@@ -143,23 +96,33 @@ export default async function ApplicantDetailPage({
     }),
   }))
 
-  // For stats we need the full (unfiltered) set
-  const allLabelRows = beverageTypeFilter
-    ? await db
-        .select({
-          id: labels.id,
-          status: labels.status,
-          correctionDeadline: labels.correctionDeadline,
-          deadlineExpired: labels.deadlineExpired,
-          createdAt: labels.createdAt,
-        })
-        .from(labels)
-        .where(eq(labels.applicantId, id))
-        .orderBy(desc(labels.createdAt))
-    : labelRows
+  // For stats we need the full (unfiltered) set — use status counts from centralized query
+  const statusCounts: Record<string, number> = {}
+  let totalLabels = 0
+  for (const row of statusCountRows) {
+    statusCounts[row.status] = row.count
+    totalLabels += row.count
+  }
 
+  // Compute compliance stats from status counts
+  const REVIEWED_STATUSES = [
+    'approved',
+    'needs_correction',
+    'conditionally_approved',
+    'rejected',
+  ]
+  const approvedCount = statusCounts['approved'] ?? 0
+  const reviewedCount = REVIEWED_STATUSES.reduce(
+    (sum, s) => sum + (statusCounts[s] ?? 0),
+    0,
+  )
+  const approvalRate =
+    reviewedCount > 0 ? Math.round((approvedCount / reviewedCount) * 100) : null
+
+  // For "all labels" stats we use the full unfiltered set
+  // If beverage type filter is active, we need to get all labels for the filter tabs
   const allLabelsWithStatus = beverageTypeFilter
-    ? allLabelRows.map((row) => ({
+    ? (await getApplicantDetailLabels(id)).map((row) => ({
         ...row,
         effectiveStatus: getEffectiveStatus({
           status: row.status,
@@ -169,49 +132,11 @@ export default async function ApplicantDetailPage({
       }))
     : labelsWithStatus
 
-  // Compute compliance stats from reviewed labels only (exclude pending/processing)
-  const REVIEWED_STATUSES = new Set([
-    'approved',
-    'needs_correction',
-    'conditionally_approved',
-    'rejected',
-  ])
-  const totalLabels = allLabelsWithStatus.length
-  const reviewedLabels = allLabelsWithStatus.filter((l) =>
-    REVIEWED_STATUSES.has(l.effectiveStatus),
-  )
-  const approvedCount = reviewedLabels.filter(
-    (l) => l.effectiveStatus === 'approved',
-  ).length
-  const approvalRate =
-    reviewedLabels.length > 0
-      ? Math.round((approvedCount / reviewedLabels.length) * 100)
-      : null
   const lastSubmission =
-    allLabelsWithStatus.length > 0 ? allLabelRows[0].createdAt : null
+    allLabelsWithStatus.length > 0 ? allLabelsWithStatus[0].createdAt : null
 
-  // Find most common override reason code for this applicant
-  const overrideReasonRows = await db
-    .select({
-      reasonCode: statusOverrides.reasonCode,
-      count: sql<number>`count(*)`,
-    })
-    .from(statusOverrides)
-    .innerJoin(labels, eq(statusOverrides.labelId, labels.id))
-    .where(
-      and(
-        eq(labels.applicantId, id),
-        sql`${statusOverrides.reasonCode} IS NOT NULL`,
-        sql`${statusOverrides.newStatus} IN ('rejected', 'needs_correction')`,
-      ),
-    )
-    .groupBy(statusOverrides.reasonCode)
-    .orderBy(sql`count(*) desc`)
-    .limit(1)
-
-  const topOverrideReason = overrideReasonRows[0]?.reasonCode
-    ? (REASON_CODE_LABELS[overrideReasonRows[0].reasonCode] ??
-      overrideReasonRows[0].reasonCode)
+  const topOverrideReason = topOverrideReasonCode
+    ? (REASON_CODE_LABELS[topOverrideReasonCode] ?? topOverrideReasonCode)
     : null
 
   // Apply status filter (from tab buttons)
@@ -271,7 +196,7 @@ export default async function ApplicantDetailPage({
           }
           label="Approval Rate"
           value={approvalRate !== null ? `${approvalRate}%` : '--'}
-          description={`${approvedCount} of ${reviewedLabels.length} reviewed approved`}
+          description={`${approvedCount} of ${reviewedCount} reviewed approved`}
         />
         <StatCard
           icon={FileCheck}

@@ -1,18 +1,21 @@
 'use server'
 
-import { eq } from 'drizzle-orm'
 import { updateTag } from 'next/cache'
 import { after } from 'next/server'
 
-import { db } from '@/db'
+import { getApplicantByEmail } from '@/db/queries/applicants'
 import {
-  applicants,
-  applicationData,
-  labelImages,
-  labels,
-  validationItems,
-  validationResults,
-} from '@/db/schema'
+  insertLabel,
+  insertApplicationData,
+  insertLabelImages,
+  updateImageTypes,
+  updateLabelStatus,
+} from '@/db/mutations/labels'
+import {
+  insertValidationResult,
+  insertValidationItems,
+} from '@/db/mutations/validation'
+import { type NewValidationItem } from '@/db/schema'
 import {
   extractLabelFieldsForSubmission,
   PipelineTimeoutError,
@@ -28,7 +31,7 @@ import {
   MINOR_DISCREPANCY_FIELDS,
   type ValidationItemStatus,
 } from '@/lib/labels/validation-helpers'
-import { getAutoApprovalEnabled } from '@/lib/settings/get-settings'
+import { getAutoApprovalEnabled } from '@/db/queries/settings'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -93,28 +96,21 @@ export async function submitApplication(
     const { imageUrls } = imageUrlsResult
 
     // 4. Look up applicant record by contactEmail matching session user's email
-    const [applicantRecord] = await db
-      .select({ id: applicants.id })
-      .from(applicants)
-      .where(eq(applicants.contactEmail, session.user.email))
-      .limit(1)
+    const applicantRecord = await getApplicantByEmail(session.user.email)
 
     // 5. Create label record with status "processing" — no specialist assigned yet
-    const [label] = await db
-      .insert(labels)
-      .values({
-        specialistId: null,
-        applicantId: applicantRecord?.id ?? null,
-        beverageType: input.beverageType,
-        containerSizeMl: input.containerSizeMl,
-        status: 'processing',
-      })
-      .returning({ id: labels.id })
+    const label = await insertLabel({
+      specialistId: null,
+      applicantId: applicantRecord?.id ?? null,
+      beverageType: input.beverageType,
+      containerSizeMl: input.containerSizeMl,
+      status: 'processing',
+    })
 
     labelId = label.id
 
     // 6. Create application data record
-    await db.insert(applicationData).values({
+    await insertApplicationData({
       labelId: label.id,
       serialNumber: input.serialNumber || null,
       brandName: input.brandName,
@@ -136,18 +132,15 @@ export async function submitApplication(
     })
 
     // 7. Create label image records
-    const imageRecords = await db
-      .insert(labelImages)
-      .values(
-        imageUrls.map((url, index) => ({
-          labelId: label.id,
-          imageUrl: url,
-          imageFilename: url.split('/').pop() ?? `image-${index}`,
-          imageType: index === 0 ? ('front' as const) : ('other' as const),
-          sortOrder: index,
-        })),
-      )
-      .returning({ id: labelImages.id })
+    const imageRecords = await insertLabelImages(
+      imageUrls.map((url, index) => ({
+        labelId: label.id,
+        imageUrl: url,
+        imageFilename: url.split('/').pop() ?? `image-${index}`,
+        imageType: index === 0 ? ('front' as const) : ('other' as const),
+        sortOrder: index,
+      })),
+    )
 
     // 8. Build expected fields from application data (needed for AI pipeline + comparison)
     const expectedFields = buildExpectedFields(input, input.beverageType)
@@ -162,14 +155,14 @@ export async function submitApplication(
 
     // 9b. Update image types from AI classification
     if (extraction.imageClassifications.length > 0) {
-      for (const ic of extraction.imageClassifications) {
-        const imageRecord = imageRecords[ic.imageIndex]
-        if (imageRecord && ic.confidence >= 60) {
-          await db
-            .update(labelImages)
-            .set({ imageType: ic.imageType })
-            .where(eq(labelImages.id, imageRecord.id))
-        }
+      const imageTypeUpdates = extraction.imageClassifications
+        .filter((ic) => imageRecords[ic.imageIndex] && ic.confidence >= 60)
+        .map((ic) => ({
+          id: imageRecords[ic.imageIndex].id,
+          imageType: ic.imageType,
+        }))
+      if (imageTypeUpdates.length > 0) {
+        await updateImageTypes(imageTypeUpdates)
       }
     }
 
@@ -278,23 +271,20 @@ export async function submitApplication(
     }
 
     // 11. Create validation result record
-    const [validationResult] = await db
-      .insert(validationResults)
-      .values({
-        labelId: label.id,
-        aiRawResponse: aiRawResponseWithCorrections,
-        processingTimeMs: extraction.processingTimeMs,
-        modelUsed: extraction.modelUsed,
-        inputTokens: extraction.metrics.inputTokens,
-        outputTokens: extraction.metrics.outputTokens,
-        totalTokens: extraction.metrics.totalTokens,
-        isCurrent: true,
-      })
-      .returning({ id: validationResults.id })
+    const validationResult = await insertValidationResult({
+      labelId: label.id,
+      aiRawResponse: aiRawResponseWithCorrections,
+      processingTimeMs: extraction.processingTimeMs,
+      modelUsed: extraction.modelUsed,
+      inputTokens: extraction.metrics.inputTokens,
+      outputTokens: extraction.metrics.outputTokens,
+      totalTokens: extraction.metrics.totalTokens,
+      isCurrent: true,
+    })
 
     // 12. Create validation item records
     if (fieldComparisons.length > 0) {
-      await db.insert(validationItems).values(
+      await insertValidationItems(
         fieldComparisons.map((comp) => {
           const labelImageId =
             imageRecords[comp.imageIndex]?.id ?? imageRecords[0]?.id ?? null
@@ -302,8 +292,7 @@ export async function submitApplication(
           return {
             validationResultId: validationResult.id,
             labelImageId: labelImageId,
-            fieldName:
-              comp.fieldName as typeof validationItems.$inferInsert.fieldName,
+            fieldName: comp.fieldName as NewValidationItem['fieldName'],
             expectedValue: comp.expectedValue,
             extractedValue: comp.extractedValue,
             status: comp.status,
@@ -346,22 +335,16 @@ export async function submitApplication(
     const autoApprovalEnabled = await getAutoApprovalEnabled()
 
     if (autoApprovalEnabled && overallStatus === 'approved') {
-      await db
-        .update(labels)
-        .set({
-          status: 'approved',
-          overallConfidence: String(overallConfidence),
-        })
-        .where(eq(labels.id, label.id))
+      await updateLabelStatus(label.id, {
+        status: 'approved',
+        overallConfidence: String(overallConfidence),
+      })
     } else {
-      await db
-        .update(labels)
-        .set({
-          status: 'pending_review',
-          aiProposedStatus: overallStatus,
-          overallConfidence: String(overallConfidence),
-        })
-        .where(eq(labels.id, label.id))
+      await updateLabelStatus(label.id, {
+        status: 'pending_review',
+        aiProposedStatus: overallStatus,
+        overallConfidence: String(overallConfidence),
+      })
     }
 
     const finalStatus =
@@ -382,10 +365,7 @@ export async function submitApplication(
       const failedLabelId = labelId
       after(async () => {
         try {
-          await db
-            .update(labels)
-            .set({ status: 'pending' })
-            .where(eq(labels.id, failedLabelId))
+          await updateLabelStatus(failedLabelId, { status: 'pending' })
         } catch {
           // Cleanup failed — label stays in 'processing' state
         }

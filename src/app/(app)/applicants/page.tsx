@@ -1,10 +1,8 @@
 import type { Metadata } from 'next'
 import { connection } from 'next/server'
-import { desc, asc, eq, sql, count } from 'drizzle-orm'
 import { Building2 } from 'lucide-react'
 
-import { db } from '@/db'
-import { applicants, labels } from '@/db/schema'
+import { getApplicantsWithStats } from '@/db/queries/applicants'
 import { requireSpecialist } from '@/lib/auth/require-role'
 import { searchParamsCache } from '@/lib/search-params-cache'
 import { REASON_CODE_LABELS } from '@/config/override-reasons'
@@ -53,68 +51,11 @@ export default async function ApplicantsPage({
   const sortOrder = searchParamsCache.get('order') === 'asc' ? 'asc' : 'desc'
   const riskFilter = searchParamsCache.get('risk')
 
-  // Computed columns for sorting
-  // Approval rate only considers reviewed labels (terminal statuses),
-  // not pending/processing labels that haven't been evaluated yet.
-  const reviewedCountSql = sql<number>`count(case when ${labels.status} in ('approved', 'needs_correction', 'conditionally_approved', 'rejected') then 1 end)`
-  const approvalRateSql = sql<number>`
-    CASE WHEN ${reviewedCountSql} > 0
-    THEN round((count(case when ${labels.status} = 'approved' then 1 end)::numeric / ${reviewedCountSql}) * 100)
-    ELSE 0 END
-  `
-  const totalLabelsSql = count(labels.id)
-  const lastSubmissionSql = sql<Date | null>`max(${labels.createdAt})`
-
-  // Map sort keys to columns
-  const SORT_COLUMNS: Record<
-    string,
-    ReturnType<typeof sql> | typeof applicants.companyName
-  > = {
-    companyName: applicants.companyName,
-    totalLabels: totalLabelsSql,
-    approvalRate: approvalRateSql,
-    lastSubmission: lastSubmissionSql,
-  }
-
-  let orderByClause
-  if (sortKey && SORT_COLUMNS[sortKey]) {
-    const col = SORT_COLUMNS[sortKey]
-    orderByClause = sortOrder === 'asc' ? asc(col) : desc(col)
-  } else {
-    orderByClause = desc(applicants.createdAt)
-  }
-
-  // Query applicants with aggregated label stats
-  const rows = await db
-    .select({
-      id: applicants.id,
-      companyName: applicants.companyName,
-      contactEmail: applicants.contactEmail,
-      createdAt: applicants.createdAt,
-      totalLabels: totalLabelsSql,
-      approvedCount: sql<number>`count(case when ${labels.status} = 'approved' then 1 end)`,
-      reviewedCount: sql<number>`count(case when ${labels.status} in ('approved', 'needs_correction', 'conditionally_approved', 'rejected') then 1 end)`,
-      lastSubmission: lastSubmissionSql,
-      topOverrideReason: sql<string | null>`(
-        SELECT so.reason_code FROM status_overrides so
-        INNER JOIN labels l ON so.label_id = l.id
-        WHERE l.applicant_id = ${applicants.id}
-        AND so.reason_code IS NOT NULL
-        AND so.new_status IN ('rejected', 'needs_correction')
-        GROUP BY so.reason_code
-        ORDER BY count(*) DESC
-        LIMIT 1
-      )`,
-    })
-    .from(applicants)
-    .leftJoin(labels, eq(applicants.id, labels.applicantId))
-    .where(
-      searchTerm
-        ? sql`lower(${applicants.companyName}) like ${`%${searchTerm.toLowerCase()}%`}`
-        : undefined,
-    )
-    .groupBy(applicants.id)
-    .orderBy(orderByClause)
+  const rows = await getApplicantsWithStats({
+    searchTerm: searchTerm || undefined,
+    sortKey: sortKey || undefined,
+    sortOrder,
+  })
 
   const applicantsWithStats = rows.map((row) => {
     const reviewedCount = row.reviewedCount ?? 0

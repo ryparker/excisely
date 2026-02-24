@@ -3,20 +3,21 @@ import { connection } from 'next/server'
 import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { eq, and } from 'drizzle-orm'
 import { ArrowLeft } from 'lucide-react'
 
 import { routes } from '@/config/routes'
-import { db } from '@/db'
-import {
-  labels,
-  applicationData,
-  labelImages,
-  validationResults,
-  validationItems,
-  applicants,
-} from '@/db/schema'
 import type { Label, ApplicationData } from '@/db/schema'
+import { getFullApplicantByEmail } from '@/db/queries/applicants'
+import {
+  getBrandNameForLabel,
+  getLabelAppData,
+  getLabelByIdAndApplicant,
+  getLabelImages,
+} from '@/db/queries/labels'
+import {
+  getCurrentValidationResult,
+  getValidationItems,
+} from '@/db/queries/validation'
 import { requireApplicant } from '@/lib/auth/require-role'
 import { getEffectiveStatus } from '@/lib/labels/effective-status'
 import { getSignedImageUrl } from '@/lib/storage/blob'
@@ -39,12 +40,8 @@ export async function generateMetadata({
   params: Promise<{ id: string }>
 }): Promise<Metadata> {
   const { id } = await params
-  const [row] = await db
-    .select({ brandName: applicationData.brandName })
-    .from(applicationData)
-    .where(eq(applicationData.labelId, id))
-    .limit(1)
-  return { title: row?.brandName ?? 'Submission Detail' }
+  const brandName = await getBrandNameForLabel(id)
+  return { title: brandName ?? 'Submission Detail' }
 }
 
 // ---------------------------------------------------------------------------
@@ -90,31 +87,12 @@ async function SubmissionContentSection({
 }) {
   // Fetch images + current results in parallel
   const [images, results] = await Promise.all([
-    db
-      .select()
-      .from(labelImages)
-      .where(eq(labelImages.labelId, labelId))
-      .orderBy(labelImages.sortOrder),
-    db
-      .select()
-      .from(validationResults)
-      .where(
-        and(
-          eq(validationResults.labelId, labelId),
-          eq(validationResults.isCurrent, true),
-        ),
-      )
-      .limit(1)
-      .then((rows) => rows[0] ?? null),
+    getLabelImages(labelId),
+    getCurrentValidationResult(labelId),
   ])
 
   // Fetch items (depends on results.id)
-  const items = results
-    ? await db
-        .select()
-        .from(validationItems)
-        .where(eq(validationItems.validationResultId, results.id))
-    : []
+  const items = results ? await getValidationItems(results.id) : []
 
   const signedImages = images.map((img) => ({
     id: img.id,
@@ -196,25 +174,10 @@ async function SubmissionTimelineSection({
   effectiveStatus: string
 }) {
   // Fetch results
-  const results = await db
-    .select()
-    .from(validationResults)
-    .where(
-      and(
-        eq(validationResults.labelId, labelId),
-        eq(validationResults.isCurrent, true),
-      ),
-    )
-    .limit(1)
-    .then((rows) => rows[0] ?? null)
+  const results = await getCurrentValidationResult(labelId)
 
   // Fetch items (depends on results.id)
-  const items = results
-    ? await db
-        .select()
-        .from(validationItems)
-        .where(eq(validationItems.validationResultId, results.id))
-    : []
+  const items = results ? await getValidationItems(results.id) : []
 
   const GUIDANCE: Record<string, string> = {
     pending_review:
@@ -278,32 +241,14 @@ export default async function SubmissionDetailPage({
   const { id } = await params
 
   // Stage 1: Find applicant record by email
-  const [applicantRecord] = await db
-    .select({
-      id: applicants.id,
-      companyName: applicants.companyName,
-      contactName: applicants.contactName,
-      contactEmail: applicants.contactEmail,
-    })
-    .from(applicants)
-    .where(eq(applicants.contactEmail, session.user.email))
-    .limit(1)
+  const applicantRecord = await getFullApplicantByEmail(session.user.email)
 
   if (!applicantRecord) notFound()
 
   // Stage 2: Fetch label + appData in parallel
-  const [[label], appData] = await Promise.all([
-    db
-      .select()
-      .from(labels)
-      .where(and(eq(labels.id, id), eq(labels.applicantId, applicantRecord.id)))
-      .limit(1),
-    db
-      .select()
-      .from(applicationData)
-      .where(eq(applicationData.labelId, id))
-      .limit(1)
-      .then((rows) => rows[0] ?? null),
+  const [label, appData] = await Promise.all([
+    getLabelByIdAndApplicant(id, applicantRecord.id),
+    getLabelAppData(id),
   ])
 
   if (!label) notFound()

@@ -1,18 +1,17 @@
 'use server'
 
-import { eq, and } from 'drizzle-orm'
 import { updateTag } from 'next/cache'
 import pLimit from 'p-limit'
 
-import { db } from '@/db'
+import { getLabelById } from '@/db/queries/labels'
 import {
-  labels,
-  statusOverrides,
-  validationItems,
-  validationResults,
-} from '@/db/schema'
+  getCurrentValidationResult,
+  getValidationItems,
+} from '@/db/queries/validation'
+import { updateLabelStatus } from '@/db/mutations/labels'
+import { insertStatusOverride } from '@/db/mutations/reviews'
 import { guardSpecialist } from '@/lib/auth/action-guards'
-import { getApprovalThreshold } from '@/lib/settings/get-settings'
+import { getApprovalThreshold } from '@/db/queries/settings'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -65,16 +64,7 @@ export async function batchApprove(
       limit(async () => {
         try {
           // Fetch the label
-          const [label] = await db
-            .select({
-              id: labels.id,
-              status: labels.status,
-              aiProposedStatus: labels.aiProposedStatus,
-              overallConfidence: labels.overallConfidence,
-            })
-            .from(labels)
-            .where(eq(labels.id, labelId))
-            .limit(1)
+          const label = await getLabelById(labelId)
 
           if (!label) {
             failedIds.push(labelId)
@@ -97,26 +87,14 @@ export async function batchApprove(
           }
 
           // Verify: all validation items are match
-          const [currentResult] = await db
-            .select({ id: validationResults.id })
-            .from(validationResults)
-            .where(
-              and(
-                eq(validationResults.labelId, labelId),
-                eq(validationResults.isCurrent, true),
-              ),
-            )
-            .limit(1)
+          const currentResult = await getCurrentValidationResult(labelId)
 
           if (!currentResult) {
             failedIds.push(labelId)
             return
           }
 
-          const items = await db
-            .select({ status: validationItems.status })
-            .from(validationItems)
-            .where(eq(validationItems.validationResultId, currentResult.id))
+          const items = await getValidationItems(currentResult.id)
 
           const allMatch =
             items.length > 0 && items.every((i) => i.status === 'match')
@@ -126,7 +104,7 @@ export async function batchApprove(
           }
 
           // Create status override record for audit trail
-          await db.insert(statusOverrides).values({
+          await insertStatusOverride({
             labelId,
             specialistId: session.user.id,
             previousStatus: 'pending_review',
@@ -137,10 +115,7 @@ export async function batchApprove(
           })
 
           // Update label status
-          await db
-            .update(labels)
-            .set({ status: 'approved' })
-            .where(eq(labels.id, labelId))
+          await updateLabelStatus(labelId, { status: 'approved' })
 
           approvedCount++
         } catch (error) {

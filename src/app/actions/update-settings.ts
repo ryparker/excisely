@@ -1,13 +1,11 @@
 'use server'
 
-import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { updateTag } from 'next/cache'
 
-import { db } from '@/db'
-import { settings } from '@/db/schema'
+import { upsertSetting } from '@/db/mutations/settings'
 import { guardSpecialist } from '@/lib/auth/action-guards'
-import type { StrictnessLevel } from '@/lib/settings/get-settings'
+import type { StrictnessLevel } from '@/db/queries/settings'
 
 const updateAutoApprovalSchema = z.object({
   enabled: z.boolean(),
@@ -38,20 +36,6 @@ const updateSLASchema = z.object({
 type UpdateSettingsResult =
   | { success: true }
   | { success: false; error: string }
-
-async function upsertSetting(key: string, value: unknown): Promise<void> {
-  const [existing] = await db
-    .select({ id: settings.id })
-    .from(settings)
-    .where(eq(settings.key, key))
-    .limit(1)
-
-  if (existing) {
-    await db.update(settings).set({ value }).where(eq(settings.key, key))
-  } else {
-    await db.insert(settings).values({ key, value })
-  }
-}
 
 export async function updateAutoApproval(
   enabled: boolean,

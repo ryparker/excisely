@@ -1,5 +1,5 @@
-import { getSLATargets } from '@/lib/settings/get-settings'
-import { fetchSLAMetrics } from '@/lib/sla/queries'
+import { getSLATargets } from '@/db/queries/settings'
+import { fetchSLAMetrics } from '@/db/queries/sla'
 import { getSLAStatus } from '@/lib/sla/status'
 import {
   SLAMetricCard,

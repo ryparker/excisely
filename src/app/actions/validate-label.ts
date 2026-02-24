@@ -1,15 +1,17 @@
 'use server'
 
-import { eq } from 'drizzle-orm'
-
-import { db } from '@/db'
 import {
-  applicationData,
-  labelImages,
-  labels,
-  validationItems,
-  validationResults,
-} from '@/db/schema'
+  insertLabel,
+  insertApplicationData,
+  insertLabelImages,
+  updateImageTypes,
+  updateLabelStatus,
+} from '@/db/mutations/labels'
+import {
+  insertValidationResult,
+  insertValidationItems,
+} from '@/db/mutations/validation'
+import { type NewValidationItem } from '@/db/schema'
 import { extractLabelFieldsForSubmission } from '@/lib/ai/extract-label'
 import { compareField } from '@/lib/ai/compare-fields'
 import { guardSpecialist } from '@/lib/auth/action-guards'
@@ -22,7 +24,7 @@ import {
   MINOR_DISCREPANCY_FIELDS,
   type ValidationItemStatus,
 } from '@/lib/labels/validation-helpers'
-import { getAutoApprovalEnabled } from '@/lib/settings/get-settings'
+import { getAutoApprovalEnabled } from '@/db/queries/settings'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -87,20 +89,17 @@ export async function validateLabel(
     const { imageUrls } = imageUrlsResult
 
     // 4. Create label record with status "processing"
-    const [label] = await db
-      .insert(labels)
-      .values({
-        specialistId: session.user.id,
-        applicantId: input.applicantId || null,
-        priorLabelId: input.priorLabelId || null,
-        beverageType: input.beverageType,
-        containerSizeMl: input.containerSizeMl,
-        status: 'processing',
-      })
-      .returning({ id: labels.id })
+    const label = await insertLabel({
+      specialistId: session.user.id,
+      applicantId: input.applicantId || null,
+      priorLabelId: input.priorLabelId || null,
+      beverageType: input.beverageType,
+      containerSizeMl: input.containerSizeMl,
+      status: 'processing',
+    })
 
     // 5. Create application data record
-    await db.insert(applicationData).values({
+    await insertApplicationData({
       labelId: label.id,
       serialNumber: input.serialNumber || null,
       brandName: input.brandName,
@@ -122,18 +121,15 @@ export async function validateLabel(
     })
 
     // 6. Create label image records
-    const imageRecords = await db
-      .insert(labelImages)
-      .values(
-        imageUrls.map((url, index) => ({
-          labelId: label.id,
-          imageUrl: url,
-          imageFilename: url.split('/').pop() ?? `image-${index}`,
-          imageType: index === 0 ? ('front' as const) : ('other' as const),
-          sortOrder: index,
-        })),
-      )
-      .returning({ id: labelImages.id })
+    const imageRecords = await insertLabelImages(
+      imageUrls.map((url, index) => ({
+        labelId: label.id,
+        imageUrl: url,
+        imageFilename: url.split('/').pop() ?? `image-${index}`,
+        imageType: index === 0 ? ('front' as const) : ('other' as const),
+        sortOrder: index,
+      })),
+    )
 
     // 7. Build expected fields from application data (needed for AI pipeline + comparison)
     const expectedFields = buildExpectedFields(input, input.beverageType)
@@ -148,14 +144,14 @@ export async function validateLabel(
 
     // 8b. Update image types from AI classification
     if (extraction.imageClassifications.length > 0) {
-      for (const ic of extraction.imageClassifications) {
-        const imageRecord = imageRecords[ic.imageIndex]
-        if (imageRecord && ic.confidence >= 60) {
-          await db
-            .update(labelImages)
-            .set({ imageType: ic.imageType })
-            .where(eq(labelImages.id, imageRecord.id))
-        }
+      const imageTypeUpdates = extraction.imageClassifications
+        .filter((ic) => imageRecords[ic.imageIndex] && ic.confidence >= 60)
+        .map((ic) => ({
+          id: imageRecords[ic.imageIndex].id,
+          imageType: ic.imageType,
+        }))
+      if (imageTypeUpdates.length > 0) {
+        await updateImageTypes(imageTypeUpdates)
       }
     }
 
@@ -210,23 +206,20 @@ export async function validateLabel(
     }
 
     // 10. Create validation result record
-    const [validationResult] = await db
-      .insert(validationResults)
-      .values({
-        labelId: label.id,
-        aiRawResponse: extraction.rawResponse,
-        processingTimeMs: extraction.processingTimeMs,
-        modelUsed: extraction.modelUsed,
-        inputTokens: extraction.metrics.inputTokens,
-        outputTokens: extraction.metrics.outputTokens,
-        totalTokens: extraction.metrics.totalTokens,
-        isCurrent: true,
-      })
-      .returning({ id: validationResults.id })
+    const validationResult = await insertValidationResult({
+      labelId: label.id,
+      aiRawResponse: extraction.rawResponse,
+      processingTimeMs: extraction.processingTimeMs,
+      modelUsed: extraction.modelUsed,
+      inputTokens: extraction.metrics.inputTokens,
+      outputTokens: extraction.metrics.outputTokens,
+      totalTokens: extraction.metrics.totalTokens,
+      isCurrent: true,
+    })
 
     // 11. Create validation item records
     if (fieldComparisons.length > 0) {
-      await db.insert(validationItems).values(
+      await insertValidationItems(
         fieldComparisons.map((comp) => {
           // Find the label image record for this comparison's image index
           const labelImageId =
@@ -235,8 +228,7 @@ export async function validateLabel(
           return {
             validationResultId: validationResult.id,
             labelImageId: labelImageId,
-            fieldName:
-              comp.fieldName as typeof validationItems.$inferInsert.fieldName,
+            fieldName: comp.fieldName as NewValidationItem['fieldName'],
             expectedValue: comp.expectedValue,
             extractedValue: comp.extractedValue,
             status: comp.status,
@@ -280,22 +272,16 @@ export async function validateLabel(
     const autoApprovalEnabled = await getAutoApprovalEnabled()
 
     if (autoApprovalEnabled && overallStatus === 'approved') {
-      await db
-        .update(labels)
-        .set({
-          status: 'approved',
-          overallConfidence: String(overallConfidence),
-        })
-        .where(eq(labels.id, label.id))
+      await updateLabelStatus(label.id, {
+        status: 'approved',
+        overallConfidence: String(overallConfidence),
+      })
     } else {
-      await db
-        .update(labels)
-        .set({
-          status: 'pending_review',
-          aiProposedStatus: overallStatus,
-          overallConfidence: String(overallConfidence),
-        })
-        .where(eq(labels.id, label.id))
+      await updateLabelStatus(label.id, {
+        status: 'pending_review',
+        aiProposedStatus: overallStatus,
+        overallConfidence: String(overallConfidence),
+      })
     }
 
     return { success: true, labelId: label.id }

@@ -8,7 +8,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from '@/components/ui/hover-card'
-import type { TokenUsageMetrics } from '@/lib/sla/queries'
+import type { TokenUsageMetrics } from '@/db/queries/sla'
 import { formatNumber } from '@/lib/utils'
 
 export function TokenUsageSummary({

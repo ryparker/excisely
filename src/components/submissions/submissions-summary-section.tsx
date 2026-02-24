@@ -1,8 +1,4 @@
-import { eq, and, count, asc, gt } from 'drizzle-orm'
-import { cacheLife, cacheTag } from 'next/cache'
-
-import { db } from '@/db'
-import { labels } from '@/db/schema'
+import { getStatusCounts, getNearestDeadline } from '@/db/queries/labels'
 import { SubmissionsSummaryCards } from '@/components/submissions/submissions-summary-cards'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -37,27 +33,9 @@ export async function SubmissionsSummarySection({
 }: {
   applicantId: string
 }) {
-  'use cache'
-  cacheTag('labels')
-  cacheLife('seconds')
-  const [statusCountRows, nearestDeadlineResult] = await Promise.all([
-    db
-      .select({ status: labels.status, count: count() })
-      .from(labels)
-      .where(eq(labels.applicantId, applicantId))
-      .groupBy(labels.status),
-    db
-      .select({ deadline: labels.correctionDeadline })
-      .from(labels)
-      .where(
-        and(
-          eq(labels.applicantId, applicantId),
-          gt(labels.correctionDeadline, new Date()),
-          eq(labels.deadlineExpired, false),
-        ),
-      )
-      .orderBy(asc(labels.correctionDeadline))
-      .limit(1),
+  const [statusCountRows, nearestDeadline] = await Promise.all([
+    getStatusCounts(applicantId),
+    getNearestDeadline(applicantId),
   ])
 
   const statusCounts: Record<string, number> = {}
@@ -83,8 +61,8 @@ export async function SubmissionsSummarySection({
   const approvalRate =
     reviewedCount > 0 ? Math.round((approvedCount / reviewedCount) * 100) : 0
 
-  const nearestDeadlineText = nearestDeadlineResult[0]?.deadline
-    ? formatDeadlineText(nearestDeadlineResult[0].deadline)
+  const nearestDeadlineText = nearestDeadline
+    ? formatDeadlineText(nearestDeadline)
     : null
 
   return (

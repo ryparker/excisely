@@ -1,33 +1,11 @@
-import { eq, and, desc, asc, count, ilike, or, type SQL } from 'drizzle-orm'
-import { cacheLife, cacheTag } from 'next/cache'
-
-import { db } from '@/db'
-import { labels, applicationData } from '@/db/schema'
+import { getFilteredLabels } from '@/db/queries/labels'
 import { getEffectiveStatus } from '@/lib/labels/effective-status'
-import {
-  flaggedCountSubquery,
-  thumbnailUrlSubquery,
-} from '@/lib/db/label-subqueries'
 import { getSignedImageUrl } from '@/lib/storage/blob'
 import { SubmissionsTable } from '@/components/submissions/submissions-table'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 
 const PAGE_SIZE = 20
-
-// Map sort keys to Drizzle columns
-const SORT_COLUMNS: Record<
-  string,
-  | typeof labels.createdAt
-  | typeof applicationData.brandName
-  | typeof labels.beverageType
-  | typeof labels.status
-> = {
-  brandName: applicationData.brandName,
-  beverageType: labels.beverageType,
-  createdAt: labels.createdAt,
-  status: labels.status,
-}
 
 export function SubmissionsTableSkeleton() {
   return (
@@ -80,116 +58,34 @@ export async function SubmissionsTableSection({
   sortOrder: 'asc' | 'desc'
   currentPage: number
 }) {
-  'use cache'
-  cacheTag('labels')
-  cacheLife('seconds')
+  const { rows, tableTotal, totalPages } = await getFilteredLabels({
+    applicantId,
+    searchTerm: searchTerm || undefined,
+    statusFilter: statusFilter || undefined,
+    beverageTypeFilter: beverageTypeFilter || undefined,
+    sortKey: sortKey || undefined,
+    sortOrder,
+    currentPage,
+    pageSize: PAGE_SIZE,
+  })
 
-  const offset = (currentPage - 1) * PAGE_SIZE
-
-  // Build where conditions
-  const conditions: SQL[] = [eq(labels.applicantId, applicantId)]
-
-  if (searchTerm) {
-    conditions.push(
-      or(
-        ilike(applicationData.brandName, `%${searchTerm}%`),
-        ilike(applicationData.fancifulName, `%${searchTerm}%`),
-        ilike(applicationData.serialNumber, `%${searchTerm}%`),
-        ilike(applicationData.classType, `%${searchTerm}%`),
-      )!,
-    )
-  }
-
-  if (statusFilter === 'in_review') {
-    conditions.push(
-      or(
-        eq(labels.status, 'pending'),
-        eq(labels.status, 'processing'),
-        eq(labels.status, 'pending_review'),
-      )!,
-    )
-  } else if (statusFilter === 'needs_attention') {
-    conditions.push(
-      or(
-        eq(labels.status, 'needs_correction'),
-        eq(labels.status, 'conditionally_approved'),
-      )!,
-    )
-  } else if (statusFilter) {
-    conditions.push(
-      eq(
-        labels.status,
-        statusFilter as (typeof labels.status.enumValues)[number],
-      ),
-    )
-  }
-
-  if (beverageTypeFilter) {
-    conditions.push(
-      eq(
-        labels.beverageType,
-        beverageTypeFilter as (typeof labels.beverageType.enumValues)[number],
-      ),
-    )
-  }
-
-  const whereClause = and(...conditions)
-
-  // Flagged count subquery
-  const flaggedCountSql = flaggedCountSubquery()
-
-  // Build ORDER BY
-  let orderByClause
-  if (sortKey === 'flaggedCount') {
-    orderByClause =
-      sortOrder === 'asc' ? asc(flaggedCountSql) : desc(flaggedCountSql)
-  } else if (sortKey && SORT_COLUMNS[sortKey]) {
-    const col = SORT_COLUMNS[sortKey]
-    orderByClause = sortOrder === 'asc' ? asc(col) : desc(col)
-  } else {
-    orderByClause = desc(labels.createdAt)
-  }
-
-  const [tableCountResult, rows] = await Promise.all([
-    db
-      .select({ total: count() })
-      .from(labels)
-      .leftJoin(applicationData, eq(labels.id, applicationData.labelId))
-      .where(whereClause),
-    db
-      .select({
-        id: labels.id,
-        status: labels.status,
-        beverageType: labels.beverageType,
-        correctionDeadline: labels.correctionDeadline,
-        deadlineExpired: labels.deadlineExpired,
-        createdAt: labels.createdAt,
-        brandName: applicationData.brandName,
-        fancifulName: applicationData.fancifulName,
-        serialNumber: applicationData.serialNumber,
-        flaggedCount: flaggedCountSql,
-        thumbnailUrl: thumbnailUrlSubquery(),
-      })
-      .from(labels)
-      .leftJoin(applicationData, eq(labels.id, applicationData.labelId))
-      .where(whereClause)
-      .orderBy(orderByClause)
-      .limit(PAGE_SIZE)
-      .offset(offset),
-  ])
-
-  const tableTotal = tableCountResult[0]?.total ?? 0
-  const totalPages = Math.ceil(tableTotal / PAGE_SIZE)
-
-  const labelsWithStatus = rows.map((row) => ({
-    ...row,
-    thumbnailUrl: row.thumbnailUrl ? getSignedImageUrl(row.thumbnailUrl) : null,
-    effectiveStatus: getEffectiveStatus({
-      status: row.status,
-      correctionDeadline: row.correctionDeadline,
-      deadlineExpired: row.deadlineExpired,
-    }),
-  }))
+  // Applicant view — rows have applicant-specific fields
+  const labelsWithStatus = rows.map((row) => {
+    const r = row as typeof row & {
+      fancifulName: string | null
+      serialNumber: string | null
+      thumbnailUrl: string | null
+    }
+    return {
+      ...r,
+      thumbnailUrl: r.thumbnailUrl ? getSignedImageUrl(r.thumbnailUrl) : null,
+      effectiveStatus: getEffectiveStatus({
+        status: r.status,
+        correctionDeadline: r.correctionDeadline,
+        deadlineExpired: r.deadlineExpired,
+      }),
+    }
+  })
 
   if (labelsWithStatus.length === 0) {
     return (

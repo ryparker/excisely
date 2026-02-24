@@ -1,14 +1,12 @@
 import type { Metadata } from 'next'
 import { connection } from 'next/server'
 import { Suspense } from 'react'
-import { and, eq, sql, count, desc, asc, ilike, type SQL } from 'drizzle-orm'
 import { Flag, AlertTriangle, ShieldAlert, Activity } from 'lucide-react'
 
-import { db } from '@/db'
-import { humanReviews, validationItems, users } from '@/db/schema'
+import { getAIErrorStats, getFilteredAIErrors } from '@/db/queries/ai-errors'
+import { fetchTokenUsageMetrics } from '@/db/queries/sla'
 import { requireSpecialist } from '@/lib/auth/require-role'
 import { searchParamsCache } from '@/lib/search-params-cache'
-import { fetchTokenUsageMetrics } from '@/lib/sla/queries'
 import { FIELD_DISPLAY_NAMES } from '@/config/field-display-names'
 import { PageHeader } from '@/components/layout/page-header'
 import { PageShell } from '@/components/layout/page-shell'
@@ -108,26 +106,10 @@ function AIErrorTableSkeleton() {
 // ---------------------------------------------------------------------------
 
 async function AIErrorStats() {
-  const [statsResult, tokenUsageMetrics] = await Promise.all([
-    db
-      .select({
-        totalErrors: count(),
-        missedErrors: sql<number>`count(case when ${humanReviews.originalStatus} = 'match' and ${humanReviews.resolvedStatus} != 'match' then 1 end)`,
-        overFlagged: sql<number>`count(case when ${humanReviews.originalStatus} != 'match' and ${humanReviews.resolvedStatus} = 'match' then 1 end)`,
-      })
-      .from(humanReviews)
-      .where(
-        sql`${humanReviews.originalStatus}::text != ${humanReviews.resolvedStatus}::text`,
-      )
-      .then((rows) => rows[0]),
+  const [stats, tokenUsageMetrics] = await Promise.all([
+    getAIErrorStats(),
     fetchTokenUsageMetrics(),
   ])
-
-  const stats = {
-    totalErrors: statsResult?.totalErrors ?? 0,
-    missedErrors: statsResult?.missedErrors ?? 0,
-    overFlagged: statsResult?.overFlagged ?? 0,
-  }
 
   const missedBg =
     stats.missedErrors === 0
@@ -194,109 +176,16 @@ async function AIErrorTableSection({
   sortOrder: 'asc' | 'desc'
   currentPage: number
 }) {
-  const statusMismatch = sql`${humanReviews.originalStatus}::text != ${humanReviews.resolvedStatus}::text`
-  const conditions: SQL[] = [statusMismatch]
-
-  if (fieldFilter && FIELD_NAMES.includes(fieldFilter)) {
-    conditions.push(
-      eq(
-        validationItems.fieldName,
-        fieldFilter as (typeof validationItems.fieldName.enumValues)[number],
-      ),
-    )
-  }
-
-  if (typeFilter === 'missed') {
-    conditions.push(eq(humanReviews.originalStatus, 'match'))
-  } else if (typeFilter === 'over_flagged') {
-    conditions.push(sql`${humanReviews.originalStatus}::text != 'match'`)
-    conditions.push(eq(humanReviews.resolvedStatus, 'match'))
-  }
-
-  if (searchTerm) {
-    conditions.push(
-      ilike(
-        sql`(
-          SELECT ad.brand_name FROM application_data ad
-          WHERE ad.label_id = ${humanReviews.labelId}
-          LIMIT 1
-        )`,
-        `%${searchTerm}%`,
-      ),
-    )
-  }
-
-  const offset = (currentPage - 1) * PAGE_SIZE
-
-  // Brand name subquery for sorting
-  const brandNameSql = sql`(
-    SELECT ad.brand_name FROM application_data ad
-    WHERE ad.label_id = ${humanReviews.labelId}
-    LIMIT 1
-  )`
-
-  // Sort column mapping
-  const SORT_COLUMNS: Record<
-    string,
-    | ReturnType<typeof sql>
-    | typeof humanReviews.reviewedAt
-    | typeof validationItems.fieldName
-    | typeof validationItems.confidence
-  > = {
-    reviewedAt: humanReviews.reviewedAt,
-    fieldName: validationItems.fieldName,
-    confidence: validationItems.confidence,
-    brandName: brandNameSql,
-  }
-
-  let orderByClause
-  if (sortKey && SORT_COLUMNS[sortKey]) {
-    const col = SORT_COLUMNS[sortKey]
-    orderByClause = [sortOrder === 'asc' ? asc(col) : desc(col)]
-  } else {
-    orderByClause = [desc(humanReviews.reviewedAt)]
-  }
-
-  const [totalQuery, rows] = await Promise.all([
-    db
-      .select({ count: count() })
-      .from(humanReviews)
-      .innerJoin(
-        validationItems,
-        eq(humanReviews.validationItemId, validationItems.id),
-      )
-      .where(and(...conditions)),
-    db
-      .select({
-        id: humanReviews.id,
-        reviewedAt: humanReviews.reviewedAt,
-        originalStatus: humanReviews.originalStatus,
-        resolvedStatus: humanReviews.resolvedStatus,
-        reviewerNotes: humanReviews.reviewerNotes,
-        fieldName: validationItems.fieldName,
-        confidence: validationItems.confidence,
-        labelId: humanReviews.labelId,
-        brandName: sql<string>`(
-          SELECT ad.brand_name FROM application_data ad
-          WHERE ad.label_id = ${humanReviews.labelId}
-          LIMIT 1
-        )`,
-        specialistName: users.name,
-      })
-      .from(humanReviews)
-      .innerJoin(
-        validationItems,
-        eq(humanReviews.validationItemId, validationItems.id),
-      )
-      .innerJoin(users, eq(humanReviews.specialistId, users.id))
-      .where(and(...conditions))
-      .orderBy(...orderByClause)
-      .limit(PAGE_SIZE)
-      .offset(offset),
-  ])
-
-  const totalCount = totalQuery[0]?.count ?? 0
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
+  const { rows, totalCount, totalPages } = await getFilteredAIErrors({
+    searchTerm,
+    fieldFilter,
+    typeFilter,
+    sortKey,
+    sortOrder,
+    currentPage,
+    pageSize: PAGE_SIZE,
+    validFieldNames: FIELD_NAMES,
+  })
 
   if (rows.length === 0) {
     return (

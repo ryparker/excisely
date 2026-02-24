@@ -1,15 +1,11 @@
-import { eq, and, desc, asc, count, ilike, sql, type SQL } from 'drizzle-orm'
-import { cacheLife, cacheTag } from 'next/cache'
 import { ShieldCheck } from 'lucide-react'
 
-import { db } from '@/db'
-import { labels, applicationData } from '@/db/schema'
-import { getEffectiveStatus } from '@/lib/labels/effective-status'
-import { getApprovalThreshold } from '@/lib/settings/get-settings'
 import {
-  flaggedCountSubquery,
-  thumbnailUrlSubquery,
-} from '@/lib/db/label-subqueries'
+  getStatusCounts,
+  getReadyToApproveCount,
+  getFilteredLabels,
+} from '@/db/queries/labels'
+import { getEffectiveStatus } from '@/lib/labels/effective-status'
 import { getSignedImageUrl } from '@/lib/storage/blob'
 import { FilterBar } from '@/components/shared/filter-bar'
 import { LabelsTable } from '@/components/labels/labels-table'
@@ -97,166 +93,22 @@ export async function DashboardLabelsTable({
   currentPage: number
   userRole: string
 }) {
-  'use cache'
-  cacheTag('labels')
-  cacheLife('seconds')
+  const [statusCountRows, readyCount, filteredResult] = await Promise.all([
+    getStatusCounts(),
+    getReadyToApproveCount(),
+    getFilteredLabels({
+      searchTerm: searchTerm || undefined,
+      statusFilter: statusFilter || undefined,
+      queueFilter: queueFilter || undefined,
+      beverageTypeFilter: beverageTypeFilter || undefined,
+      sortKey: sortKey || undefined,
+      sortOrder,
+      currentPage,
+      pageSize: PAGE_SIZE,
+    }),
+  ])
 
-  const offset = (currentPage - 1) * PAGE_SIZE
-
-  // Build where conditions for the table query
-  const tableConditions: SQL[] = []
-  if (searchTerm) {
-    tableConditions.push(ilike(applicationData.brandName, `%${searchTerm}%`))
-  }
-  if (statusFilter) {
-    tableConditions.push(
-      eq(
-        labels.status,
-        statusFilter as (typeof labels.status.enumValues)[number],
-      ),
-    )
-  }
-  if (beverageTypeFilter) {
-    tableConditions.push(
-      eq(
-        labels.beverageType,
-        beverageTypeFilter as (typeof labels.beverageType.enumValues)[number],
-      ),
-    )
-  }
-
-  // Fetch approval threshold for queue classification
-  const approvalThreshold = await getApprovalThreshold()
-
-  // Queue filter: "ready" = pending_review + AI approved + all match + high confidence
-  //               "review" = pending_review but not ready
-  if (queueFilter === 'ready') {
-    tableConditions.push(eq(labels.status, 'pending_review'))
-    tableConditions.push(eq(labels.aiProposedStatus, 'approved'))
-    tableConditions.push(
-      sql`${labels.overallConfidence}::numeric >= ${approvalThreshold}`,
-    )
-    // All validation items must be 'match'
-    tableConditions.push(sql`NOT EXISTS (
-      SELECT 1 FROM validation_items vi
-      INNER JOIN validation_results vr ON vi.validation_result_id = vr.id
-      WHERE vr.label_id = ${labels.id}
-      AND vr.is_current = true
-      AND vi.status != 'match'
-    )`)
-  } else if (queueFilter === 'review') {
-    tableConditions.push(eq(labels.status, 'pending_review'))
-    // NOT ready: either AI didn't approve, or confidence too low, or has non-match items
-    tableConditions.push(sql`(
-      ${labels.aiProposedStatus} IS DISTINCT FROM 'approved'
-      OR ${labels.overallConfidence}::numeric < ${approvalThreshold}
-      OR EXISTS (
-        SELECT 1 FROM validation_items vi
-        INNER JOIN validation_results vr ON vi.validation_result_id = vr.id
-        WHERE vr.label_id = ${labels.id}
-        AND vr.is_current = true
-        AND vi.status != 'match'
-      )
-    )`)
-  }
-
-  const tableWhere =
-    tableConditions.length > 0 ? and(...tableConditions) : undefined
-
-  // Flagged count subquery (reused in select and sort)
-  const flaggedCountSql = flaggedCountSubquery()
-
-  // Determine sort order: explicit sort param > queue default > global default
-  const SORT_COLUMNS: Record<
-    string,
-    | ReturnType<typeof sql>
-    | typeof labels.createdAt
-    | typeof applicationData.brandName
-    | typeof labels.beverageType
-    | typeof labels.overallConfidence
-  > = {
-    brandName: applicationData.brandName,
-    beverageType: labels.beverageType,
-    flaggedCount: flaggedCountSql,
-    overallConfidence: labels.overallConfidence,
-    createdAt: labels.createdAt,
-  }
-
-  let orderByClause
-  if (sortKey && SORT_COLUMNS[sortKey]) {
-    const col = SORT_COLUMNS[sortKey]
-    orderByClause = [sortOrder === 'asc' ? asc(col) : desc(col)]
-  } else if (queueFilter === 'ready') {
-    orderByClause = [desc(labels.overallConfidence)]
-  } else {
-    orderByClause = [desc(labels.isPriority), desc(labels.createdAt)]
-  }
-
-  const [tableCountResult, statusCountRows, readyCountResult, rows] =
-    await Promise.all([
-      // Table: filtered count
-      db
-        .select({ total: count() })
-        .from(labels)
-        .leftJoin(applicationData, eq(labels.id, applicationData.labelId))
-        .where(tableWhere),
-      // Status counts (unfiltered, for filter badges)
-      db
-        .select({
-          status: labels.status,
-          count: count(),
-        })
-        .from(labels)
-        .groupBy(labels.status),
-      // "Ready to Approve" count (pending_review + AI approved + high confidence + all match)
-      db
-        .select({ total: count() })
-        .from(labels)
-        .where(
-          and(
-            eq(labels.status, 'pending_review'),
-            eq(labels.aiProposedStatus, 'approved'),
-            sql`${labels.overallConfidence}::numeric >= ${approvalThreshold}`,
-            sql`NOT EXISTS (
-            SELECT 1 FROM validation_items vi
-            INNER JOIN validation_results vr ON vi.validation_result_id = vr.id
-            WHERE vr.label_id = ${labels.id}
-            AND vr.is_current = true
-            AND vi.status != 'match'
-          )`,
-          ),
-        ),
-      // Table: filtered rows
-      db
-        .select({
-          id: labels.id,
-          status: labels.status,
-          beverageType: labels.beverageType,
-          overallConfidence: labels.overallConfidence,
-          correctionDeadline: labels.correctionDeadline,
-          deadlineExpired: labels.deadlineExpired,
-          isPriority: labels.isPriority,
-          createdAt: labels.createdAt,
-          brandName: applicationData.brandName,
-          flaggedCount: flaggedCountSql,
-          thumbnailUrl: thumbnailUrlSubquery(),
-          overrideReasonCode: sql<string | null>`(
-          SELECT so.reason_code FROM status_overrides so
-          WHERE so.label_id = ${labels.id}
-          ORDER BY so.created_at DESC
-          LIMIT 1
-        )`,
-        })
-        .from(labels)
-        .leftJoin(applicationData, eq(labels.id, applicationData.labelId))
-        .where(tableWhere)
-        .orderBy(...orderByClause)
-        .limit(PAGE_SIZE)
-        .offset(offset),
-    ])
-
-  const tableTotal = tableCountResult[0]?.total ?? 0
-  const totalPages = Math.ceil(tableTotal / PAGE_SIZE)
+  const { rows, tableTotal, totalPages } = filteredResult
 
   // Build status count map for filter badges
   const statusCounts: Record<string, number> = {}
@@ -266,17 +118,26 @@ export async function DashboardLabelsTable({
     totalLabels += row.count
   }
   statusCounts['all'] = totalLabels
-  statusCounts['ready_to_approve'] = readyCountResult[0]?.total ?? 0
+  statusCounts['ready_to_approve'] = readyCount
 
-  const labelsWithStatus = rows.map((row) => ({
-    ...row,
-    thumbnailUrl: row.thumbnailUrl ? getSignedImageUrl(row.thumbnailUrl) : null,
-    effectiveStatus: getEffectiveStatus({
-      status: row.status,
-      correctionDeadline: row.correctionDeadline,
-      deadlineExpired: row.deadlineExpired,
-    }),
-  }))
+  // Specialist view (no applicantId) — rows have specialist-specific fields
+  const labelsWithStatus = rows.map((row) => {
+    const r = row as typeof row & {
+      overallConfidence: string | null
+      isPriority: boolean
+      overrideReasonCode: string | null
+      thumbnailUrl: string | null
+    }
+    return {
+      ...r,
+      thumbnailUrl: r.thumbnailUrl ? getSignedImageUrl(r.thumbnailUrl) : null,
+      effectiveStatus: getEffectiveStatus({
+        status: r.status,
+        correctionDeadline: r.correctionDeadline,
+        deadlineExpired: r.deadlineExpired,
+      }),
+    }
+  })
 
   return (
     <>
