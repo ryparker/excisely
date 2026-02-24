@@ -6,12 +6,12 @@ import type { StrictnessLevel } from '@/lib/settings/get-settings'
 // ---------------------------------------------------------------------------
 
 const mocks = vi.hoisted(() => ({
-  revalidatePath: vi.fn(),
+  updateTag: vi.fn(),
   getSession: vi.fn(),
   db: {} as Record<string, unknown>,
 }))
 
-vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidatePath }))
+vi.mock('next/cache', () => ({ updateTag: mocks.updateTag }))
 vi.mock('@/lib/auth/get-session', () => ({ getSession: mocks.getSession }))
 vi.mock('@/db', () => ({ db: mocks.db }))
 
@@ -106,7 +106,7 @@ describe('updateConfidenceThreshold', () => {
     const result = await updateConfidenceThreshold(75)
     expect(result).toEqual({ success: true })
     expect(mocks.db.insert).toHaveBeenCalled()
-    expect(mocks.revalidatePath).toHaveBeenCalledWith('/settings')
+    expect(mocks.updateTag).toHaveBeenCalledWith('settings')
   })
 
   it('updates existing setting', async () => {
@@ -163,7 +163,7 @@ describe('updateFieldStrictness', () => {
       health_warning: 'moderate',
     })
     expect(result).toEqual({ success: true })
-    expect(mocks.revalidatePath).toHaveBeenCalledWith('/settings')
+    expect(mocks.updateTag).toHaveBeenCalledWith('settings')
   })
 })
 
@@ -220,6 +220,6 @@ describe('updateSLATargets', () => {
 
     const result = await updateSLATargets(validTargets)
     expect(result).toEqual({ success: true })
-    expect(mocks.revalidatePath).toHaveBeenCalledWith('/settings')
+    expect(mocks.updateTag).toHaveBeenCalledWith('settings')
   })
 })

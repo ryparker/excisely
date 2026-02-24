@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { connection } from 'next/server'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { and, eq, desc, asc, sql } from 'drizzle-orm'
@@ -48,8 +49,6 @@ export async function generateMetadata({
   return { title: row?.companyName ?? 'Applicant Detail' }
 }
 
-export const dynamic = 'force-dynamic'
-
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
@@ -63,6 +62,7 @@ export default async function ApplicantDetailPage({
   params,
   searchParams,
 }: ApplicantDetailPageProps) {
+  await connection()
   await requireSpecialist()
 
   const { id } = await params

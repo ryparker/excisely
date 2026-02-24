@@ -1,4 +1,5 @@
 import { eq } from 'drizzle-orm'
+import { cacheLife, cacheTag } from 'next/cache'
 
 import { db } from '@/db'
 import { settings } from '@/db/schema'
@@ -41,6 +42,10 @@ const DEFAULT_SLA_TARGETS: SLATargets = {
 }
 
 async function getSettingValue<T>(key: string): Promise<T | null> {
+  'use cache'
+  cacheTag('settings')
+  cacheLife('hours')
+
   const [row] = await db
     .select({ value: settings.value })
     .from(settings)

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { connection } from 'next/server'
 import { Suspense } from 'react'
 import { and, eq, sql, count, desc, asc, ilike, type SQL } from 'drizzle-orm'
 import { Flag, AlertTriangle, ShieldAlert, Activity } from 'lucide-react'
@@ -22,8 +23,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 export const metadata: Metadata = {
   title: 'AI Errors',
 }
-
-export const dynamic = 'force-dynamic'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -339,6 +338,7 @@ interface AIErrorsPageProps {
 export default async function AIErrorsPage({
   searchParams,
 }: AIErrorsPageProps) {
+  await connection()
   await requireSpecialist()
 
   await searchParamsCache.parse(searchParams)

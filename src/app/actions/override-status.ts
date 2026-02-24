@@ -1,10 +1,9 @@
 'use server'
 
 import { eq } from 'drizzle-orm'
-import { revalidatePath } from 'next/cache'
+import { updateTag } from 'next/cache'
 import { z } from 'zod'
 
-import { routes } from '@/config/routes'
 import { db } from '@/db'
 import { labels, statusOverrides } from '@/db/schema'
 import {
@@ -115,8 +114,9 @@ export async function overrideStatus(
       })
       .where(eq(labels.id, labelId))
 
-    revalidatePath(routes.home())
-    revalidatePath(routes.label(labelId))
+    updateTag('labels')
+    updateTag('sla-metrics')
+    // PRODUCTION: after(() => { notifyApplicant(labelId); trackAnalytics('status_overridden') })
 
     return { success: true }
   } catch (error) {

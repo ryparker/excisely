@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { connection } from 'next/server'
 import { desc, asc, eq, sql, count } from 'drizzle-orm'
 import { Building2 } from 'lucide-react'
 
@@ -17,8 +18,6 @@ import { Card, CardContent } from '@/components/ui/card'
 export const metadata: Metadata = {
   title: 'Applicants',
 }
-
-export const dynamic = 'force-dynamic'
 
 const PAGE_SIZE = 20
 
@@ -44,6 +43,7 @@ interface ApplicantsPageProps {
 export default async function ApplicantsPage({
   searchParams,
 }: ApplicantsPageProps) {
+  await connection()
   await requireSpecialist()
 
   await searchParamsCache.parse(searchParams)

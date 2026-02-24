@@ -1,10 +1,9 @@
 'use server'
 
 import { eq, and } from 'drizzle-orm'
-import { revalidatePath } from 'next/cache'
+import { updateTag } from 'next/cache'
 import pLimit from 'p-limit'
 
-import { routes } from '@/config/routes'
 import { db } from '@/db'
 import {
   labels,
@@ -152,7 +151,8 @@ export async function batchApprove(
     ),
   )
 
-  revalidatePath(routes.home())
+  updateTag('labels')
+  updateTag('sla-metrics')
 
   return {
     success: failedIds.length === 0,

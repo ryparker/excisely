@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { connection } from 'next/server'
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
@@ -28,8 +29,6 @@ export const metadata: Metadata = {
   title: 'Submissions',
 }
 
-export const dynamic = 'force-dynamic'
-
 interface ApplicantDashboardProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }
@@ -37,6 +36,7 @@ interface ApplicantDashboardProps {
 export default async function ApplicantDashboard({
   searchParams,
 }: ApplicantDashboardProps) {
+  await connection()
   const session = await requireApplicant()
 
   await searchParamsCache.parse(searchParams)

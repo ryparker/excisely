@@ -5,12 +5,12 @@ import { createLabel, createSession } from '@/test/factories'
 // ---------------------------------------------------------------------------
 
 const mocks = vi.hoisted(() => ({
-  revalidatePath: vi.fn(),
+  updateTag: vi.fn(),
   getSession: vi.fn(),
   db: {} as Record<string, unknown>,
 }))
 
-vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidatePath }))
+vi.mock('next/cache', () => ({ updateTag: mocks.updateTag }))
 vi.mock('@/lib/auth/get-session', () => ({ getSession: mocks.getSession }))
 vi.mock('@/db', () => ({ db: mocks.db }))
 
@@ -240,7 +240,7 @@ describe('overrideStatus', () => {
   // Audit trail + revalidation
   // -------------------------------------------------------------------------
 
-  it('creates a statusOverrides audit record and calls revalidatePath', async () => {
+  it('creates a statusOverrides audit record and calls updateTag', async () => {
     const session = createSession()
     mocks.getSession.mockResolvedValue(session)
     setupDb([createLabel({ id: 'lbl_test', status: 'pending_review' })])
@@ -265,8 +265,8 @@ describe('overrideStatus', () => {
       justification: 'Health warning missing from label',
     })
 
-    // Verify revalidatePath was called
-    expect(mocks.revalidatePath).toHaveBeenCalledWith('/')
-    expect(mocks.revalidatePath).toHaveBeenCalledWith('/labels/lbl_test')
+    // Verify updateTag was called for cache invalidation
+    expect(mocks.updateTag).toHaveBeenCalledWith('labels')
+    expect(mocks.updateTag).toHaveBeenCalledWith('sla-metrics')
   })
 })

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { connection } from 'next/server'
 import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -52,8 +53,6 @@ export async function generateMetadata({
     .limit(1)
   return { title: row?.brandName ?? 'Label Detail' }
 }
-
-export const dynamic = 'force-dynamic'
 
 const REVIEWABLE_STATUSES = new Set([
   'pending_review',
@@ -402,6 +401,7 @@ interface LabelDetailPageProps {
 export default async function LabelDetailPage({
   params,
 }: LabelDetailPageProps) {
+  await connection()
   await requireSpecialist()
 
   const { id } = await params

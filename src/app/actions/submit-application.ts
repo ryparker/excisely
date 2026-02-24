@@ -1,6 +1,8 @@
 'use server'
 
 import { eq } from 'drizzle-orm'
+import { updateTag } from 'next/cache'
+import { after } from 'next/server'
 
 import { db } from '@/db'
 import {
@@ -367,20 +369,27 @@ export async function submitApplication(
         ? ('approved' as const)
         : ('pending_review' as const)
 
+    updateTag('labels')
+    updateTag('sla-metrics')
+    // PRODUCTION: after(() => { notifyApplicant(label.id); trackAnalytics('label_submitted') })
+
     return { success: true, labelId: label.id, status: finalStatus }
   } catch (error) {
     console.error('[submitApplication] Unexpected error:', error)
 
     // Best-effort: reset partially-created label to pending so it can be retried
     if (labelId) {
-      try {
-        await db
-          .update(labels)
-          .set({ status: 'pending' })
-          .where(eq(labels.id, labelId))
-      } catch {
-        // Cleanup failed — label stays in 'processing' state
-      }
+      const failedLabelId = labelId
+      after(async () => {
+        try {
+          await db
+            .update(labels)
+            .set({ status: 'pending' })
+            .where(eq(labels.id, failedLabelId))
+        } catch {
+          // Cleanup failed — label stays in 'processing' state
+        }
+      })
     }
 
     if (error instanceof PipelineTimeoutError) {

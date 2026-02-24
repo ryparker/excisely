@@ -1,4 +1,5 @@
 import { eq, and, desc, asc, count, ilike, or, type SQL } from 'drizzle-orm'
+import { cacheLife, cacheTag } from 'next/cache'
 
 import { db } from '@/db'
 import { labels, applicationData } from '@/db/schema'
@@ -79,6 +80,10 @@ export async function SubmissionsTableSection({
   sortOrder: 'asc' | 'desc'
   currentPage: number
 }) {
+  'use cache'
+  cacheTag('labels')
+  cacheLife('seconds')
+
   const offset = (currentPage - 1) * PAGE_SIZE
 
   // Build where conditions

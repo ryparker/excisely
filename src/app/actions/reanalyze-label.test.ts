@@ -12,7 +12,7 @@ import {
 // ---------------------------------------------------------------------------
 
 const mocks = vi.hoisted(() => ({
-  revalidatePath: vi.fn(),
+  updateTag: vi.fn(),
   getSession: vi.fn(),
   extractLabelFieldsForSubmission: vi.fn(),
   compareField: vi.fn(),
@@ -20,7 +20,7 @@ const mocks = vi.hoisted(() => ({
   db: {} as Record<string, unknown>,
 }))
 
-vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidatePath }))
+vi.mock('next/cache', () => ({ updateTag: mocks.updateTag }))
 vi.mock('@/lib/auth/get-session', () => ({ getSession: mocks.getSession }))
 vi.mock('@/lib/ai/extract-label', () => ({
   extractLabelFieldsForSubmission: mocks.extractLabelFieldsForSubmission,
@@ -385,7 +385,7 @@ describe('reanalyzeLabel', () => {
     expect(lastSetCall.status).toBe('pending_review')
   })
 
-  it('calls revalidatePath after successful reanalysis', async () => {
+  it('calls updateTag after successful reanalysis', async () => {
     mocks.getSession.mockResolvedValue(createSession())
     const label = createLabel({ id: 'lbl_test', status: 'approved' })
     const appData = createApplicationData({ labelId: 'lbl_test' })
@@ -409,7 +409,7 @@ describe('reanalyzeLabel', () => {
 
     await reanalyzeLabel('lbl_test')
 
-    expect(mocks.revalidatePath).toHaveBeenCalledWith('/')
-    expect(mocks.revalidatePath).toHaveBeenCalledWith('/labels/lbl_test')
+    expect(mocks.updateTag).toHaveBeenCalledWith('labels')
+    expect(mocks.updateTag).toHaveBeenCalledWith('sla-metrics')
   })
 })

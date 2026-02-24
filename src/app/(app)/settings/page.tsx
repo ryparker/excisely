@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { connection } from 'next/server'
 import { Suspense } from 'react'
 import { sql } from 'drizzle-orm'
 
@@ -23,8 +24,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 export const metadata: Metadata = {
   title: 'Settings',
 }
-
-export const dynamic = 'force-dynamic'
 
 // ---------------------------------------------------------------------------
 // Skeleton
@@ -180,6 +179,7 @@ function SectionHeading({
 }
 
 export default async function SettingsPage() {
+  await connection()
   await requireSpecialist()
 
   return (

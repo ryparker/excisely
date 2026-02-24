@@ -1,4 +1,5 @@
 import { eq, and, count, asc, gt } from 'drizzle-orm'
+import { cacheLife, cacheTag } from 'next/cache'
 
 import { db } from '@/db'
 import { labels } from '@/db/schema'
@@ -36,6 +37,9 @@ export async function SubmissionsSummarySection({
 }: {
   applicantId: string
 }) {
+  'use cache'
+  cacheTag('labels')
+  cacheLife('seconds')
   const [statusCountRows, nearestDeadlineResult] = await Promise.all([
     db
       .select({ status: labels.status, count: count() })

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { connection } from 'next/server'
 import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -45,8 +46,6 @@ export async function generateMetadata({
     .limit(1)
   return { title: row?.brandName ?? 'Submission Detail' }
 }
-
-export const dynamic = 'force-dynamic'
 
 // ---------------------------------------------------------------------------
 // Skeleton components for Suspense fallbacks
@@ -273,6 +272,7 @@ interface SubmissionDetailPageProps {
 export default async function SubmissionDetailPage({
   params,
 }: SubmissionDetailPageProps) {
+  await connection()
   const session = await requireApplicant()
 
   const { id } = await params

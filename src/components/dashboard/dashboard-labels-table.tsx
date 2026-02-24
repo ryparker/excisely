@@ -1,4 +1,5 @@
 import { eq, and, desc, asc, count, ilike, sql, type SQL } from 'drizzle-orm'
+import { cacheLife, cacheTag } from 'next/cache'
 import { ShieldCheck } from 'lucide-react'
 
 import { db } from '@/db'
@@ -96,6 +97,10 @@ export async function DashboardLabelsTable({
   currentPage: number
   userRole: string
 }) {
+  'use cache'
+  cacheTag('labels')
+  cacheLife('seconds')
+
   const offset = (currentPage - 1) * PAGE_SIZE
 
   // Build where conditions for the table query

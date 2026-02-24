@@ -1,9 +1,8 @@
 'use server'
 
 import { eq, and } from 'drizzle-orm'
-import { revalidatePath } from 'next/cache'
+import { updateTag } from 'next/cache'
 
-import { routes } from '@/config/routes'
 import { db } from '@/db'
 import {
   applicationData,
@@ -276,8 +275,8 @@ export async function reanalyzeLabel(
         .where(eq(labels.id, labelId))
     }
 
-    revalidatePath(routes.home())
-    revalidatePath(routes.label(labelId))
+    updateTag('labels')
+    updateTag('sla-metrics')
 
     return { success: true, labelId }
   } catch (error) {

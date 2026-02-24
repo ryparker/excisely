@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { connection } from 'next/server'
 import { Suspense } from 'react'
 
 import { requireSpecialist } from '@/lib/auth/require-role'
@@ -20,8 +21,6 @@ export const metadata: Metadata = {
   title: 'Dashboard',
 }
 
-export const dynamic = 'force-dynamic'
-
 interface SpecialistDashboardProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }
@@ -29,6 +28,7 @@ interface SpecialistDashboardProps {
 export default async function SpecialistDashboard({
   searchParams,
 }: SpecialistDashboardProps) {
+  await connection()
   const session = await requireSpecialist()
   const { user } = session
 

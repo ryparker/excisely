@@ -16,7 +16,9 @@ const contentSecurityPolicy = cspDirectives.join('; ')
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  reactCompiler: true,
   experimental: {
+    useCache: true,
     webVitalsAttribution: ['CLS', 'LCP'],
     viewTransition: true,
     isolatedDevBuild: true,

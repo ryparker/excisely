@@ -8,6 +8,17 @@ All notable changes to Excisely are documented here. This project follows a narr
 
 ### Added
 
+- **Server-side caching with `use cache`** — Settings cached for hours, SLA metrics cached for minutes, label data cached for seconds. Uses Next.js 16's `cacheTag()` + `cacheLife()` directives. Previously every page was `force-dynamic` with zero caching.
+- **React Compiler** — Enabled `reactCompiler: true` for automatic memoization across all components. Eliminates the need for manual `useCallback`/`useMemo`.
+- **Optimistic batch approval** — Selected labels show approved status immediately in the UI via `useOptimistic` while the server action runs. Reverts on error.
+- **Deferred error recovery** — `submit-application.ts` uses `after()` from `next/server` to defer label status cleanup on pipeline failure, returning the error response immediately.
+
+### Changed
+
+- **Tag-based cache invalidation replaces `revalidatePath`** — All server actions now use granular `updateTag('labels' | 'sla-metrics' | 'settings')` instead of full-page `revalidatePath()`. Specialists see changes immediately without invalidating unrelated cached data.
+- **`connection()` replaces `force-dynamic`** — All 9 app pages now use `await connection()` from `next/server` instead of `export const dynamic = 'force-dynamic'`. This is the modern Next.js 16 approach for opting into dynamic rendering.
+- **`experimental.useCache` over `cacheComponents`** — After discovering that `cacheComponents: true` requires all dynamic data inside `<Suspense>` boundaries (incompatible with auth-gated layouts), switched to `experimental: { useCache: true }` which enables `use cache` without the strict enforcement.
+
 - **Auto-detect beverage type from label images** — Applicants can now skip the beverage type selection step. The AI pipeline detects the product type from OCR keywords (whiskey/bourbon → spirits, cabernet/sulfites → wine, ale/lager → malt) before running type-specific extraction. Happy path runs in ~4-9s (same as manual selection). Falls back to the generic pipeline for ambiguous labels. Auto-detected type shows an "AI detected" badge that disappears when the user overrides it.
 - **Regulations Reference page** — New `/regulations` route with curated plain-English summaries of ~30 key CFR sections across Parts 4 (Wine), 5 (Spirits), 7 (Malt Beverages), and 16 (Health Warning). Searchable, filterable by part and field, with deep links to eCFR for authoritative full text. Progressive disclosure: summary first, key requirements on expand, full legal text one click away.
 - **Contextual regulation links in field tooltips** — Hovering over any field label (Brand Name, Alcohol Content, etc.) now shows CFR citation badges linking to the specific regulation. Puts regulatory context right where specialists already look.

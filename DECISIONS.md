@@ -8,6 +8,33 @@ The goal is to show iterative, thoughtful engineering judgment — not just what
 
 ## 1. Engineering Decisions
 
+### Next.js 16 Caching Strategy: `use cache` + `updateTag` + React Compiler _(Feb 24, 2026)_
+
+**Chosen:** Three-layer caching approach using Next.js 16's `use cache` directive:
+
+1. **Settings** — `cacheLife('hours')` + `cacheTag('settings')`. Settings change only when a specialist manually updates them, so hour-level caching is safe. All 6 exported setting functions call one `getSettingValue()` helper, so adding `use cache` to that single function caches everything transitively.
+2. **SLA / dashboard aggregates** — `cacheLife('minutes')` + `cacheTag('sla-metrics')`. These run 4+ parallel aggregate queries over 30 days of data. Minute-level freshness is sufficient for operational metrics.
+3. **Label data** — `cacheLife('seconds')` + `cacheTag('labels')`. Dashboard tables and submission lists cache per unique argument combination (search, filter, page params). Second-level caching prevents redundant queries on rapid navigation while staying near-real-time.
+
+**Cache invalidation:** All server actions use `updateTag()` (not `revalidateTag()`) for immediate invalidation — specialists expect to see their changes reflected instantly, not stale-while-revalidate. Each action invalidates only the tags it affects: `updateTag('labels')` + `updateTag('sla-metrics')` for label mutations, `updateTag('settings')` for setting changes.
+
+**React Compiler:** Enabled `reactCompiler: true` in `next.config.ts`. Auto-memoizes all components and hooks, eliminating the need for manual `useCallback`/`useMemo`. Zero-effort performance improvement across 15+ components that previously relied on manual memoization.
+
+**`useOptimistic` for batch approve:** When specialists click "Approve Selected", selected rows immediately show approved status in the UI while the server action runs. Reverts on error. This eliminates the perceived latency of bulk operations.
+
+**`after()` for deferred side effects:** Used `after()` from `next/server` in `submit-application.ts` to defer error recovery (resetting a label to `pending` on pipeline failure) — the error response returns immediately while cleanup runs in the background.
+
+**Alternatives considered:**
+
+- **`cacheComponents: true`** — Next.js 16's full Partial Prerendering mode. Tried this first but it requires ALL dynamic data access to be inside `<Suspense>` boundaries, which is incompatible with auth-gated layouts that check session cookies at the top level. Would have required a massive refactoring of every route. Replaced with `experimental: { useCache: true }` which enables the `use cache` directive without the strict Suspense enforcement.
+- **`useLinkStatus`** from `next/navigation` for nav loading indicators — does not exist in Next.js 16.1.6. Dropped entirely.
+- **`useActionState`** — Current `useTransition` + React Hook Form pattern works well. `useActionState` requires a `(prevState, formData)` signature that doesn't pair cleanly with RHF's `handleSubmit`. Not worth the refactor.
+- **Custom `cacheLife` profiles** — Built-in profiles (`'seconds'`, `'minutes'`, `'hours'`) map cleanly to our three data categories. Custom profiles would be premature optimization.
+- **Full PPR per-route** — Would require removing `force-dynamic` from all pages and adding fine-grained Suspense everywhere. Settings + SLA + labels caching captures most of the value.
+- **AI pipeline caching** — Extraction results are per-label with unique images. The database is the cache — once a label is processed, results are stored in `validation_items` and never recomputed (unless explicitly re-analyzed).
+
+**Reasoning:** The codebase had zero caching — every page used `force-dynamic`, settings were re-queried on every request, and SLA aggregates recomputed on every dashboard load. Server actions used `revalidatePath` (full-page invalidation) instead of granular tag-based invalidation. The `use cache` + `updateTag` pattern is the idiomatic Next.js 16 approach: explicit opt-in caching with precise invalidation, no stale data risk, and no infrastructure changes required. `experimental: { useCache: true }` was the pragmatic choice over `cacheComponents: true` — it delivers the caching benefits without requiring an architectural overhaul of the auth-gated layout.
+
 ### Auto-Detect Beverage Type via Keyword Matching Before AI Classification _(Feb 23, 2026)_
 
 **Chosen:** Two-step pipeline — rule-based keyword matching on OCR text to detect beverage type (~0ms, free), then type-specific gpt-4.1 extraction. Falls back to the existing all-fields gpt-5-mini pipeline when keywords are ambiguous.

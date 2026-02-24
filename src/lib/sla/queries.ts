@@ -1,4 +1,5 @@
 import { and, count, eq, gte, isNotNull, sql, sum } from 'drizzle-orm'
+import { cacheLife, cacheTag } from 'next/cache'
 
 import { db } from '@/db'
 import { humanReviews, labels, validationResults } from '@/db/schema'
@@ -19,6 +20,10 @@ const DEFAULT_SLA_METRICS: SLAMetrics = {
 
 /** Fetch all 4 SLA metrics (last 30 days). Returns defaults on DB failure. */
 export async function fetchSLAMetrics(): Promise<SLAMetrics> {
+  'use cache'
+  cacheTag('sla-metrics')
+  cacheLife('minutes')
+
   try {
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
@@ -113,6 +118,10 @@ const DEFAULT_TOKEN_METRICS: TokenUsageMetrics = {
 
 /** Fetch aggregated token usage from validation results (last 30 days). Returns defaults on DB failure. */
 export async function fetchTokenUsageMetrics(): Promise<TokenUsageMetrics> {
+  'use cache'
+  cacheTag('sla-metrics')
+  cacheLife('minutes')
+
   try {
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)

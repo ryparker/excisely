@@ -1,6 +1,7 @@
 'use server'
 
 import { and, eq } from 'drizzle-orm'
+import { updateTag } from 'next/cache'
 import { z } from 'zod'
 
 import { db } from '@/db'
@@ -198,6 +199,10 @@ export async function submitReview(
         correctionDeadline,
       })
       .where(eq(labels.id, labelId))
+
+    updateTag('labels')
+    updateTag('sla-metrics')
+    // PRODUCTION: after(() => { notifyApplicant(labelId); trackAnalytics('review_submitted') })
 
     return { success: true }
   } catch (error) {

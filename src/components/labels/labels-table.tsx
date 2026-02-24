@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useTransition } from 'react'
+import React, { useOptimistic, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, Loader2, RefreshCw, ShieldCheck } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
@@ -137,6 +137,17 @@ export function LabelsTable({
   const router = useRouter()
   const isApplicant = userRole === 'applicant'
   const isReadyQueue = queueMode === 'ready'
+
+  // Optimistic UI for batch approve — immediately show approved status
+  const [optimisticLabels, updateOptimisticLabels] = useOptimistic(
+    rows,
+    (state, approvedIds: string[]) =>
+      state.map((label) =>
+        approvedIds.includes(label.id)
+          ? { ...label, status: 'approved', effectiveStatus: 'approved' }
+          : label,
+      ),
+  )
   const {
     activeIds: reanalyzingIds,
     startReanalyzing,
@@ -282,6 +293,7 @@ export function LabelsTable({
 
     setBatchApproveRunning(true)
     setBatchApproveResult(null)
+    updateOptimisticLabels(ids)
 
     const result = await batchApprove(ids)
     setBatchApproveResult({
@@ -380,7 +392,7 @@ export function LabelsTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((label) => {
+            {optimisticLabels.map((label) => {
               const isRowReanalyzing = reanalyzingIds.has(label.id)
               const displayStatus = isRowReanalyzing
                 ? 'processing'

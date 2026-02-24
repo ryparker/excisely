@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { connection } from 'next/server'
 import { sql } from 'drizzle-orm'
 
 import { routes } from '@/config/routes'
@@ -21,6 +22,7 @@ export default async function AppLayout({
   specialist: React.ReactNode
   applicant: React.ReactNode
 }>) {
+  await connection()
   const session = await getSession()
 
   if (!session) {
