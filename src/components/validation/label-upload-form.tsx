@@ -1297,21 +1297,25 @@ export function LabelUploadForm({
         <div className="flex min-h-[34rem] flex-col gap-5 p-5">
           {/* Ghost placeholder cards */}
           <div className="flex flex-1 gap-3">
-            <div className="group/front flex min-h-44 w-full flex-1 flex-col items-center justify-center gap-2.5 rounded-xl border-2 border-dashed border-muted-foreground/20 bg-muted/5 transition-[transform,border-color,background-color,box-shadow] duration-200 ease-out hover:-translate-y-1 hover:border-primary/40 hover:bg-primary/[0.04] hover:shadow-md sm:w-1/2 md:w-1/3 md:flex-none">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-muted/60 transition-[background-color] duration-200 ease-out group-hover/front:bg-primary/15">
-                <ImagePlus className="size-5 text-muted-foreground/40 transition-[color] duration-200 ease-out group-hover/front:text-primary/70" />
+            <div className="group/front flex w-full flex-1 flex-col pb-1 sm:w-1/2 md:w-1/3 md:flex-none">
+              <div className="flex min-h-44 flex-1 flex-col items-center justify-center gap-2.5 rounded-xl border-2 border-dashed border-muted-foreground/20 bg-muted/5 transition-[transform,border-color,background-color,box-shadow] duration-200 ease-out group-hover/front:-translate-y-1 group-hover/front:border-primary/40 group-hover/front:bg-primary/[0.04] group-hover/front:shadow-md">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-muted/60 transition-[background-color] duration-200 ease-out group-hover/front:bg-primary/15">
+                  <ImagePlus className="size-5 text-muted-foreground/40 transition-[color] duration-200 ease-out group-hover/front:text-primary/70" />
+                </div>
+                <span className="text-xs font-medium text-muted-foreground/40 transition-[color] duration-200 ease-out group-hover/front:text-primary/70">
+                  Front label
+                </span>
               </div>
-              <span className="text-xs font-medium text-muted-foreground/40 transition-[color] duration-200 ease-out group-hover/front:text-primary/70">
-                Front label
-              </span>
             </div>
-            <div className="group/back hidden min-h-44 flex-1 flex-col items-center justify-center gap-2.5 rounded-xl border-2 border-dashed border-muted-foreground/15 bg-muted/5 transition-[transform,border-color,background-color,box-shadow] duration-200 ease-out hover:-translate-y-1 hover:border-primary/40 hover:bg-primary/[0.04] hover:shadow-md sm:flex sm:w-1/2 md:w-1/3 md:flex-none">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-muted/40 transition-[background-color] duration-200 ease-out group-hover/back:bg-primary/15">
-                <ImagePlus className="size-5 text-muted-foreground/25 transition-[color] duration-200 ease-out group-hover/back:text-primary/70" />
+            <div className="group/back hidden flex-1 flex-col pb-1 sm:flex sm:w-1/2 md:w-1/3 md:flex-none">
+              <div className="flex min-h-44 flex-1 flex-col items-center justify-center gap-2.5 rounded-xl border-2 border-dashed border-muted-foreground/15 bg-muted/5 transition-[transform,border-color,background-color,box-shadow] duration-200 ease-out group-hover/back:-translate-y-1 group-hover/back:border-primary/40 group-hover/back:bg-primary/[0.04] group-hover/back:shadow-md">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-muted/40 transition-[background-color] duration-200 ease-out group-hover/back:bg-primary/15">
+                  <ImagePlus className="size-5 text-muted-foreground/25 transition-[color] duration-200 ease-out group-hover/back:text-primary/70" />
+                </div>
+                <span className="text-xs font-medium text-muted-foreground/25 transition-[color] duration-200 ease-out group-hover/back:text-primary/70">
+                  Back label
+                </span>
               </div>
-              <span className="text-xs font-medium text-muted-foreground/25 transition-[color] duration-200 ease-out group-hover/back:text-primary/70">
-                Back label
-              </span>
             </div>
           </div>
           {/* Upload instructions */}

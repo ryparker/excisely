@@ -79,9 +79,13 @@ const SCROLL_AMOUNT = 360
 
 interface HorizontalTimelineProps {
   events: TimelineEvent[]
+  guidance?: string
 }
 
-export function HorizontalTimeline({ events }: HorizontalTimelineProps) {
+export function HorizontalTimeline({
+  events,
+  guidance,
+}: HorizontalTimelineProps) {
   const shouldReduceMotion = useReducedMotion()
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
@@ -232,6 +236,12 @@ export function HorizontalTimeline({ events }: HorizontalTimelineProps) {
           )
         })}
       </div>
+
+      {guidance && (
+        <p className="mt-3 text-center text-sm text-muted-foreground">
+          {guidance}
+        </p>
+      )}
     </div>
   )
 }
