@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { count, eq, sql } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 
 import { db } from '@/db'
 import { labels } from '@/db/schema'
@@ -9,11 +9,16 @@ import { fetchSLAMetrics } from '@/lib/sla/queries'
 import { getSLAStatus, worstSLAStatus, type SLAStatus } from '@/lib/sla/status'
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import { MobileHeader } from '@/components/layout/mobile-header'
+import { ParallelRouteGuard } from '@/components/layout/parallel-route-guard'
 
 export default async function AppLayout({
   children,
+  specialist,
+  applicant,
 }: Readonly<{
   children: React.ReactNode
+  specialist: React.ReactNode
+  applicant: React.ReactNode
 }>) {
   const session = await getSession()
 
@@ -105,7 +110,10 @@ export default async function AppLayout({
         }}
       />
       <main id="main" className="min-w-0 flex-1 px-4 py-4 md:px-8 md:py-6">
-        {children}
+        <ParallelRouteGuard showAtRoot>
+          {userRole === 'specialist' ? specialist : applicant}
+        </ParallelRouteGuard>
+        <ParallelRouteGuard showAtRoot={false}>{children}</ParallelRouteGuard>
       </main>
     </div>
   )

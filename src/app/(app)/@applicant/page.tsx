@@ -29,7 +29,7 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic'
 
-interface SubmissionsPageProps {
+interface ApplicantDashboardProps {
   searchParams: Promise<{
     page?: string
     search?: string
@@ -40,9 +40,9 @@ interface SubmissionsPageProps {
   }>
 }
 
-export default async function SubmissionsPage({
+export default async function ApplicantDashboard({
   searchParams,
-}: SubmissionsPageProps) {
+}: ApplicantDashboardProps) {
   const session = await requireApplicant()
 
   const params = await searchParams

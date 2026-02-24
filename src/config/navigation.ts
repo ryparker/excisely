@@ -13,7 +13,7 @@ export function getNavItems(
 ): NavItem[] {
   if (role === 'applicant') {
     return [
-      { label: 'My Submissions', href: '/submissions', icon: FileText },
+      { label: 'My Submissions', href: '/', icon: FileText },
       { label: 'Regulations', href: '/regulations', icon: Scale },
     ]
   }

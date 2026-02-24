@@ -16,7 +16,7 @@ export async function requireAuth() {
  */
 export async function requireSpecialist() {
   const session = await requireAuth()
-  if (session.user.role === 'applicant') redirect('/submissions')
+  if (session.user.role === 'applicant') redirect('/')
   return session
 }
 
