@@ -1,1 +1,1 @@
-export * from './LabelUploadForm'
+export { LabelUploadForm } from './LabelUploadForm'
