@@ -4,6 +4,7 @@ import { Suspense } from 'react'
 
 import { requireSpecialist } from '@/lib/auth/require-role'
 import { searchParamsCache } from '@/lib/search-params-cache'
+import { Section } from '@/components/shared/Section'
 import { DashboardAnimatedShell } from '@/components/dashboard/DashboardAnimatedShell'
 import {
   DashboardSLACards,
@@ -66,9 +67,11 @@ export default async function SpecialistDashboard({
         />
       }
       stats={
-        <Suspense fallback={<SLACardsSkeleton />}>
-          <DashboardSLACards />
-        </Suspense>
+        <Section>
+          <Suspense fallback={<SLACardsSkeleton />}>
+            <DashboardSLACards />
+          </Suspense>
+        </Section>
       }
       filters={
         <div className="space-y-3">
@@ -82,18 +85,20 @@ export default async function SpecialistDashboard({
               paramKeys={['status', 'beverageType', 'queue']}
             />
           </div>
-          <Suspense fallback={<TableSkeleton />}>
-            <DashboardLabelsTable
-              searchTerm={searchTerm}
-              statusFilter={statusFilter}
-              queueFilter={queueFilter}
-              beverageTypeFilter={beverageTypeFilter}
-              sortKey={sortKey}
-              sortOrder={sortOrder}
-              currentPage={currentPage}
-              userRole={user.role}
-            />
-          </Suspense>
+          <Section>
+            <Suspense fallback={<TableSkeleton />}>
+              <DashboardLabelsTable
+                searchTerm={searchTerm}
+                statusFilter={statusFilter}
+                queueFilter={queueFilter}
+                beverageTypeFilter={beverageTypeFilter}
+                sortKey={sortKey}
+                sortOrder={sortOrder}
+                currentPage={currentPage}
+                userRole={user.role}
+              />
+            </Suspense>
+          </Section>
         </div>
       }
       table={null}

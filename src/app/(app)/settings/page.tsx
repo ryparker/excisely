@@ -17,6 +17,7 @@ import {
 import { requireSpecialist } from '@/lib/auth/require-role'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageShell } from '@/components/layout/PageShell'
+import { Section } from '@/components/shared/Section'
 import { ApprovalThreshold } from '@/components/settings/ApprovalThreshold'
 import { AutoApprovalToggle } from '@/components/settings/AutoApprovalToggle'
 import { ConfidenceThreshold } from '@/components/settings/ConfidenceThreshold'
@@ -109,25 +110,6 @@ async function SLASectionData() {
 // Page
 // ---------------------------------------------------------------------------
 
-function SectionHeading({
-  title,
-  description,
-  first,
-}: {
-  title: string
-  description: string
-  first?: boolean
-}) {
-  return (
-    <div className={first ? '' : 'border-t pt-6'}>
-      <h2 className="font-heading text-lg font-semibold tracking-tight">
-        {title}
-      </h2>
-      <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
-    </div>
-  )
-}
-
 export default async function SettingsPage() {
   await connection()
   await requireSpecialist()
@@ -140,44 +122,46 @@ export default async function SettingsPage() {
       />
 
       {/* --- AI Thresholds --- */}
-      <SectionHeading
+      <Section
         title="AI Thresholds"
         description="Control how the AI pipeline scores and routes labels."
-        first
-      />
-
-      <Suspense fallback={<SettingsSkeleton />}>
-        <ConfidenceSectionData />
-      </Suspense>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Suspense fallback={<SettingsSkeleton />}>
-          <AutoApprovalSectionData />
-        </Suspense>
-        <Suspense fallback={<SettingsSkeleton />}>
-          <ApprovalThresholdSectionData />
-        </Suspense>
-      </div>
+      >
+        <div className="space-y-6">
+          <Suspense fallback={<SettingsSkeleton />}>
+            <ConfidenceSectionData />
+          </Suspense>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Suspense fallback={<SettingsSkeleton />}>
+              <AutoApprovalSectionData />
+            </Suspense>
+            <Suspense fallback={<SettingsSkeleton />}>
+              <ApprovalThresholdSectionData />
+            </Suspense>
+          </div>
+        </div>
+      </Section>
 
       {/* --- Field Comparison --- */}
-      <SectionHeading
+      <Section
         title="Field Comparison"
         description="Fine-tune how strictly each field is matched between application data and extracted label text."
-      />
-
-      <Suspense fallback={<SettingsSkeleton height="h-[400px]" />}>
-        <FieldStrictnessSectionData />
-      </Suspense>
+        className="border-t pt-6"
+      >
+        <Suspense fallback={<SettingsSkeleton height="h-[400px]" />}>
+          <FieldStrictnessSectionData />
+        </Suspense>
+      </Section>
 
       {/* --- Operations --- */}
-      <SectionHeading
+      <Section
         title="Operations"
         description="Service level targets for review turnaround."
-      />
-
-      <Suspense fallback={<SettingsSkeleton />}>
-        <SLASectionData />
-      </Suspense>
+        className="border-t pt-6"
+      >
+        <Suspense fallback={<SettingsSkeleton />}>
+          <SLASectionData />
+        </Suspense>
+      </Section>
     </PageShell>
   )
 }

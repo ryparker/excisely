@@ -10,6 +10,7 @@ import { searchParamsCache } from '@/lib/search-params-cache'
 import { FIELD_DISPLAY_NAMES } from '@/config/field-display-names'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageShell } from '@/components/layout/PageShell'
+import { Section } from '@/components/shared/Section'
 import { SearchInput } from '@/components/shared/SearchInput'
 import { ResetFiltersButton } from '@/components/shared/ResetFiltersButton'
 import { AIErrorsTable } from '@/components/ai-errors/AiErrorsTable'
@@ -244,9 +245,11 @@ export default async function AIErrorsPage({
         title="AI Errors"
         description="Fields where specialist review disagreed with AI classification."
       />
-      <Suspense fallback={<AIErrorStatsSkeleton />}>
-        <AIErrorStats />
-      </Suspense>
+      <Section>
+        <Suspense fallback={<AIErrorStatsSkeleton />}>
+          <AIErrorStats />
+        </Suspense>
+      </Section>
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <SearchInput
@@ -256,16 +259,18 @@ export default async function AIErrorsPage({
           />
           <ResetFiltersButton paramKeys={['field', 'type', 'search']} />
         </div>
-        <Suspense fallback={<AIErrorTableSkeleton />}>
-          <AIErrorTableSection
-            searchTerm={searchTerm}
-            fieldFilter={fieldFilter}
-            typeFilter={typeFilter}
-            sortKey={sortKey}
-            sortOrder={sortOrder}
-            currentPage={currentPage}
-          />
-        </Suspense>
+        <Section>
+          <Suspense fallback={<AIErrorTableSkeleton />}>
+            <AIErrorTableSection
+              searchTerm={searchTerm}
+              fieldFilter={fieldFilter}
+              typeFilter={typeFilter}
+              sortKey={sortKey}
+              sortOrder={sortOrder}
+              currentPage={currentPage}
+            />
+          </Suspense>
+        </Section>
       </div>
     </PageShell>
   )

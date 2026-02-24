@@ -27,6 +27,7 @@ import { getSignedImageUrl } from '@/lib/storage/blob'
 import { buildTimeline } from '@/lib/timeline/build-timeline'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageShell } from '@/components/layout/PageShell'
+import { Section } from '@/components/shared/Section'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { ReanalyzeButton } from '@/components/shared/ReanalyzeButton'
 import { ReanalysisGuard } from '@/components/shared/ReanalysisGuard'
@@ -416,26 +417,30 @@ export default async function LabelDetailPage({
       </div>
 
       {/* Correspondence timeline — streams independently */}
-      <Suspense fallback={<TimelineSkeleton />}>
-        <LabelTimelineSection
-          labelId={label.id}
-          label={label}
-          appData={appData}
-          applicant={applicant}
-          effectiveStatus={effectiveStatus}
-        />
-      </Suspense>
+      <Section>
+        <Suspense fallback={<TimelineSkeleton />}>
+          <LabelTimelineSection
+            labelId={label.id}
+            label={label}
+            appData={appData}
+            applicant={applicant}
+            effectiveStatus={effectiveStatus}
+          />
+        </Suspense>
+      </Section>
 
       {/* Content area — streams independently */}
-      <Suspense fallback={<ContentSkeleton />}>
-        <LabelContentSection
-          labelId={label.id}
-          label={label}
-          appData={appData}
-          effectiveStatus={effectiveStatus}
-          isReviewable={isReviewable}
-        />
-      </Suspense>
+      <Section>
+        <Suspense fallback={<ContentSkeleton />}>
+          <LabelContentSection
+            labelId={label.id}
+            label={label}
+            appData={appData}
+            effectiveStatus={effectiveStatus}
+            isReviewable={isReviewable}
+          />
+        </Suspense>
+      </Section>
     </PageShell>
   )
 }

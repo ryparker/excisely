@@ -24,6 +24,7 @@ import { getSignedImageUrl } from '@/lib/storage/blob'
 import { buildApplicantTimeline } from '@/lib/timeline/build-timeline'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageShell } from '@/components/layout/PageShell'
+import { Section } from '@/components/shared/Section'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { AutoRefresh } from '@/components/shared/AutoRefresh'
 import { ValidationDetailPanels } from '@/components/validation/ValidationDetailPanels'
@@ -298,28 +299,32 @@ export default async function SubmissionDetailPage({
         </PageHeader>
 
         {/* Horizontal timeline — streams independently */}
-        <Suspense fallback={<TimelineSkeleton />}>
-          <SubmissionTimelineSection
-            labelId={label.id}
-            label={label}
-            appData={appData}
-            applicantRecord={applicantRecord}
-            effectiveStatus={effectiveStatus}
-          />
-        </Suspense>
+        <Section>
+          <Suspense fallback={<TimelineSkeleton />}>
+            <SubmissionTimelineSection
+              labelId={label.id}
+              label={label}
+              appData={appData}
+              applicantRecord={applicantRecord}
+              effectiveStatus={effectiveStatus}
+            />
+          </Suspense>
+        </Section>
 
         <div className="border-b" />
       </div>
 
       {/* Content area — streams independently */}
-      <Suspense fallback={<ContentSkeleton />}>
-        <SubmissionContentSection
-          labelId={label.id}
-          label={label}
-          appData={appData}
-          isProcessing={isProcessing}
-        />
-      </Suspense>
+      <Section>
+        <Suspense fallback={<ContentSkeleton />}>
+          <SubmissionContentSection
+            labelId={label.id}
+            label={label}
+            appData={appData}
+            isProcessing={isProcessing}
+          />
+        </Suspense>
+      </Section>
     </PageShell>
   )
 }

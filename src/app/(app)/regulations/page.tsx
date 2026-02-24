@@ -14,6 +14,7 @@ import { routes } from '@/config/routes'
 
 import { searchParamsCache } from '@/lib/search-params-cache'
 import { ScrollToSection } from './ScrollToSection'
+import { Section } from '@/components/shared/Section'
 import { AnimatedCollapse } from '@/components/shared/AnimatedCollapse'
 import { FilterBar } from '@/components/shared/FilterBar'
 import { Highlight } from '@/components/shared/Highlight'
@@ -210,70 +211,72 @@ export default async function RegulationsPage({
       )}
 
       {/* Section cards grouped by Part */}
-      {groupedByPart.length === 0 ? (
-        <Card className="py-12 text-center">
-          <CardContent>
-            <Search className="mx-auto mb-3 size-8 text-muted-foreground/30" />
-            <p className="text-sm text-muted-foreground">
-              No regulations found. Try a different search term.
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-10">
-          {groupedByPart.map((partGroup) => {
-            const PartIcon = PART_ICON[partGroup.part]
-            return (
-              <section key={partGroup.part}>
-                {/* Part header */}
-                <div className="mb-4 flex items-center justify-between border-b pb-3">
-                  <div className="flex items-center gap-2.5">
-                    <span
-                      className={cn(
-                        'inline-flex size-8 items-center justify-center rounded-lg',
-                        PART_ICON_STYLE[partGroup.part],
-                      )}
-                    >
-                      {PartIcon && <PartIcon className="size-4" />}
-                    </span>
-                    <div>
-                      <h2 className="font-heading text-base font-semibold tracking-tight sm:text-lg">
-                        {partGroup.title}
-                      </h2>
-                      <p className="text-xs text-muted-foreground">
-                        27 CFR Part {partGroup.part} &middot;{' '}
-                        {partGroup.sections.length}{' '}
-                        {partGroup.sections.length === 1
-                          ? 'section'
-                          : 'sections'}
-                      </p>
+      <Section>
+        {groupedByPart.length === 0 ? (
+          <Card className="py-12 text-center">
+            <CardContent>
+              <Search className="mx-auto mb-3 size-8 text-muted-foreground/30" />
+              <p className="text-sm text-muted-foreground">
+                No regulations found. Try a different search term.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-10">
+            {groupedByPart.map((partGroup) => {
+              const PartIcon = PART_ICON[partGroup.part]
+              return (
+                <section key={partGroup.part}>
+                  {/* Part header */}
+                  <div className="mb-4 flex items-center justify-between border-b pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className={cn(
+                          'inline-flex size-8 items-center justify-center rounded-lg',
+                          PART_ICON_STYLE[partGroup.part],
+                        )}
+                      >
+                        {PartIcon && <PartIcon className="size-4" />}
+                      </span>
+                      <div>
+                        <h2 className="font-heading text-base font-semibold tracking-tight sm:text-lg">
+                          {partGroup.title}
+                        </h2>
+                        <p className="text-xs text-muted-foreground">
+                          27 CFR Part {partGroup.part} &middot;{' '}
+                          {partGroup.sections.length}{' '}
+                          {partGroup.sections.length === 1
+                            ? 'section'
+                            : 'sections'}
+                        </p>
+                      </div>
                     </div>
+                    <a
+                      href={partGroup.ecfrUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-muted-foreground transition-colors duration-150 hover:text-primary"
+                    >
+                      Full text on eCFR
+                      <ExternalLink className="size-3" />
+                    </a>
                   </div>
-                  <a
-                    href={partGroup.ecfrUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-xs text-muted-foreground transition-colors duration-150 hover:text-primary"
-                  >
-                    Full text on eCFR
-                    <ExternalLink className="size-3" />
-                  </a>
-                </div>
 
-                <div className="grid gap-3">
-                  {partGroup.sections.map((section) => (
-                    <SectionCard
-                      key={section.section}
-                      section={section}
-                      query={searchQuery}
-                    />
-                  ))}
-                </div>
-              </section>
-            )
-          })}
-        </div>
-      )}
+                  <div className="grid gap-3">
+                    {partGroup.sections.map((section) => (
+                      <SectionCard
+                        key={section.section}
+                        section={section}
+                        query={searchQuery}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )
+            })}
+          </div>
+        )}
+      </Section>
     </PageShell>
   )
 }

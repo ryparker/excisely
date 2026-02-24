@@ -13,6 +13,7 @@ import { searchParamsCache } from '@/lib/search-params-cache'
 import { AutoRefresh } from '@/components/shared/AutoRefresh'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageShell } from '@/components/layout/PageShell'
+import { Section } from '@/components/shared/Section'
 import { SearchInput } from '@/components/shared/SearchInput'
 import { ResetFiltersButton } from '@/components/shared/ResetFiltersButton'
 import {
@@ -65,9 +66,11 @@ export default async function ApplicantDashboard({
         description="Your submitted label applications and their verification results."
       />
 
-      <Suspense fallback={<SummaryCardsSkeleton />}>
-        <SubmissionsSummarySection applicantId={applicantRecord.id} />
-      </Suspense>
+      <Section>
+        <Suspense fallback={<SummaryCardsSkeleton />}>
+          <SubmissionsSummarySection applicantId={applicantRecord.id} />
+        </Suspense>
+      </Section>
 
       <div className="flex items-center gap-2">
         <SearchInput
@@ -78,17 +81,19 @@ export default async function ApplicantDashboard({
         <ResetFiltersButton paramKeys={['status', 'beverageType']} />
       </div>
 
-      <Suspense fallback={<SubmissionsTableSkeleton />}>
-        <SubmissionsTableSection
-          applicantId={applicantRecord.id}
-          searchTerm={searchTerm}
-          statusFilter={statusFilter}
-          beverageTypeFilter={beverageTypeFilter}
-          sortKey={sortKey}
-          sortOrder={sortOrder}
-          currentPage={currentPage}
-        />
-      </Suspense>
+      <Section>
+        <Suspense fallback={<SubmissionsTableSkeleton />}>
+          <SubmissionsTableSection
+            applicantId={applicantRecord.id}
+            searchTerm={searchTerm}
+            statusFilter={statusFilter}
+            beverageTypeFilter={beverageTypeFilter}
+            sortKey={sortKey}
+            sortOrder={sortOrder}
+            currentPage={currentPage}
+          />
+        </Suspense>
+      </Section>
       {/* Mobile FAB — quick access to new submission */}
       <Link
         href={routes.submit()}

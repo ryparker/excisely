@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 
 import { requireApplicant } from '@/lib/auth/require-role'
 import { PageShell } from '@/components/layout/PageShell'
+import { Section } from '@/components/shared/Section'
 import { SubmitPageTabs } from '@/components/submit/SubmitPageTabs'
 
 export const metadata: Metadata = {
@@ -13,7 +14,9 @@ export default async function SubmitPage() {
 
   return (
     <PageShell>
-      <SubmitPageTabs />
+      <Section>
+        <SubmitPageTabs />
+      </Section>
     </PageShell>
   )
 }

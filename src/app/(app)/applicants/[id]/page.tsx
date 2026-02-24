@@ -25,6 +25,7 @@ import { formatDate } from '@/lib/utils'
 import { STATUS_LABELS } from '@/config/status-config'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageShell } from '@/components/layout/PageShell'
+import { Section } from '@/components/shared/Section'
 import { FilterBar } from '@/components/shared/FilterBar'
 import { StatCard } from '@/components/shared/StatCard'
 import { ApplicantLabelsTable } from '@/components/applicants/ApplicantLabelsTable'
@@ -173,103 +174,106 @@ export default async function ApplicantDetailPage({
       </div>
 
       {/* Compliance stats cards */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          icon={TrendingUp}
-          iconBg={
-            approvalRate === null
-              ? 'bg-muted'
-              : approvalRate >= 90
-                ? 'bg-emerald-100 dark:bg-emerald-900/30'
-                : approvalRate >= 70
-                  ? 'bg-amber-100 dark:bg-amber-900/30'
-                  : 'bg-red-100 dark:bg-red-900/30'
-          }
-          iconColor={
-            approvalRate === null
-              ? 'text-muted-foreground'
-              : approvalRate >= 90
-                ? 'text-emerald-600 dark:text-emerald-400'
-                : approvalRate >= 70
-                  ? 'text-amber-600 dark:text-amber-400'
-                  : 'text-red-600 dark:text-red-400'
-          }
-          label="Approval Rate"
-          value={approvalRate !== null ? `${approvalRate}%` : '--'}
-          description={`${approvedCount} of ${reviewedCount} reviewed approved`}
-        />
-        <StatCard
-          icon={FileCheck}
-          iconBg="bg-blue-100 dark:bg-blue-900/30"
-          iconColor="text-blue-600 dark:text-blue-400"
-          label="Total Submissions"
-          value={totalLabels}
-          description="Labels submitted for verification"
-        />
-        <StatCard
-          icon={Calendar}
-          iconBg="bg-muted"
-          iconColor="text-muted-foreground"
-          label="Last Submission"
-          value={lastSubmission ? formatDate(lastSubmission) : '--'}
-          description="Most recent label submission"
-        />
-        <StatCard
-          icon={Building2}
-          iconBg="bg-muted"
-          iconColor="text-muted-foreground"
-          label="Top Override Reason"
-          value={topOverrideReason ?? 'None'}
-          description="Most common specialist override reason"
-          valueClassName="truncate"
-        />
-      </div>
+      <Section>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            icon={TrendingUp}
+            iconBg={
+              approvalRate === null
+                ? 'bg-muted'
+                : approvalRate >= 90
+                  ? 'bg-emerald-100 dark:bg-emerald-900/30'
+                  : approvalRate >= 70
+                    ? 'bg-amber-100 dark:bg-amber-900/30'
+                    : 'bg-red-100 dark:bg-red-900/30'
+            }
+            iconColor={
+              approvalRate === null
+                ? 'text-muted-foreground'
+                : approvalRate >= 90
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : approvalRate >= 70
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-red-600 dark:text-red-400'
+            }
+            label="Approval Rate"
+            value={approvalRate !== null ? `${approvalRate}%` : '--'}
+            description={`${approvedCount} of ${reviewedCount} reviewed approved`}
+          />
+          <StatCard
+            icon={FileCheck}
+            iconBg="bg-blue-100 dark:bg-blue-900/30"
+            iconColor="text-blue-600 dark:text-blue-400"
+            label="Total Submissions"
+            value={totalLabels}
+            description="Labels submitted for verification"
+          />
+          <StatCard
+            icon={Calendar}
+            iconBg="bg-muted"
+            iconColor="text-muted-foreground"
+            label="Last Submission"
+            value={lastSubmission ? formatDate(lastSubmission) : '--'}
+            description="Most recent label submission"
+          />
+          <StatCard
+            icon={Building2}
+            iconBg="bg-muted"
+            iconColor="text-muted-foreground"
+            label="Top Override Reason"
+            value={topOverrideReason ?? 'None'}
+            description="Most common specialist override reason"
+            valueClassName="truncate"
+          />
+        </div>
+      </Section>
 
       {/* Notes */}
-      <ApplicantNotes
-        applicantId={applicant.id}
-        initialNotes={applicant.notes}
-      />
+      <Section>
+        <ApplicantNotes
+          applicantId={applicant.id}
+          initialNotes={applicant.notes}
+        />
+      </Section>
 
       {/* Label history */}
-      <div className="space-y-4">
-        <h2 className="font-heading text-lg font-semibold tracking-tight">
-          Label History
-        </h2>
+      <Section title="Label History">
+        <div className="space-y-4">
+          {/* Status filter pills */}
+          {availableStatuses.length > 0 && (
+            <FilterBar
+              paramKey="status"
+              options={[
+                { label: 'All', value: '', count: totalLabels },
+                ...availableStatuses.map((status) => ({
+                  label: STATUS_LABELS[status] ?? status,
+                  value: status,
+                  count: allLabelsWithStatus.filter(
+                    (l) => l.effectiveStatus === status,
+                  ).length,
+                  attention:
+                    status === 'needs_correction' ||
+                    status === 'pending_review',
+                })),
+              ]}
+            />
+          )}
 
-        {/* Status filter pills */}
-        {availableStatuses.length > 0 && (
-          <FilterBar
-            paramKey="status"
-            options={[
-              { label: 'All', value: '', count: totalLabels },
-              ...availableStatuses.map((status) => ({
-                label: STATUS_LABELS[status] ?? status,
-                value: status,
-                count: allLabelsWithStatus.filter(
-                  (l) => l.effectiveStatus === status,
-                ).length,
-                attention:
-                  status === 'needs_correction' || status === 'pending_review',
-              })),
-            ]}
-          />
-        )}
-
-        {filteredLabels.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <p className="text-sm text-muted-foreground">
-                {statusFilter
-                  ? `No labels with status "${statusFilter}" for this applicant.`
-                  : 'No labels have been submitted for this applicant yet.'}
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <ApplicantLabelsTable labels={filteredLabels} />
-        )}
-      </div>
+          {filteredLabels.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <p className="text-sm text-muted-foreground">
+                  {statusFilter
+                    ? `No labels with status "${statusFilter}" for this applicant.`
+                    : 'No labels have been submitted for this applicant yet.'}
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <ApplicantLabelsTable labels={filteredLabels} />
+          )}
+        </div>
+      </Section>
     </PageShell>
   )
 }

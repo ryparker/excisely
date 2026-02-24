@@ -8,6 +8,7 @@ import { searchParamsCache } from '@/lib/search-params-cache'
 import { REASON_CODE_LABELS } from '@/config/override-reasons'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageShell } from '@/components/layout/PageShell'
+import { Section } from '@/components/shared/Section'
 import { SearchInput } from '@/components/shared/SearchInput'
 import { ResetFiltersButton } from '@/components/shared/ResetFiltersButton'
 import { ApplicantsTable } from '@/components/applicants/ApplicantsTable'
@@ -101,31 +102,33 @@ export default async function ApplicantsPage({
         <ResetFiltersButton paramKeys={['risk', 'sort', 'order']} />
       </div>
 
-      {filteredApplicants.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Building2 className="mb-4 size-10 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              {searchTerm || riskFilter
-                ? 'No applicants found matching your filters.'
-                : 'No applicants yet. Applicants are created when submitting labels for verification.'}
-            </p>
-            {(searchTerm || riskFilter) && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                Try a different search term or clear the filters.
+      <Section>
+        {filteredApplicants.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Building2 className="mb-4 size-10 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                {searchTerm || riskFilter
+                  ? 'No applicants found matching your filters.'
+                  : 'No applicants yet. Applicants are created when submitting labels for verification.'}
               </p>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <ApplicantsTable
-          rows={paginatedApplicants}
-          totalPages={totalPages}
-          tableTotal={tableTotal}
-          pageSize={PAGE_SIZE}
-          searchTerm={searchTerm}
-        />
-      )}
+              {(searchTerm || riskFilter) && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Try a different search term or clear the filters.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <ApplicantsTable
+            rows={paginatedApplicants}
+            totalPages={totalPages}
+            tableTotal={tableTotal}
+            pageSize={PAGE_SIZE}
+            searchTerm={searchTerm}
+          />
+        )}
+      </Section>
     </PageShell>
   )
 }
