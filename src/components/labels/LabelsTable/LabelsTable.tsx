@@ -2,12 +2,9 @@
 
 import React, { useOptimistic, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, Loader2, RefreshCw, ShieldCheck } from 'lucide-react'
-import { AnimatePresence, motion } from 'motion/react'
-
-import { usePaginationState } from '@/hooks/usePaginationState'
 import pLimit from 'p-limit'
 
+import { usePaginationState } from '@/hooks/usePaginationState'
 import { reanalyzeLabel } from '@/app/actions/reanalyze-label'
 import { batchApprove } from '@/app/actions/batch-approve'
 import { useReanalysisStore } from '@/stores/useReanalysisStore'
@@ -16,7 +13,6 @@ import { REASON_CODE_LABELS } from '@/config/override-reasons'
 import { BEVERAGE_OPTIONS } from '@/config/beverage-display'
 import { DeadlineDisplay } from '@/components/shared/DeadlineDisplay'
 import { confidenceColor, formatConfidence, formatDate } from '@/lib/utils'
-import { pluralize } from '@/lib/pluralize'
 import { ColumnHeader } from '@/components/shared/ColumnHeader'
 import { LabelThumbnail } from '@/components/shared/LabelThumbnail'
 import { TablePagination } from '@/components/shared/TablePagination'
@@ -24,20 +20,8 @@ import { Highlight } from '@/components/shared/Highlight'
 import { BeverageTypeCell } from '@/components/shared/BeverageTypeCell'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Badge } from '@/components/ui/Badge'
-import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Checkbox } from '@/components/ui/Checkbox'
-import { Progress } from '@/components/ui/Progress'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/AlertDialog'
 import {
   Table,
   TableBody,
@@ -48,48 +32,12 @@ import {
   TableRow,
 } from '@/components/ui/Table'
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface LabelRow {
-  id: string
-  status: string
-  effectiveStatus: string
-  beverageType: string
-  overallConfidence: string | null
-  correctionDeadline: Date | null
-  deadlineExpired: boolean
-  isPriority: boolean
-  createdAt: Date
-  brandName: string | null
-  flaggedCount: number
-  thumbnailUrl: string | null
-  overrideReasonCode?: string | null
-  lastReviewedAt?: Date | null
-}
-
-interface LabelsTableProps {
-  labels: LabelRow[]
-  userRole: string
-  totalPages: number
-  tableTotal: number
-  pageSize: number
-  queueMode?: 'ready' | 'review'
-  searchTerm?: string
-}
-
-type BulkItemStatus = 'pending' | 'processing' | 'success' | 'error'
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const NON_REANALYZABLE_STATUSES = new Set(['pending', 'processing'])
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
+import type { LabelsTableProps, BulkItemStatus } from './LabelsTableTypes'
+import { NON_REANALYZABLE_STATUSES } from './LabelsTableTypes'
+import { BulkActionBar } from './BulkActionBar'
+import { ConfirmReanalyzeDialog } from './ConfirmReanalyzeDialog'
+import { BulkReanalyzeDialog } from './BulkReanalyzeDialog'
+import { BatchApproveDialog } from './BatchApproveDialog'
 
 export function LabelsTable({
   labels: rows,
@@ -105,7 +53,6 @@ export function LabelsTable({
   const isApplicant = userRole === 'applicant'
   const isReadyQueue = queueMode === 'ready'
 
-  // Optimistic UI for batch approve — immediately show approved status
   const [optimisticLabels, updateOptimisticLabels] = useOptimistic(
     rows,
     (state, approvedIds: string[]) =>
@@ -173,14 +120,12 @@ export function LabelsTable({
     })
   }
 
-  // Per-row re-analyze — fire-and-forget with optimistic status update
   function handleRowReanalyze() {
     if (!confirmLabelId) return
     setRowError(null)
     const labelId = confirmLabelId
     setConfirmLabelId(null)
 
-    // Optimistically mark row as processing
     startReanalyzing(labelId)
 
     reanalyzeLabel(labelId)
@@ -197,7 +142,6 @@ export function LabelsTable({
       })
   }
 
-  // Bulk re-analyze
   async function handleBulkReanalyze() {
     const ids = Array.from(selectedIds)
     if (ids.length === 0) return
@@ -208,7 +152,6 @@ export function LabelsTable({
     )
     setBulkProgress(new Map(progress))
 
-    // Optimistically mark all rows as processing
     for (const id of ids) {
       startReanalyzing(id)
     }
@@ -232,7 +175,6 @@ export function LabelsTable({
 
     setBulkRunning(false)
 
-    // Auto-close after a brief delay if all succeeded
     const allSucceeded = Array.from(progress.values()).every(
       (s) => s === 'success',
     )
@@ -253,7 +195,6 @@ export function LabelsTable({
     router.refresh()
   }
 
-  // Batch approve selected
   async function handleBatchApprove() {
     const ids = Array.from(selectedIds)
     if (ids.length === 0) return
@@ -269,7 +210,6 @@ export function LabelsTable({
     })
     setBatchApproveRunning(false)
 
-    // Auto-close on full success
     if (result.failedIds.length === 0) {
       setTimeout(() => {
         setBatchApproveDialogOpen(false)
@@ -286,17 +226,6 @@ export function LabelsTable({
     setBatchApproveResult(null)
     router.refresh()
   }
-
-  // Bulk progress stats
-  const bulkCompleted = Array.from(bulkProgress.values()).filter(
-    (s) => s === 'success' || s === 'error',
-  ).length
-  const bulkErrors = Array.from(bulkProgress.values()).filter(
-    (s) => s === 'error',
-  ).length
-  const bulkTotal = bulkProgress.size
-  const bulkPercent =
-    bulkTotal > 0 ? Math.round((bulkCompleted / bulkTotal) * 100) : 0
 
   return (
     <>
@@ -483,53 +412,15 @@ export function LabelsTable({
         />
       </Card>
 
-      {/* Bulk action bar */}
-      <AnimatePresence>
-        {selectedIds.size > 0 && (
-          <motion.div
-            initial={{ y: 80, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 80, opacity: 0 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
-          >
-            <div className="mx-auto flex max-w-screen-xl items-center justify-between px-6 py-3">
-              <p className="text-sm font-medium">
-                {pluralize(selectedIds.size, 'label')} selected
-              </p>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  className="text-sm text-muted-foreground underline-offset-4 hover:underline"
-                  onClick={() => setSelectedIds(new Set())}
-                >
-                  Clear Selection
-                </button>
-                {isReadyQueue && (
-                  <Button
-                    size="sm"
-                    onClick={() => setBatchApproveDialogOpen(true)}
-                  >
-                    <ShieldCheck className="size-4" />
-                    Approve Selected ({selectedIds.size})
-                  </Button>
-                )}
-                <Button
-                  size="sm"
-                  variant={isReadyQueue ? 'outline' : 'default'}
-                  onClick={() => setBulkDialogOpen(true)}
-                >
-                  <RefreshCw className="size-4" />
-                  Re-Analyze Selected
-                </Button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <BulkActionBar
+        selectedCount={selectedIds.size}
+        isReadyQueue={isReadyQueue}
+        onClear={() => setSelectedIds(new Set())}
+        onApprove={() => setBatchApproveDialogOpen(true)}
+        onReanalyze={() => setBulkDialogOpen(true)}
+      />
 
-      {/* Per-row re-analyze dialog */}
-      <AlertDialog
+      <ConfirmReanalyzeDialog
         open={confirmLabelId !== null}
         onOpenChange={(open) => {
           if (!open) {
@@ -537,115 +428,29 @@ export function LabelsTable({
             setRowError(null)
           }
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Re-Analyze Label</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will re-run AI text extraction and field classification on
-              the label images. Previous results will be superseded. No new
-              notification will be sent to the applicant. Typically takes 2-4
-              seconds.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          {rowError && <p className="text-sm text-destructive">{rowError}</p>}
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRowReanalyze}>
-              Re-Analyze
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onConfirm={handleRowReanalyze}
+        error={rowError}
+      />
 
-      {/* Bulk re-analyze dialog */}
-      <AlertDialog
+      <BulkReanalyzeDialog
         open={bulkDialogOpen}
-        onOpenChange={(open) => {
-          if (!open && !bulkRunning) handleBulkClose()
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Re-Analyze {pluralize(selectedIds.size, 'Label')}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {bulkTotal === 0
-                ? `This will re-run the AI pipeline on each selected label. Processing 3 at a time.`
-                : `Completed ${bulkCompleted} of ${bulkTotal}${bulkErrors > 0 ? ` \u2014 ${pluralize(bulkErrors, 'error')}` : ''}`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+        running={bulkRunning}
+        selectedCount={selectedIds.size}
+        progress={bulkProgress}
+        onOpenChange={setBulkDialogOpen}
+        onConfirm={handleBulkReanalyze}
+        onClose={handleBulkClose}
+      />
 
-          {bulkTotal > 0 && (
-            <div className="py-2">
-              <Progress value={bulkPercent} className="h-2" />
-            </div>
-          )}
-
-          <AlertDialogFooter>
-            {bulkRunning ? (
-              <Button disabled>
-                <Loader2 className="size-4 animate-spin" />
-                Processing...
-              </Button>
-            ) : bulkCompleted > 0 ? (
-              <AlertDialogAction onClick={handleBulkClose}>
-                Done
-              </AlertDialogAction>
-            ) : (
-              <>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleBulkReanalyze}>
-                  Re-Analyze {pluralize(selectedIds.size, 'Label')}
-                </AlertDialogAction>
-              </>
-            )}
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Batch approve dialog */}
-      <AlertDialog
+      <BatchApproveDialog
         open={batchApproveDialogOpen}
-        onOpenChange={(open) => {
-          if (!open && !batchApproveRunning) handleBatchApproveClose()
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Approve {pluralize(selectedIds.size, 'Label')}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {batchApproveResult
-                ? `${pluralize(batchApproveResult.approvedCount, 'label')} approved${batchApproveResult.failedIds.length > 0 ? ` — ${batchApproveResult.failedIds.length} failed` : ''}`
-                : `All selected labels have been verified by AI with high confidence and all fields match. This will approve them in bulk with an audit trail.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-
-          <AlertDialogFooter>
-            {batchApproveRunning ? (
-              <Button disabled>
-                <Loader2 className="size-4 animate-spin" />
-                Approving...
-              </Button>
-            ) : batchApproveResult ? (
-              <AlertDialogAction onClick={handleBatchApproveClose}>
-                Done
-              </AlertDialogAction>
-            ) : (
-              <>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleBatchApprove}>
-                  <Check className="size-4" />
-                  Approve {pluralize(selectedIds.size, 'Label')}
-                </AlertDialogAction>
-              </>
-            )}
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        running={batchApproveRunning}
+        selectedCount={selectedIds.size}
+        result={batchApproveResult}
+        onOpenChange={setBatchApproveDialogOpen}
+        onConfirm={handleBatchApprove}
+        onClose={handleBatchApproveClose}
+      />
     </>
   )
 }
