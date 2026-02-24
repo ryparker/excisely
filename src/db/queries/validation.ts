@@ -66,6 +66,43 @@ export async function getValidationItemsForLabel(labelId: string) {
     .where(eq(validationResults.labelId, labelId))
 }
 
+/** Full validation items for the current result of a label (joins through validationResults). */
+export async function getCurrentValidationItems(labelId: string) {
+  'use cache'
+  cacheTag('labels')
+  cacheLife('seconds')
+
+  return db
+    .select({
+      id: validationItems.id,
+      validationResultId: validationItems.validationResultId,
+      fieldName: validationItems.fieldName,
+      expectedValue: validationItems.expectedValue,
+      extractedValue: validationItems.extractedValue,
+      status: validationItems.status,
+      confidence: validationItems.confidence,
+      matchReasoning: validationItems.matchReasoning,
+      bboxX: validationItems.bboxX,
+      bboxY: validationItems.bboxY,
+      bboxWidth: validationItems.bboxWidth,
+      bboxHeight: validationItems.bboxHeight,
+      bboxAngle: validationItems.bboxAngle,
+      labelImageId: validationItems.labelImageId,
+      createdAt: validationItems.createdAt,
+    })
+    .from(validationItems)
+    .innerJoin(
+      validationResults,
+      eq(validationItems.validationResultId, validationResults.id),
+    )
+    .where(
+      and(
+        eq(validationResults.labelId, labelId),
+        eq(validationResults.isCurrent, true),
+      ),
+    )
+}
+
 // ---------------------------------------------------------------------------
 // Human Reviews
 // ---------------------------------------------------------------------------
@@ -162,6 +199,9 @@ export type ValidationItemsResult = Awaited<
 >
 export type ValidationItemsForLabelResult = Awaited<
   ReturnType<typeof getValidationItemsForLabel>
+>
+export type CurrentValidationItemsResult = Awaited<
+  ReturnType<typeof getCurrentValidationItems>
 >
 export type HumanReviewsResult = Awaited<ReturnType<typeof getHumanReviews>>
 export type StatusOverridesResult = Awaited<

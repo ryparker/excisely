@@ -57,6 +57,8 @@ export function ImageTabs({
                 <img
                   src={img.imageUrl}
                   alt=""
+                  loading="lazy"
+                  decoding="async"
                   className="h-full w-full object-cover"
                   onError={() =>
                     setFailedIds((prev) => new Set(prev).add(img.id))

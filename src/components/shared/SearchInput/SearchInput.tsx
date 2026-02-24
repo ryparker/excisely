@@ -113,7 +113,7 @@ export function SearchInput({
           type="button"
           onMouseDown={(e) => e.preventDefault()}
           onClick={handleClear}
-          className="ease absolute top-1/2 right-2.5 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground transition-colors duration-150 hover:text-foreground"
+          className="ease absolute top-1/2 right-0.5 flex min-h-[44px] min-w-[44px] -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground transition-colors duration-150 hover:text-foreground"
           aria-label="Clear search"
         >
           <X className="size-3.5" />

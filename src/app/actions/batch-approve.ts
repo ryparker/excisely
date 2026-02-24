@@ -4,10 +4,7 @@ import { updateTag } from 'next/cache'
 import pLimit from 'p-limit'
 
 import { getLabelById } from '@/db/queries/labels'
-import {
-  getCurrentValidationResult,
-  getValidationItems,
-} from '@/db/queries/validation'
+import { getCurrentValidationItems } from '@/db/queries/validation'
 import { updateLabelStatus } from '@/db/mutations/labels'
 import { insertStatusOverride } from '@/db/mutations/reviews'
 import { guardSpecialist } from '@/lib/auth/action-guards'
@@ -87,14 +84,7 @@ export async function batchApprove(
           }
 
           // Verify: all validation items are match
-          const currentResult = await getCurrentValidationResult(labelId)
-
-          if (!currentResult) {
-            failedIds.push(labelId)
-            return
-          }
-
-          const items = await getValidationItems(currentResult.id)
+          const items = await getCurrentValidationItems(labelId)
 
           const allMatch =
             items.length > 0 && items.every((i) => i.status === 'match')

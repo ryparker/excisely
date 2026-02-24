@@ -21,10 +21,10 @@ export function WineSpecificFields({
   const extraction = useExtractionStore()
 
   return (
-    <div>
-      <h3 className="mb-4 font-heading text-sm font-semibold tracking-tight">
+    <fieldset className="m-0 border-0 p-0">
+      <legend className="mb-4 font-heading text-sm font-semibold tracking-tight">
         Wine-Specific Fields
-      </h3>
+      </legend>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="grapeVarietal" className="flex items-center gap-1.5">
@@ -130,6 +130,6 @@ export function WineSpecificFields({
           </Label>
         </div>
       </div>
-    </div>
+    </fieldset>
   )
 }

@@ -16,7 +16,7 @@ import {
 } from '@/db/queries/labels'
 import {
   getCurrentValidationResult,
-  getValidationItems,
+  getCurrentValidationItems,
   getHumanReviews,
   getStatusOverrides,
   getSupersededResults,
@@ -102,14 +102,12 @@ async function LabelContentSection({
   effectiveStatus: string
   isReviewable: boolean
 }) {
-  // Fetch images + current results in parallel
-  const [images, results] = await Promise.all([
+  // Fetch images, current result, and validation items all in parallel
+  const [images, results, items] = await Promise.all([
     getLabelImages(labelId),
     getCurrentValidationResult(labelId),
+    getCurrentValidationItems(labelId),
   ])
-
-  // Fetch items (depends on results.id)
-  const items = results ? await getValidationItems(results.id) : []
 
   // Compute field counts
   const fieldCounts = items.reduce(
@@ -235,16 +233,15 @@ async function LabelTimelineSection({
   applicant: Applicant | null
   effectiveStatus: string
 }) {
-  // Fetch results, reviews, overrides, superseded results ALL in parallel
-  const [results, reviews, overrides, supersededResults] = await Promise.all([
-    getCurrentValidationResult(labelId),
-    getHumanReviews(labelId),
-    getStatusOverrides(labelId),
-    getSupersededResults(labelId),
-  ])
-
-  // Fetch items (depends on results.id)
-  const items = results ? await getValidationItems(results.id) : []
+  // Fetch results, items, reviews, overrides, superseded results ALL in parallel
+  const [results, items, reviews, overrides, supersededResults] =
+    await Promise.all([
+      getCurrentValidationResult(labelId),
+      getCurrentValidationItems(labelId),
+      getHumanReviews(labelId),
+      getStatusOverrides(labelId),
+      getSupersededResults(labelId),
+    ])
 
   const hasSupersededResults = supersededResults.length > 0
 

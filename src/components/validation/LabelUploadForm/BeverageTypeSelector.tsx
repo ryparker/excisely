@@ -33,7 +33,9 @@ export function BeverageTypeRadio({
     <div className="space-y-3">
       <Label className="flex items-center gap-1.5">
         Type of Product
-        <span className="text-destructive">*</span>
+        <span className="text-destructive" aria-hidden="true">
+          *
+        </span>
         <AiFieldIndicator
           showSplitPane={showSplitPane}
           onFieldFocus={onFieldFocus}
@@ -44,6 +46,7 @@ export function BeverageTypeRadio({
         value={beverageType}
         onValueChange={(value) => onSelect(value as BeverageType)}
         className="grid grid-cols-1 gap-3 sm:grid-cols-3"
+        aria-required="true"
       >
         {BEVERAGE_TYPE_OPTIONS.map((option) => {
           const Icon = option.icon

@@ -676,13 +676,16 @@ export function LabelUploadForm({
                   className="flex items-center gap-1.5"
                 >
                   Total Bottle Capacity (mL)
-                  <span className="text-destructive">*</span>
+                  <span className="text-destructive" aria-hidden="true">
+                    *
+                  </span>
                 </Label>
                 <Input
                   id="containerSizeMl"
                   type="number"
                   min={1}
                   placeholder="e.g., 750"
+                  aria-required="true"
                   {...register('containerSizeMl', { valueAsNumber: true })}
                 />
                 {errors.containerSizeMl && (

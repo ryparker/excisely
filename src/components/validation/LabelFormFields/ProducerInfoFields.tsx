@@ -29,108 +29,111 @@ export function ProducerInfoFields({
   const extraction = useExtractionStore()
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      <div className="space-y-2">
-        <Label htmlFor="nameAndAddress" className="flex items-center gap-1.5">
-          <FieldLabel fieldName="name_and_address">
-            Name and Address (Item 8)
-          </FieldLabel>
-          <AiFieldIndicator
-            showSplitPane={showSplitPane}
-            onFieldFocus={onFieldFocus}
-            fieldName="name_and_address"
-          />
-        </Label>
-        <Textarea
-          id="nameAndAddress"
-          rows={3}
-          placeholder="e.g., Beam Suntory, Clermont, KY"
-          className={cn(
-            extraction.aiOriginalValues.has('name_and_address') &&
-              !extraction.modifiedFields.has('name_and_address') &&
-              'bg-indigo-50/50 dark:bg-indigo-950/20',
-          )}
-          {...register('nameAndAddress')}
-          onFocus={() => onFieldFocus('name_and_address')}
-          onChange={(e) => {
-            register('nameAndAddress').onChange(e)
-            onFieldChange('name_and_address')
-          }}
-        />
-      </div>
-
-      <div className="space-y-4">
+    <fieldset className="m-0 border-0 p-0">
+      <legend className="sr-only">Producer Information</legend>
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label
-            htmlFor="qualifyingPhrase"
-            className="flex items-center gap-1.5"
-          >
-            <FieldLabel fieldName="qualifying_phrase">
-              Qualifying Phrase
+          <Label htmlFor="nameAndAddress" className="flex items-center gap-1.5">
+            <FieldLabel fieldName="name_and_address">
+              Name and Address (Item 8)
             </FieldLabel>
             <AiFieldIndicator
               showSplitPane={showSplitPane}
               onFieldFocus={onFieldFocus}
-              fieldName="qualifying_phrase"
+              fieldName="name_and_address"
             />
           </Label>
-          <Select
-            value={watch('qualifyingPhrase') || ''}
-            onValueChange={(value) => {
-              setValue('qualifyingPhrase', value, {
-                shouldValidate: true,
-              })
-              onFieldChange('qualifying_phrase')
-            }}
-          >
-            <SelectTrigger
-              id="qualifyingPhrase"
-              className="w-full"
-              onFocus={() => onFieldFocus('qualifying_phrase')}
-            >
-              <SelectValue placeholder="Select a phrase" />
-            </SelectTrigger>
-            <SelectContent>
-              {QUALIFYING_PHRASES.map((phrase) => (
-                <SelectItem key={phrase} value={phrase}>
-                  {phrase}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label
-            htmlFor="countryOfOrigin"
-            className="flex items-center gap-1.5"
-          >
-            <FieldLabel fieldName="country_of_origin">
-              Country of Origin
-            </FieldLabel>
-            <AiFieldIndicator
-              showSplitPane={showSplitPane}
-              onFieldFocus={onFieldFocus}
-              fieldName="country_of_origin"
-            />
-          </Label>
-          <Input
-            id="countryOfOrigin"
-            placeholder="e.g., United States"
+          <Textarea
+            id="nameAndAddress"
+            rows={3}
+            placeholder="e.g., Beam Suntory, Clermont, KY"
             className={cn(
-              extraction.aiOriginalValues.has('country_of_origin') &&
-                !extraction.modifiedFields.has('country_of_origin') &&
+              extraction.aiOriginalValues.has('name_and_address') &&
+                !extraction.modifiedFields.has('name_and_address') &&
                 'bg-indigo-50/50 dark:bg-indigo-950/20',
             )}
-            {...register('countryOfOrigin')}
-            onFocus={() => onFieldFocus('country_of_origin')}
+            {...register('nameAndAddress')}
+            onFocus={() => onFieldFocus('name_and_address')}
             onChange={(e) => {
-              register('countryOfOrigin').onChange(e)
-              onFieldChange('country_of_origin')
+              register('nameAndAddress').onChange(e)
+              onFieldChange('name_and_address')
             }}
           />
         </div>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label
+              htmlFor="qualifyingPhrase"
+              className="flex items-center gap-1.5"
+            >
+              <FieldLabel fieldName="qualifying_phrase">
+                Qualifying Phrase
+              </FieldLabel>
+              <AiFieldIndicator
+                showSplitPane={showSplitPane}
+                onFieldFocus={onFieldFocus}
+                fieldName="qualifying_phrase"
+              />
+            </Label>
+            <Select
+              value={watch('qualifyingPhrase') || ''}
+              onValueChange={(value) => {
+                setValue('qualifyingPhrase', value, {
+                  shouldValidate: true,
+                })
+                onFieldChange('qualifying_phrase')
+              }}
+            >
+              <SelectTrigger
+                id="qualifyingPhrase"
+                className="w-full"
+                onFocus={() => onFieldFocus('qualifying_phrase')}
+              >
+                <SelectValue placeholder="Select a phrase" />
+              </SelectTrigger>
+              <SelectContent>
+                {QUALIFYING_PHRASES.map((phrase) => (
+                  <SelectItem key={phrase} value={phrase}>
+                    {phrase}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label
+              htmlFor="countryOfOrigin"
+              className="flex items-center gap-1.5"
+            >
+              <FieldLabel fieldName="country_of_origin">
+                Country of Origin
+              </FieldLabel>
+              <AiFieldIndicator
+                showSplitPane={showSplitPane}
+                onFieldFocus={onFieldFocus}
+                fieldName="country_of_origin"
+              />
+            </Label>
+            <Input
+              id="countryOfOrigin"
+              placeholder="e.g., United States"
+              className={cn(
+                extraction.aiOriginalValues.has('country_of_origin') &&
+                  !extraction.modifiedFields.has('country_of_origin') &&
+                  'bg-indigo-50/50 dark:bg-indigo-950/20',
+              )}
+              {...register('countryOfOrigin')}
+              onFocus={() => onFieldFocus('country_of_origin')}
+              onChange={(e) => {
+                register('countryOfOrigin').onChange(e)
+                onFieldChange('country_of_origin')
+              }}
+            />
+          </div>
+        </div>
       </div>
-    </div>
+    </fieldset>
   )
 }

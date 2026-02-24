@@ -35,6 +35,8 @@ export function LabelThumbnail({
           src={src}
           alt={alt}
           onError={onError}
+          loading="lazy"
+          decoding="async"
           className="size-full object-cover"
         />
       ) : (
@@ -78,6 +80,8 @@ export function LabelThumbnail({
         <img
           src={src}
           alt={alt}
+          loading="lazy"
+          decoding="async"
           className="max-h-72 max-w-64 rounded object-contain"
         />
       </HoverCardContent>

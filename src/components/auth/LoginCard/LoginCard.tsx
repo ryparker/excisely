@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, useReducedMotion } from 'motion/react'
+import Image from 'next/image'
 import { Check } from 'lucide-react'
 
 import { LoginForm } from '@/components/auth/LoginForm'
@@ -119,7 +120,7 @@ export function LoginCard() {
                       style={{ transform: 'rotateY(180deg)' }}
                     />
                   ) : (
-                    <img src="/icon.svg" alt="" className="h-7 w-7" />
+                    <Image src="/icon.svg" alt="" width={28} height={28} />
                   )}
                 </motion.div>
               </div>

@@ -11,7 +11,12 @@ const eslintConfig = defineConfig([
   globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts']),
   {
     files: ['src/components/**/*.{ts,tsx}'],
-    ignores: ['**/*.test.*', '**/*.spec.*', '**/index.ts', '**/image-viewer-constants.ts'],
+    ignores: [
+      '**/*.test.*',
+      '**/*.spec.*',
+      '**/index.ts',
+      '**/image-viewer-constants.ts',
+    ],
     plugins: { 'check-file': checkFile },
     rules: {
       'check-file/filename-naming-convention': [

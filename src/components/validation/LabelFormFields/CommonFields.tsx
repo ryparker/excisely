@@ -26,108 +26,119 @@ export function CommonFields({
   return (
     <>
       {/* Brand Name + Fanciful Name — primary identifiers */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="brandName" className="flex items-center gap-1.5">
-            <FieldLabel fieldName="brand_name">Brand Name (Item 6)</FieldLabel>{' '}
-            <span className="text-destructive">*</span>
-            <AiFieldIndicator
-              showSplitPane={showSplitPane}
-              onFieldFocus={onFieldFocus}
-              fieldName="brand_name"
+      <fieldset className="m-0 border-0 p-0">
+        <legend className="sr-only">Primary Identifiers</legend>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="brandName" className="flex items-center gap-1.5">
+              <FieldLabel fieldName="brand_name">
+                Brand Name (Item 6)
+              </FieldLabel>{' '}
+              <span className="text-destructive" aria-hidden="true">
+                *
+              </span>
+              <AiFieldIndicator
+                showSplitPane={showSplitPane}
+                onFieldFocus={onFieldFocus}
+                fieldName="brand_name"
+              />
+            </Label>
+            <Input
+              id="brandName"
+              placeholder="e.g., Maker's Mark"
+              aria-required="true"
+              className={cn(
+                extraction.aiOriginalValues.has('brand_name') &&
+                  !extraction.modifiedFields.has('brand_name') &&
+                  'bg-indigo-50/50 dark:bg-indigo-950/20',
+              )}
+              {...register('brandName')}
+              onFocus={() => onFieldFocus('brand_name')}
+              onChange={(e) => {
+                register('brandName').onChange(e)
+                onFieldChange('brand_name')
+              }}
+              aria-invalid={!!errors.brandName}
             />
-          </Label>
-          <Input
-            id="brandName"
-            placeholder="e.g., Maker's Mark"
-            className={cn(
-              extraction.aiOriginalValues.has('brand_name') &&
-                !extraction.modifiedFields.has('brand_name') &&
-                'bg-indigo-50/50 dark:bg-indigo-950/20',
+            {errors.brandName && (
+              <p className="text-sm text-destructive">
+                {errors.brandName.message}
+              </p>
             )}
-            {...register('brandName')}
-            onFocus={() => onFieldFocus('brand_name')}
-            onChange={(e) => {
-              register('brandName').onChange(e)
-              onFieldChange('brand_name')
-            }}
-            aria-invalid={!!errors.brandName}
-          />
-          {errors.brandName && (
-            <p className="text-sm text-destructive">
-              {errors.brandName.message}
-            </p>
-          )}
-        </div>
+          </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="fancifulName" className="flex items-center gap-1.5">
-            <FieldLabel fieldName="fanciful_name">
-              Fanciful Name (Item 7)
-            </FieldLabel>
-            <AiFieldIndicator
-              showSplitPane={showSplitPane}
-              onFieldFocus={onFieldFocus}
-              fieldName="fanciful_name"
+          <div className="space-y-2">
+            <Label htmlFor="fancifulName" className="flex items-center gap-1.5">
+              <FieldLabel fieldName="fanciful_name">
+                Fanciful Name (Item 7)
+              </FieldLabel>
+              <AiFieldIndicator
+                showSplitPane={showSplitPane}
+                onFieldFocus={onFieldFocus}
+                fieldName="fanciful_name"
+              />
+            </Label>
+            <Input
+              id="fancifulName"
+              placeholder="Optional"
+              className={cn(
+                extraction.aiOriginalValues.has('fanciful_name') &&
+                  !extraction.modifiedFields.has('fanciful_name') &&
+                  'bg-indigo-50/50 dark:bg-indigo-950/20',
+              )}
+              {...register('fancifulName')}
+              onFocus={() => onFieldFocus('fanciful_name')}
+              onChange={(e) => {
+                register('fancifulName').onChange(e)
+                onFieldChange('fanciful_name')
+              }}
             />
-          </Label>
-          <Input
-            id="fancifulName"
-            placeholder="Optional"
-            className={cn(
-              extraction.aiOriginalValues.has('fanciful_name') &&
-                !extraction.modifiedFields.has('fanciful_name') &&
-                'bg-indigo-50/50 dark:bg-indigo-950/20',
-            )}
-            {...register('fancifulName')}
-            onFocus={() => onFieldFocus('fanciful_name')}
-            onChange={(e) => {
-              register('fancifulName').onChange(e)
-              onFieldChange('fanciful_name')
-            }}
-          />
+          </div>
         </div>
-      </div>
+      </fieldset>
 
       {/* Serial Number + Class/Type Designation */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="serialNumber">Serial Number (Item 4)</Label>
-          <Input
-            id="serialNumber"
-            placeholder="e.g., 12345678"
-            {...register('serialNumber')}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="classType" className="flex items-center gap-1.5">
-            <FieldLabel fieldName="class_type">
-              Class/Type Designation
-            </FieldLabel>
-            <AiFieldIndicator
-              showSplitPane={showSplitPane}
-              onFieldFocus={onFieldFocus}
-              fieldName="class_type"
+      <fieldset className="m-0 border-0 p-0">
+        <legend className="sr-only">Application Identification</legend>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="serialNumber">Serial Number (Item 4)</Label>
+            <Input
+              id="serialNumber"
+              placeholder="e.g., 12345678"
+              {...register('serialNumber')}
             />
-          </Label>
-          <Input
-            id="classType"
-            placeholder="e.g., Kentucky Straight Bourbon Whisky"
-            className={cn(
-              extraction.aiOriginalValues.has('class_type') &&
-                !extraction.modifiedFields.has('class_type') &&
-                'bg-indigo-50/50 dark:bg-indigo-950/20',
-            )}
-            {...register('classType')}
-            onFocus={() => onFieldFocus('class_type')}
-            onChange={(e) => {
-              register('classType').onChange(e)
-              onFieldChange('class_type')
-            }}
-          />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="classType" className="flex items-center gap-1.5">
+              <FieldLabel fieldName="class_type">
+                Class/Type Designation
+              </FieldLabel>
+              <AiFieldIndicator
+                showSplitPane={showSplitPane}
+                onFieldFocus={onFieldFocus}
+                fieldName="class_type"
+              />
+            </Label>
+            <Input
+              id="classType"
+              placeholder="e.g., Kentucky Straight Bourbon Whisky"
+              className={cn(
+                extraction.aiOriginalValues.has('class_type') &&
+                  !extraction.modifiedFields.has('class_type') &&
+                  'bg-indigo-50/50 dark:bg-indigo-950/20',
+              )}
+              {...register('classType')}
+              onFocus={() => onFieldFocus('class_type')}
+              onChange={(e) => {
+                register('classType').onChange(e)
+                onFieldChange('class_type')
+              }}
+            />
+          </div>
         </div>
-      </div>
+      </fieldset>
     </>
   )
 }

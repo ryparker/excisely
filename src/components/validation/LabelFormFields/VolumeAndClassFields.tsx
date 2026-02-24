@@ -54,72 +54,83 @@ export function VolumeAndClassFields() {
   }, [beverageType, containerSizeMl])
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      <div className="space-y-2">
-        <Label htmlFor="classTypeCode">
-          <FieldLabel fieldName="class_type">Class/Type Code</FieldLabel>
-        </Label>
-        <Select
-          value={watch('classTypeCode') || ''}
-          onValueChange={(value) =>
-            setValue('classTypeCode', value, { shouldValidate: true })
-          }
-          disabled={!beverageType}
-        >
-          <SelectTrigger id="classTypeCode" className="w-full">
-            <SelectValue
-              placeholder={
-                beverageType ? 'Select a code' : 'Select a beverage type first'
-              }
-            />
-          </SelectTrigger>
-          <SelectContent>
-            {filteredCodes.map((code) => (
-              <SelectItem key={code.code} value={code.code}>
-                {code.code} — {code.description}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="containerSizeMl" className="flex items-center gap-1.5">
-          <FieldLabel fieldName="standards_of_fill">
-            Total Bottle Capacity (mL)
-          </FieldLabel>
-          <span className="text-destructive">*</span>
-        </Label>
-        <Input
-          id="containerSizeMl"
-          type="number"
-          min={1}
-          placeholder="e.g., 750"
-          {...register('containerSizeMl', { valueAsNumber: true })}
-        />
-        {errors.containerSizeMl && (
-          <p className="text-sm text-destructive">
-            {errors.containerSizeMl.message}
-          </p>
-        )}
-        {standardsOfFillStatus && (
-          <p
-            className={cn(
-              'flex items-center gap-1.5 text-sm',
-              standardsOfFillStatus.valid
-                ? 'text-green-600 dark:text-green-400'
-                : 'text-red-600 dark:text-red-400',
-            )}
+    <fieldset className="m-0 border-0 p-0">
+      <legend className="sr-only">Volume and Classification</legend>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="classTypeCode">
+            <FieldLabel fieldName="class_type">Class/Type Code</FieldLabel>
+          </Label>
+          <Select
+            value={watch('classTypeCode') || ''}
+            onValueChange={(value) =>
+              setValue('classTypeCode', value, { shouldValidate: true })
+            }
+            disabled={!beverageType}
           >
-            {standardsOfFillStatus.valid ? (
-              <CheckCircle className="size-4" />
-            ) : (
-              <AlertTriangle className="size-4" />
-            )}
-            {standardsOfFillStatus.message}
-          </p>
-        )}
+            <SelectTrigger id="classTypeCode" className="w-full">
+              <SelectValue
+                placeholder={
+                  beverageType
+                    ? 'Select a code'
+                    : 'Select a beverage type first'
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {filteredCodes.map((code) => (
+                <SelectItem key={code.code} value={code.code}>
+                  {code.code} — {code.description}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label
+            htmlFor="containerSizeMl"
+            className="flex items-center gap-1.5"
+          >
+            <FieldLabel fieldName="standards_of_fill">
+              Total Bottle Capacity (mL)
+            </FieldLabel>
+            <span className="text-destructive" aria-hidden="true">
+              *
+            </span>
+          </Label>
+          <Input
+            id="containerSizeMl"
+            type="number"
+            min={1}
+            placeholder="e.g., 750"
+            aria-required="true"
+            {...register('containerSizeMl', { valueAsNumber: true })}
+          />
+          {errors.containerSizeMl && (
+            <p className="text-sm text-destructive">
+              {errors.containerSizeMl.message}
+            </p>
+          )}
+          {standardsOfFillStatus && (
+            <p
+              className={cn(
+                'flex items-center gap-1.5 text-sm',
+                standardsOfFillStatus.valid
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-red-600 dark:text-red-400',
+              )}
+            >
+              {standardsOfFillStatus.valid ? (
+                <CheckCircle className="size-4" />
+              ) : (
+                <AlertTriangle className="size-4" />
+              )}
+              {standardsOfFillStatus.message}
+            </p>
+          )}
+        </div>
       </div>
-    </div>
+    </fieldset>
   )
 }

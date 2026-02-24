@@ -1,9 +1,4 @@
-import {
-  AlertTriangle,
-  CheckCircle2,
-  SearchX,
-  XCircle,
-} from 'lucide-react'
+import { AlertTriangle, CheckCircle2, SearchX, XCircle } from 'lucide-react'
 import { createElement } from 'react'
 
 // ---------------------------------------------------------------------------

@@ -57,7 +57,7 @@ export function CropPreview({
 
   return (
     <div
-      className="pointer-events-none absolute z-20 overflow-hidden rounded-lg border-2 border-indigo-500/80 bg-black shadow-xl transition-[top,right,bottom,left] duration-200"
+      className="pointer-events-none absolute z-20 overflow-hidden rounded-lg border-2 border-indigo-500/80 bg-foreground/90 shadow-xl transition-[top,right,bottom,left] duration-200"
       style={positionStyle}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -74,7 +74,7 @@ export function CropPreview({
           maxWidth: 'none',
         }}
       />
-      <span className="absolute top-1 left-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
+      <span className="absolute top-1 left-1.5 rounded bg-foreground/60 px-1.5 py-0.5 text-[10px] font-medium text-background">
         Preview
       </span>
     </div>
