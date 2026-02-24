@@ -2,11 +2,8 @@
 
 import { useCallback, useState } from 'react'
 
-import {
-  AnnotatedImage,
-  type SpecialistAnnotation,
-} from '@/components/validation/AnnotatedImage'
-import { ImageTabs } from '@/components/validation/ImageTabs'
+import type { SpecialistAnnotation } from '@/components/validation/AnnotatedImage'
+import { DetailPanelLayout } from '@/components/shared/DetailPanelLayout'
 import { ReviewFieldList } from '@/components/review/ReviewFieldList'
 import { useImageFieldNavigation } from '@/hooks/useImageFieldNavigation'
 import type { BeverageType } from '@/config/beverage-types'
@@ -36,14 +33,7 @@ export function ReviewDetailPanels({
   applicantCorrections,
   beverageType,
 }: ReviewDetailPanelsProps) {
-  const {
-    activeField,
-    selectedImage,
-    selectedImageId,
-    handleFieldClick,
-    handleImageSelect,
-    annotationItems,
-  } = useImageFieldNavigation({ images, validationItems })
+  const nav = useImageFieldNavigation({ images, validationItems })
 
   // Drawing mode state (review-specific)
   const [drawingFieldName, setDrawingFieldName] = useState<string | null>(null)
@@ -93,47 +83,33 @@ export function ReviewDetailPanels({
   }))
 
   return (
-    <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[55%_1fr]">
-      {/* Left column — sticky image + tabs (stacks on mobile) */}
-      <div className="flex h-[60vh] flex-col lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)]">
-        <ImageTabs
-          images={images}
-          selectedImageId={selectedImageId}
-          onSelect={handleImageSelect}
-        />
-        <div className="min-h-0 flex-1 overflow-hidden rounded-xl border bg-neutral-950/[0.03] dark:bg-neutral-950/30">
-          {selectedImage && (
-            <AnnotatedImage
-              imageUrl={selectedImage.imageUrl}
-              validationItems={annotationItems}
-              activeField={activeField}
-              onFieldClick={handleFieldClick}
-              drawingFieldName={drawingFieldName}
-              onDrawingComplete={handleDrawingComplete}
-              onDrawingCancel={handleDrawingCancel}
-              annotations={specialistAnnotations}
-              images={images}
-              selectedImageId={selectedImageId}
-              onImageSelect={handleImageSelect}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Right column — review field list, scrolls with page */}
+    <DetailPanelLayout
+      images={images}
+      selectedImage={nav.selectedImage}
+      selectedImageId={nav.selectedImageId}
+      onImageSelect={nav.handleImageSelect}
+      annotationItems={nav.annotationItems}
+      activeField={nav.activeField}
+      onFieldClick={nav.handleFieldClick}
+      drawingFieldName={drawingFieldName}
+      onDrawingComplete={handleDrawingComplete}
+      onDrawingCancel={handleDrawingCancel}
+      annotations={specialistAnnotations}
+      imageContainerClassName="rounded-xl border bg-neutral-950/[0.03] dark:bg-neutral-950/30"
+    >
       <div className="pb-6">
         <ReviewFieldList
           labelId={labelId}
           validationItems={validationItems}
           applicantCorrections={applicantCorrections}
-          activeField={activeField}
-          onFieldClick={handleFieldClick}
+          activeField={nav.activeField}
+          onFieldClick={nav.handleFieldClick}
           onMarkLocation={handleMarkLocation}
           onClearAnnotation={handleClearAnnotation}
           annotations={annotationsMap}
           beverageType={beverageType}
         />
       </div>
-    </div>
+    </DetailPanelLayout>
   )
 }

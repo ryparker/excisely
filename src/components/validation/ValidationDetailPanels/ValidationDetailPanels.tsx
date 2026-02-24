@@ -2,9 +2,8 @@
 
 import { useMemo } from 'react'
 
-import { AnnotatedImage } from '@/components/validation/AnnotatedImage'
-import { ImageTabs } from '@/components/validation/ImageTabs'
 import { FieldComparisonRow } from '@/components/shared/FieldComparisonRow'
+import { DetailPanelLayout } from '@/components/shared/DetailPanelLayout'
 import { useImageFieldNavigation } from '@/hooks/useImageFieldNavigation'
 import type {
   LabelImageData,
@@ -31,7 +30,6 @@ function FieldSummaryHeader({ items }: { items: ValidationItemData[] }) {
           {matchCount} of {total} fields match
         </p>
       </div>
-      {/* Stacked progress bar */}
       <div className="flex h-1.5 gap-px overflow-hidden rounded-full bg-muted">
         {matchPercent > 0 && (
           <div
@@ -46,7 +44,6 @@ function FieldSummaryHeader({ items }: { items: ValidationItemData[] }) {
           />
         )}
       </div>
-      {/* Legend */}
       <div className="flex gap-4 text-[11px] text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <span className="inline-block size-2 rounded-full bg-green-500" />
@@ -72,7 +69,6 @@ function FieldSummaryHeader({ items }: { items: ValidationItemData[] }) {
 interface ValidationDetailPanelsProps {
   images: LabelImageData[]
   validationItems: ValidationItemData[]
-  /** When true, hides confidence overlays on image and passes hideInternals to field rows */
   hideInternals?: boolean
 }
 
@@ -86,43 +82,22 @@ export function ValidationDetailPanels({
     [hideInternals],
   )
 
-  const {
-    activeField,
-    selectedImage,
-    handleFieldClick,
-    handleImageSelect,
-    annotationItems,
-  } = useImageFieldNavigation({
+  const nav = useImageFieldNavigation({
     images,
     validationItems,
     confidenceOverride,
   })
 
   return (
-    <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[55%_1fr]">
-      {/* Left column — sticky image + tabs (stacks on mobile) */}
-      <div className="flex h-[60vh] flex-col lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)]">
-        <ImageTabs
-          images={images}
-          selectedImageId={selectedImage?.id ?? ''}
-          onSelect={handleImageSelect}
-        />
-        <div className="min-h-0 flex-1 overflow-hidden">
-          {selectedImage && (
-            <AnnotatedImage
-              imageUrl={selectedImage.imageUrl}
-              validationItems={annotationItems}
-              activeField={activeField}
-              onFieldClick={handleFieldClick}
-              images={images}
-              selectedImageId={selectedImage.id}
-              onImageSelect={handleImageSelect}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Right column — field comparisons, scrolls with page */}
+    <DetailPanelLayout
+      images={images}
+      selectedImage={nav.selectedImage}
+      selectedImageId={nav.selectedImage?.id ?? ''}
+      onImageSelect={nav.handleImageSelect}
+      annotationItems={nav.annotationItems}
+      activeField={nav.activeField}
+      onFieldClick={nav.handleFieldClick}
+    >
       <div className="space-y-3.5 pb-6">
         <FieldSummaryHeader items={validationItems} />
         {validationItems.map((item) => (
@@ -136,12 +111,12 @@ export function ValidationDetailPanels({
             status={item.status}
             confidence={Number(item.confidence)}
             reasoning={item.matchReasoning}
-            isActive={activeField === item.fieldName}
-            onClick={() => handleFieldClick(item.fieldName)}
+            isActive={nav.activeField === item.fieldName}
+            onClick={() => nav.handleFieldClick(item.fieldName)}
             hideInternals={hideInternals}
           />
         ))}
       </div>
-    </div>
+    </DetailPanelLayout>
   )
 }
