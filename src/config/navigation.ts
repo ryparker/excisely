@@ -1,5 +1,7 @@
 import { FileText, Flag, Scale, Settings, Users } from 'lucide-react'
 
+import { routes } from '@/config/routes'
+
 export interface NavItem {
   label: string
   href: string
@@ -13,16 +15,21 @@ export function getNavItems(
 ): NavItem[] {
   if (role === 'applicant') {
     return [
-      { label: 'My Submissions', href: '/', icon: FileText },
-      { label: 'Regulations', href: '/regulations', icon: Scale },
+      { label: 'My Submissions', href: routes.home(), icon: FileText },
+      { label: 'Regulations', href: routes.regulations(), icon: Scale },
     ]
   }
 
   return [
-    { label: 'Labels', href: '/', icon: FileText, badge: reviewCount },
-    { label: 'Applicants', href: '/applicants', icon: Users },
-    { label: 'AI Errors', href: '/ai-errors', icon: Flag },
-    { label: 'Regulations', href: '/regulations', icon: Scale },
-    { label: 'Settings', href: '/settings', icon: Settings },
+    {
+      label: 'Labels',
+      href: routes.home(),
+      icon: FileText,
+      badge: reviewCount,
+    },
+    { label: 'Applicants', href: routes.applicants(), icon: Users },
+    { label: 'AI Errors', href: routes.aiErrors(), icon: Flag },
+    { label: 'Regulations', href: routes.regulations(), icon: Scale },
+    { label: 'Settings', href: routes.settings(), icon: Settings },
   ]
 }

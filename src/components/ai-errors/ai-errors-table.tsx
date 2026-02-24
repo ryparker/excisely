@@ -6,6 +6,7 @@ import { ArrowRight } from 'lucide-react'
 import { useQueryState, parseAsInteger } from 'nuqs'
 
 import { FIELD_DISPLAY_NAMES } from '@/config/field-display-names'
+import { routes } from '@/config/routes'
 import { confidenceColor } from '@/lib/utils'
 import { ColumnHeader } from '@/components/shared/column-header'
 import { TablePagination } from '@/components/shared/table-pagination'
@@ -173,7 +174,7 @@ export function AIErrorsTable({
               <TableRow
                 key={row.id}
                 className="cursor-pointer transition-colors hover:bg-muted/50"
-                onClick={() => router.push(`/labels/${row.labelId}`)}
+                onClick={() => router.push(routes.label(row.labelId))}
               >
                 <TableCell className="whitespace-nowrap text-muted-foreground tabular-nums">
                   {formatReviewDate(new Date(row.reviewedAt))}

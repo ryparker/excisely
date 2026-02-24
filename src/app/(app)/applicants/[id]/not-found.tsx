@@ -1,5 +1,6 @@
 import Link from 'next/link'
 
+import { routes } from '@/config/routes'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -24,7 +25,7 @@ export default function ApplicantNotFound() {
         </CardContent>
         <CardFooter className="justify-center">
           <Button asChild>
-            <Link href="/applicants">Back to Applicants</Link>
+            <Link href={routes.applicants()}>Back to Applicants</Link>
           </Button>
         </CardFooter>
       </Card>

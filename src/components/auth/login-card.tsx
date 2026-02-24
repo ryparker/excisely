@@ -7,6 +7,7 @@ import { Check } from 'lucide-react'
 
 import { LoginForm } from '@/components/auth/login-form'
 import { APP_NAME, APP_TAGLINE } from '@/config/constants'
+import { routes } from '@/config/routes'
 
 type TransitionPhase = 'idle' | 'success' | 'exiting'
 
@@ -21,10 +22,10 @@ export function LoginCard() {
 
   const handleSuccess = useCallback(() => {
     // Prefetch dashboard RSC payload immediately so it loads in parallel with animation
-    router.prefetch('/')
+    router.prefetch(routes.home())
 
     if (shouldReduceMotion) {
-      router.push('/')
+      router.push(routes.home())
       return
     }
 
@@ -38,7 +39,7 @@ export function LoginCard() {
 
     // Phase 3: Navigate mid-exit — card is ~70% faded, dashboard data is prefetched
     setTimeout(() => {
-      router.push('/')
+      router.push(routes.home())
     }, 450)
   }, [router, shouldReduceMotion])
 

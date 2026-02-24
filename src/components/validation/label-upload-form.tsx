@@ -29,6 +29,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { QRCodeSVG } from 'qrcode.react'
 import { toast } from 'sonner'
 
+import { routes } from '@/config/routes'
 import { extractFieldsFromImage } from '@/app/actions/extract-fields-from-image'
 import { submitApplication } from '@/app/actions/submit-application'
 import { validateLabel } from '@/app/actions/validate-label'
@@ -976,9 +977,9 @@ export function LabelUploadForm({
         setIsSubmitting(false)
 
         if (mode === 'submit') {
-          router.push(`/submissions/${result.labelId}?confirmed=true`)
+          router.push(`${routes.submission(result.labelId)}?confirmed=true`)
         } else {
-          router.push(`/labels/${result.labelId}`)
+          router.push(routes.label(result.labelId))
         }
       } else if ('timeout' in result && result.timeout) {
         // Server-side pipeline timeout
@@ -1010,7 +1011,7 @@ export function LabelUploadForm({
     clearPipelineStages()
     setIsSubmitting(false)
     toast.info('Processing will continue in the background')
-    router.push(mode === 'submit' ? '/submissions' : '/')
+    router.push(mode === 'submit' ? routes.submissions() : routes.home())
   }
 
   // -------------------------------------------------------------------------

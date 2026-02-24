@@ -1,5 +1,6 @@
 import Link from 'next/link'
 
+import { routes } from '@/config/routes'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -23,7 +24,7 @@ export default function LabelNotFound() {
         </CardContent>
         <CardFooter className="justify-center">
           <Button asChild>
-            <Link href="/labels">Back to Labels</Link>
+            <Link href={routes.labels()}>Back to Labels</Link>
           </Button>
         </CardFooter>
       </Card>

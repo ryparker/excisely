@@ -1,5 +1,6 @@
 import Link from 'next/link'
 
+import { routes } from '@/config/routes'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -24,7 +25,7 @@ export default function SubmissionNotFound() {
         </CardContent>
         <CardFooter className="justify-center">
           <Button asChild>
-            <Link href="/submissions">Back to Submissions</Link>
+            <Link href={routes.submissions()}>Back to Submissions</Link>
           </Button>
         </CardFooter>
       </Card>

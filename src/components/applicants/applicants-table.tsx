@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { routes } from '@/config/routes'
 import { cn, confidenceColor, formatDate } from '@/lib/utils'
 
 // ---------------------------------------------------------------------------
@@ -105,7 +106,7 @@ export function ApplicantsTable({
                 key={applicant.id}
                 index={i}
                 className="cursor-pointer transition-colors hover:bg-muted/50"
-                onClick={() => router.push(`/applicants/${applicant.id}`)}
+                onClick={() => router.push(routes.applicant(applicant.id))}
               >
                 <TableCell className="font-medium">
                   <Highlight text={applicant.companyName} query={searchTerm} />

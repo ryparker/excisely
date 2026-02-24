@@ -10,6 +10,8 @@ import {
   Wine,
 } from 'lucide-react'
 
+import { routes } from '@/config/routes'
+
 import { ScrollToSection } from './scroll-to-section'
 import { AnimatedCollapse } from '@/components/shared/animated-collapse'
 import { FilterBar } from '@/components/shared/filter-bar'
@@ -153,7 +155,7 @@ export default async function RegulationsPage({
               return (
                 <Link
                   key={p.part}
-                  href={`/regulations?part=${p.part}`}
+                  href={`${routes.regulations()}?part=${p.part}`}
                   className="group"
                 >
                   <Card className="h-full shadow-sm transition-shadow duration-150 ease-out group-hover:shadow-md">
@@ -195,7 +197,7 @@ export default async function RegulationsPage({
             <span className="font-semibold">{fieldDisplayName}</span>
           </p>
           <Link
-            href="/regulations"
+            href={routes.regulations()}
             className="ml-auto text-xs text-muted-foreground transition-colors hover:text-foreground"
           >
             Clear filter

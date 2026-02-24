@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation'
 
+import { routes } from '@/config/routes'
+
 import { getSession } from './get-session'
 
 /**
@@ -7,7 +9,7 @@ import { getSession } from './get-session'
  */
 export async function requireAuth() {
   const session = await getSession()
-  if (!session) redirect('/login')
+  if (!session) redirect(routes.login())
   return session
 }
 
@@ -16,7 +18,7 @@ export async function requireAuth() {
  */
 export async function requireSpecialist() {
   const session = await requireAuth()
-  if (session.user.role === 'applicant') redirect('/')
+  if (session.user.role === 'applicant') redirect(routes.home())
   return session
 }
 
@@ -25,6 +27,6 @@ export async function requireSpecialist() {
  */
 export async function requireApplicant() {
   const session = await requireAuth()
-  if (session.user.role !== 'applicant') redirect('/')
+  if (session.user.role !== 'applicant') redirect(routes.home())
   return session
 }

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { eq, and } from 'drizzle-orm'
 import { ArrowLeft } from 'lucide-react'
 
+import { routes } from '@/config/routes'
 import { db } from '@/db'
 import {
   labels,
@@ -331,7 +332,7 @@ export default async function SubmissionDetailPage({
           className="-ml-2 text-muted-foreground"
           asChild
         >
-          <Link href="/submissions">
+          <Link href={routes.submissions()}>
             <ArrowLeft className="size-4" />
             Back to My Submissions
           </Link>

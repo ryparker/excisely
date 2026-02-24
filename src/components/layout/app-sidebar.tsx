@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
+import { routes } from '@/config/routes'
 import { UserMenu } from '@/components/auth/user-menu'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -340,7 +341,7 @@ export function AppSidebar({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button asChild size="icon" className="w-full">
-                    <Link href="/submit">
+                    <Link href={routes.submit()}>
                       <Plus className="size-4" />
                     </Link>
                   </Button>
@@ -354,7 +355,7 @@ export function AppSidebar({
                 asChild
                 className="w-full bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
               >
-                <Link href="/submit">
+                <Link href={routes.submit()}>
                   <Plus className="size-4" />
                   <span className="whitespace-nowrap">New Submission</span>
                 </Link>

@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation'
 
+import { routes } from '@/config/routes'
+
 export default function ReviewQueuePage() {
-  redirect('/?status=pending_review')
+  redirect(`${routes.home()}?status=pending_review`)
 }

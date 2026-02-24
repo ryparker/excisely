@@ -19,6 +19,7 @@ import {
   BEVERAGE_LABEL_FULL,
   BEVERAGE_OPTIONS,
 } from '@/config/beverage-display'
+import { routes } from '@/config/routes'
 import { cn, confidenceColor, formatConfidence, formatDate } from '@/lib/utils'
 
 // ---------------------------------------------------------------------------
@@ -82,7 +83,7 @@ export function ApplicantLabelsTable({ labels }: ApplicantLabelsTableProps) {
                 key={label.id}
                 index={i}
                 className="cursor-pointer transition-colors hover:bg-muted/50"
-                onClick={() => router.push(`/labels/${label.id}`)}
+                onClick={() => router.push(routes.label(label.id))}
               >
                 <TableCell>
                   <div className="font-medium">

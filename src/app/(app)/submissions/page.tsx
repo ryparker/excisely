@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { eq, count } from 'drizzle-orm'
 import { Plus } from 'lucide-react'
 
+import { routes } from '@/config/routes'
 import { db } from '@/db'
 import { labels, applicants } from '@/db/schema'
 import { requireApplicant } from '@/lib/auth/require-role'
@@ -59,7 +60,7 @@ export default async function SubmissionsPage({
     .limit(1)
 
   // No applicant record means no submissions — go straight to submit
-  if (!applicantRecord) redirect('/submit')
+  if (!applicantRecord) redirect(routes.submit())
 
   // Quick count check — redirect first-time applicants before rendering
   const [{ total }] = await db
@@ -67,7 +68,7 @@ export default async function SubmissionsPage({
     .from(labels)
     .where(eq(labels.applicantId, applicantRecord.id))
 
-  if (total === 0) redirect('/submit')
+  if (total === 0) redirect(routes.submit())
 
   return (
     <PageShell className="space-y-6">
@@ -103,7 +104,7 @@ export default async function SubmissionsPage({
       </Suspense>
       {/* Mobile FAB — quick access to new submission */}
       <Link
-        href="/submit"
+        href={routes.submit()}
         className="fixed right-6 bottom-6 z-40 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95 md:hidden"
         aria-label="New submission"
       >

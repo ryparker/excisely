@@ -10,6 +10,7 @@ import {
   TrendingUp,
 } from 'lucide-react'
 
+import { routes } from '@/config/routes'
 import { db } from '@/db'
 import {
   applicants,
@@ -232,7 +233,7 @@ export default async function ApplicantDetailPage({
       {/* Back link + header */}
       <div className="space-y-4">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/applicants">
+          <Link href={routes.applicants()}>
             <ArrowLeft className="size-4" />
             Back to Applicants
           </Link>

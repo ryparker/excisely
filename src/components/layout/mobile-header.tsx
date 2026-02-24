@@ -17,6 +17,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { APP_NAME, APP_TAGLINE } from '@/config/constants'
 import { getNavItems } from '@/config/navigation'
+import { routes } from '@/config/routes'
 import { cn } from '@/lib/utils'
 
 interface MobileHeaderProps {
@@ -140,7 +141,7 @@ export function MobileHeader({
                 className="w-full bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
                 onClick={() => setOpen(false)}
               >
-                <Link href="/submit">
+                <Link href={routes.submit()}>
                   <Plus className="size-4" />
                   New Submission
                 </Link>

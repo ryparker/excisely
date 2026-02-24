@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { routes } from '@/config/routes'
 import { signOut, useSession } from '@/lib/auth/auth-client'
 import { cn } from '@/lib/utils'
 
@@ -48,14 +49,14 @@ export function UserMenu({
     signOut()
 
     // Prefetch login page so it's ready when we navigate
-    router.prefetch('/login')
+    router.prefetch(routes.login())
 
     // Dispatch exit event — sidebar and page content animate out
     window.dispatchEvent(new Event('app-exit'))
 
     // Navigate after exit animations complete
     setTimeout(() => {
-      router.push('/login')
+      router.push(routes.login())
     }, 350)
   }
 

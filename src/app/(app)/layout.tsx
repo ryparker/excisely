@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { sql } from 'drizzle-orm'
 
+import { routes } from '@/config/routes'
 import { db } from '@/db'
 import { labels } from '@/db/schema'
 import { getSession } from '@/lib/auth/get-session'
@@ -23,7 +24,7 @@ export default async function AppLayout({
   const session = await getSession()
 
   if (!session) {
-    redirect('/login')
+    redirect(routes.login())
   }
 
   const { user } = session

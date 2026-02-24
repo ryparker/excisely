@@ -1,5 +1,6 @@
 import Link from 'next/link'
 
+import { routes } from '@/config/routes'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -23,7 +24,7 @@ export default function AppNotFound() {
         </CardContent>
         <CardFooter className="justify-center">
           <Button asChild>
-            <Link href="/">Back to Dashboard</Link>
+            <Link href={routes.home()}>Back to Dashboard</Link>
           </Button>
         </CardFooter>
       </Card>

@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
+import { routes } from '@/config/routes'
 import { db } from '@/db'
 import { labels, statusOverrides } from '@/db/schema'
 import {
@@ -114,8 +115,8 @@ export async function overrideStatus(
       })
       .where(eq(labels.id, labelId))
 
-    revalidatePath('/')
-    revalidatePath(`/labels/${labelId}`)
+    revalidatePath(routes.home())
+    revalidatePath(routes.label(labelId))
 
     return { success: true }
   } catch (error) {

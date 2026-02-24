@@ -25,6 +25,7 @@ import {
   BEVERAGE_LABEL_FULL,
   BEVERAGE_OPTIONS,
 } from '@/config/beverage-display'
+import { routes } from '@/config/routes'
 import { getDeadlineInfo } from '@/lib/labels/effective-status'
 import { cn, formatDate } from '@/lib/utils'
 
@@ -162,7 +163,7 @@ export function SubmissionsTable({
                 key={row.id}
                 index={i}
                 className="cursor-pointer transition-colors hover:bg-muted/50"
-                onClick={() => router.push(`/submissions/${row.id}`)}
+                onClick={() => router.push(routes.submission(row.id))}
               >
                 <TableCell>
                   <LabelThumbnail

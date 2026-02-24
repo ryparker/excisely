@@ -16,6 +16,7 @@ import {
   Flag,
 } from 'lucide-react'
 
+import { routes } from '@/config/routes'
 import { submitReview } from '@/app/actions/submit-review'
 import { FieldComparisonRow } from '@/components/shared/field-comparison-row'
 import { Badge } from '@/components/ui/badge'
@@ -319,7 +320,7 @@ export function ReviewFieldList({
       const result = await submitReview(formData)
 
       if (result.success) {
-        router.push('/')
+        router.push(routes.home())
       } else {
         setError(result.error)
       }

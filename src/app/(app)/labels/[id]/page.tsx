@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { eq, and, desc } from 'drizzle-orm'
 import { ArrowLeft, Building2 } from 'lucide-react'
 
+import { routes } from '@/config/routes'
 import { db } from '@/db'
 import {
   labels,
@@ -454,7 +455,7 @@ export default async function LabelDetailPage({
           className="-ml-2 text-muted-foreground"
           asChild
         >
-          <Link href="/">
+          <Link href={routes.home()}>
             <ArrowLeft className="size-4" />
             Back to Labels
           </Link>
@@ -490,7 +491,7 @@ export default async function LabelDetailPage({
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Building2 className="size-4 shrink-0" />
               <Link
-                href={`/applicants/${applicant.id}`}
+                href={routes.applicant(applicant.id)}
                 className="font-medium text-foreground hover:underline"
               >
                 {applicant.companyName}

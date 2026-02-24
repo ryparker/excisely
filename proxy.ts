@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const PUBLIC_PATHS = ['/login', '/api/auth']
+import { routes } from '@/config/routes'
+
+const PUBLIC_PATHS = [routes.login(), routes.apiAuth()]
 
 const SECURITY_HEADERS: Record<string, string> = {
   'X-Frame-Options': 'DENY',
@@ -37,7 +39,7 @@ export function proxy(request: NextRequest) {
     request.cookies.get('__Secure-better-auth.session_token')
 
   if (!sessionToken) {
-    const loginUrl = new URL('/login', request.url)
+    const loginUrl = new URL(routes.login(), request.url)
     return applySecurityHeaders(NextResponse.redirect(loginUrl))
   }
 

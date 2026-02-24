@@ -10,6 +10,7 @@ import pLimit from 'p-limit'
 import { reanalyzeLabel } from '@/app/actions/reanalyze-label'
 import { batchApprove } from '@/app/actions/batch-approve'
 import { useReanalysisStore } from '@/stores/reanalysis-store'
+import { routes } from '@/config/routes'
 import { REASON_CODE_LABELS } from '@/config/override-reasons'
 import {
   BEVERAGE_ICON,
@@ -398,8 +399,8 @@ export function LabelsTable({
                     onClick={() =>
                       router.push(
                         isApplicant
-                          ? `/submissions/${label.id}`
-                          : `/labels/${label.id}`,
+                          ? routes.submission(label.id)
+                          : routes.label(label.id),
                       )
                     }
                   >

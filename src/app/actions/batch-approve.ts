@@ -4,6 +4,7 @@ import { eq, and } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import pLimit from 'p-limit'
 
+import { routes } from '@/config/routes'
 import { db } from '@/db'
 import {
   labels,
@@ -151,7 +152,7 @@ export async function batchApprove(
     ),
   )
 
-  revalidatePath('/')
+  revalidatePath(routes.home())
 
   return {
     success: failedIds.length === 0,

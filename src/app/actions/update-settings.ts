@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { revalidatePath } from 'next/cache'
 
+import { routes } from '@/config/routes'
 import { db } from '@/db'
 import { settings } from '@/db/schema'
 import { guardSpecialist } from '@/lib/auth/action-guards'
@@ -65,7 +66,7 @@ export async function updateAutoApproval(
 
   try {
     await upsertSetting('auto_approval_enabled', parsed.data.enabled)
-    revalidatePath('/settings')
+    revalidatePath(routes.settings())
     return { success: true }
   } catch (error) {
     console.error('[updateAutoApproval] Error:', error)
@@ -88,7 +89,7 @@ export async function updateConfidenceThreshold(
 
   try {
     await upsertSetting('confidence_threshold', parsed.data.confidenceThreshold)
-    revalidatePath('/settings')
+    revalidatePath(routes.settings())
     return { success: true }
   } catch (error) {
     console.error('[updateConfidenceThreshold] Error:', error)
@@ -111,8 +112,8 @@ export async function updateApprovalThreshold(
 
   try {
     await upsertSetting('approval_threshold', parsed.data.approvalThreshold)
-    revalidatePath('/settings')
-    revalidatePath('/')
+    revalidatePath(routes.settings())
+    revalidatePath(routes.home())
     return { success: true }
   } catch (error) {
     console.error('[updateApprovalThreshold] Error:', error)
@@ -136,7 +137,7 @@ export async function updateFieldStrictness(
 
   try {
     await upsertSetting('field_strictness', parsed.data.fieldStrictness)
-    revalidatePath('/settings')
+    revalidatePath(routes.settings())
     return { success: true }
   } catch (error) {
     console.error('[updateFieldStrictness] Error:', error)
@@ -160,7 +161,7 @@ export async function updateSLATargets(targets: {
 
   try {
     await upsertSetting('sla_targets', parsed.data)
-    revalidatePath('/settings')
+    revalidatePath(routes.settings())
     return { success: true }
   } catch (error) {
     console.error('[updateSLATargets] Error:', error)
