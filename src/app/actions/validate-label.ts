@@ -12,6 +12,7 @@ import { parseImageUrls } from '@/lib/actions/parse-image-urls'
 import { validateLabelSchema } from '@/lib/validators/label-schema'
 import { buildExpectedFields } from '@/lib/labels/validation-helpers'
 import { runValidationPipeline } from '@/lib/actions/validation-pipeline'
+import { logActionError } from '@/lib/actions/action-error'
 import type { ActionResult } from '@/lib/actions/result-types'
 
 // ---------------------------------------------------------------------------
@@ -138,10 +139,10 @@ export async function validateLabel(
 
     return { success: true, labelId: label.id }
   } catch (error) {
-    console.error('[validateLabel] Unexpected error:', error)
-    return {
-      success: false,
-      error: 'An unexpected error occurred during validation',
-    }
+    return logActionError(
+      'validateLabel',
+      error,
+      'An unexpected error occurred during validation',
+    )
   }
 }

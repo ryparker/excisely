@@ -14,6 +14,7 @@ import { insertHumanReview } from '@/db/mutations/reviews'
 import { updateValidationItemStatus } from '@/db/mutations/validation'
 import { guardSpecialist } from '@/lib/auth/action-guards'
 import { formatZodError } from '@/lib/actions/parse-zod-error'
+import { logActionError } from '@/lib/actions/action-error'
 import {
   determineOverallStatus,
   addDays,
@@ -182,10 +183,10 @@ export async function submitReview(
 
     return { success: true }
   } catch (error) {
-    console.error('[submitReview] Unexpected error:', error)
-    return {
-      success: false,
-      error: 'An unexpected error occurred during review submission',
-    }
+    return logActionError(
+      'submitReview',
+      error,
+      'An unexpected error occurred during review submission',
+    )
   }
 }

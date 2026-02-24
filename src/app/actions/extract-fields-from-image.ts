@@ -4,6 +4,7 @@ import { z } from 'zod'
 
 import { guardAuth } from '@/lib/auth/action-guards'
 import { formatZodError } from '@/lib/actions/parse-zod-error'
+import { logActionError } from '@/lib/actions/action-error'
 import {
   extractLabelFieldsForApplicantWithType,
   extractLabelFieldsWithAutoDetect,
@@ -110,10 +111,10 @@ export async function extractFieldsFromImage(input: {
       },
     }
   } catch (error) {
-    console.error('[extractFieldsFromImage] Error:', error)
-    return {
-      success: false,
-      error: 'An unexpected error occurred during field extraction',
-    }
+    return logActionError(
+      'extractFieldsFromImage',
+      error,
+      'An unexpected error occurred during field extraction',
+    )
   }
 }

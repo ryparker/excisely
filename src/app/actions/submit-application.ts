@@ -13,6 +13,7 @@ import {
 import { PipelineTimeoutError } from '@/lib/ai/extract-label'
 import { guardApplicant } from '@/lib/auth/action-guards'
 import { formatZodError } from '@/lib/actions/parse-zod-error'
+import { logActionError } from '@/lib/actions/action-error'
 import { parseImageUrls } from '@/lib/actions/parse-image-urls'
 import { validateLabelSchema } from '@/lib/validators/label-schema'
 import { buildExpectedFields } from '@/lib/labels/validation-helpers'
@@ -168,8 +169,6 @@ export async function submitApplication(
 
     return { success: true, labelId: label.id, status: finalStatus }
   } catch (error) {
-    console.error('[submitApplication] Unexpected error:', error)
-
     // Best-effort: reset partially-created label to pending so it can be retried
     if (labelId) {
       const failedLabelId = labelId
@@ -183,6 +182,7 @@ export async function submitApplication(
     }
 
     if (error instanceof PipelineTimeoutError) {
+      console.error('[submitApplication] Pipeline timeout:', error)
       return {
         success: false,
         error:
@@ -191,10 +191,11 @@ export async function submitApplication(
       }
     }
 
-    return {
-      success: false,
-      error: 'An unexpected error occurred during submission',
-    }
+    return logActionError(
+      'submitApplication',
+      error,
+      'An unexpected error occurred during submission',
+    )
   }
 }
 

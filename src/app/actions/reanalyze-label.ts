@@ -11,6 +11,7 @@ import { getCurrentValidationResult } from '@/db/queries/validation'
 import { updateLabelStatus } from '@/db/mutations/labels'
 import { supersedeValidationResult } from '@/db/mutations/validation'
 import { guardSpecialist } from '@/lib/auth/action-guards'
+import { logActionError } from '@/lib/actions/action-error'
 import { addDays, buildExpectedFields } from '@/lib/labels/validation-helpers'
 import { runValidationPipeline } from '@/lib/actions/validation-pipeline'
 import type { ActionResult } from '@/lib/actions/result-types'
@@ -106,7 +107,6 @@ export async function reanalyzeLabel(
     return { success: true, labelId }
   } catch (error) {
     // Error recovery: restore original status
-    console.error('[reanalyzeLabel] Error:', error)
     try {
       await updateLabelStatus(labelId, { status: originalStatus })
     } catch (restoreError) {
@@ -116,9 +116,10 @@ export async function reanalyzeLabel(
       )
     }
 
-    return {
-      success: false,
-      error: 'An unexpected error occurred during re-analysis',
-    }
+    return logActionError(
+      'reanalyzeLabel',
+      error,
+      'An unexpected error occurred during re-analysis',
+    )
   }
 }

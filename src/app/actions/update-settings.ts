@@ -5,6 +5,7 @@ import { updateTag } from 'next/cache'
 
 import { upsertSetting } from '@/db/mutations/settings'
 import { guardSpecialist } from '@/lib/auth/action-guards'
+import { logActionError } from '@/lib/actions/action-error'
 import type { StrictnessLevel } from '@/db/queries/settings'
 import type { ActionResult } from '@/lib/actions/result-types'
 
@@ -50,8 +51,11 @@ export async function updateAutoApproval(
     updateTag('settings')
     return { success: true }
   } catch (error) {
-    console.error('[updateAutoApproval] Error:', error)
-    return { success: false, error: 'Failed to save auto-approval setting' }
+    return logActionError(
+      'updateAutoApproval',
+      error,
+      'Failed to save auto-approval setting',
+    )
   }
 }
 
@@ -73,8 +77,11 @@ export async function updateConfidenceThreshold(
     updateTag('settings')
     return { success: true }
   } catch (error) {
-    console.error('[updateConfidenceThreshold] Error:', error)
-    return { success: false, error: 'Failed to save threshold' }
+    return logActionError(
+      'updateConfidenceThreshold',
+      error,
+      'Failed to save threshold',
+    )
   }
 }
 
@@ -97,8 +104,11 @@ export async function updateApprovalThreshold(
     updateTag('labels')
     return { success: true }
   } catch (error) {
-    console.error('[updateApprovalThreshold] Error:', error)
-    return { success: false, error: 'Failed to save approval threshold' }
+    return logActionError(
+      'updateApprovalThreshold',
+      error,
+      'Failed to save approval threshold',
+    )
   }
 }
 
@@ -121,8 +131,11 @@ export async function updateFieldStrictness(
     updateTag('settings')
     return { success: true }
   } catch (error) {
-    console.error('[updateFieldStrictness] Error:', error)
-    return { success: false, error: 'Failed to save field strictness' }
+    return logActionError(
+      'updateFieldStrictness',
+      error,
+      'Failed to save field strictness',
+    )
   }
 }
 
@@ -145,7 +158,10 @@ export async function updateSLATargets(targets: {
     updateTag('settings')
     return { success: true }
   } catch (error) {
-    console.error('[updateSLATargets] Error:', error)
-    return { success: false, error: 'Failed to save SLA targets' }
+    return logActionError(
+      'updateSLATargets',
+      error,
+      'Failed to save SLA targets',
+    )
   }
 }

@@ -4,6 +4,7 @@ import { z } from 'zod'
 
 import { updateApplicantNotes as updateApplicantNotesDb } from '@/db/mutations/applicants'
 import { guardSpecialist } from '@/lib/auth/action-guards'
+import { logActionError } from '@/lib/actions/action-error'
 import type { ActionResult } from '@/lib/actions/result-types'
 
 const updateNotesSchema = z.object({
@@ -28,7 +29,6 @@ export async function updateApplicantNotes(
     await updateApplicantNotesDb(parsed.data.applicantId, trimmed)
     return { success: true }
   } catch (error) {
-    console.error('[updateApplicantNotes] Error:', error)
-    return { success: false, error: 'Failed to save notes' }
+    return logActionError('updateApplicantNotes', error, 'Failed to save notes')
   }
 }
