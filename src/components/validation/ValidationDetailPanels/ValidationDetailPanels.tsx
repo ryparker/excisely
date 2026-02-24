@@ -8,6 +8,10 @@ import {
 } from '@/components/validation/AnnotatedImage'
 import { ImageTabs } from '@/components/validation/ImageTabs'
 import { FieldComparisonRow } from '@/components/shared/FieldComparisonRow'
+import type {
+  LabelImageData,
+  ValidationItemData,
+} from '@/lib/labels/detail-panel-types'
 
 function FieldSummaryHeader({ items }: { items: ValidationItemData[] }) {
   const total = items.length
@@ -65,29 +69,6 @@ function FieldSummaryHeader({ items }: { items: ValidationItemData[] }) {
       </div>
     </div>
   )
-}
-
-interface ValidationItemData {
-  id: string
-  fieldName: string
-  expectedValue: string
-  extractedValue: string
-  status: string
-  confidence: string
-  matchReasoning: string | null
-  bboxX: string | null
-  bboxY: string | null
-  bboxWidth: string | null
-  bboxHeight: string | null
-  bboxAngle: string | null
-  labelImageId: string | null
-}
-
-interface LabelImageData {
-  id: string
-  imageUrl: string
-  imageType: string
-  sortOrder: number
 }
 
 interface ValidationDetailPanelsProps {

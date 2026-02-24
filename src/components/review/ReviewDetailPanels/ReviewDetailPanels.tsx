@@ -10,30 +10,10 @@ import {
 import { ImageTabs } from '@/components/validation/ImageTabs'
 import { ReviewFieldList } from '@/components/review/ReviewFieldList'
 import type { BeverageType } from '@/config/beverage-types'
-import type { ValidationItemStatus } from '@/lib/labels/validation-helpers'
-
-interface ValidationItemData {
-  id: string
-  fieldName: string
-  expectedValue: string
-  extractedValue: string
-  status: ValidationItemStatus
-  confidence: string
-  matchReasoning: string | null
-  bboxX: string | null
-  bboxY: string | null
-  bboxWidth: string | null
-  bboxHeight: string | null
-  bboxAngle: string | null
-  labelImageId: string | null
-}
-
-interface LabelImageData {
-  id: string
-  imageUrl: string
-  imageType: string
-  sortOrder: number
-}
+import type {
+  LabelImageData,
+  ValidationItemData,
+} from '@/lib/labels/detail-panel-types'
 
 interface ApplicantCorrection {
   fieldName: string

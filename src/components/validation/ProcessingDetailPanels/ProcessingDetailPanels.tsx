@@ -6,13 +6,7 @@ import { AnnotatedImage } from '@/components/validation/AnnotatedImage'
 import { ImageTabs } from '@/components/validation/ImageTabs'
 import { ApplicationDataPanel } from '@/components/validation/ApplicationDataPanel'
 import { ScrollArea } from '@/components/ui/ScrollArea'
-
-interface LabelImageData {
-  id: string
-  imageUrl: string
-  imageType: string
-  sortOrder: number
-}
+import type { LabelImageData } from '@/lib/labels/detail-panel-types'
 
 interface ProcessingDetailPanelsProps {
   images: LabelImageData[]

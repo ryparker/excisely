@@ -27,29 +27,9 @@ import {
 } from '@/components/ui/HoverCard'
 import { cn } from '@/lib/utils'
 import { pluralize } from '@/lib/pluralize'
-import {
-  determineOverallStatus,
-  type ValidationItemStatus,
-} from '@/lib/labels/validation-helpers'
+import { determineOverallStatus } from '@/lib/labels/validation-helpers'
+import type { ValidationItemData } from '@/lib/labels/detail-panel-types'
 import type { BeverageType } from '@/config/beverage-types'
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface ValidationItemData {
-  id: string
-  fieldName: string
-  expectedValue: string
-  extractedValue: string
-  status: ValidationItemStatus
-  confidence: string
-  matchReasoning: string | null
-  bboxX: string | null
-  bboxY: string | null
-  bboxWidth: string | null
-  bboxHeight: string | null
-}
 
 type ResolvedStatus = 'match' | 'mismatch' | 'not_found'
 
