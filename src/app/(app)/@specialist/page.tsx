@@ -4,18 +4,18 @@ import { Suspense } from 'react'
 
 import { requireSpecialist } from '@/lib/auth/require-role'
 import { searchParamsCache } from '@/lib/search-params-cache'
-import { DashboardAnimatedShell } from '@/components/dashboard/dashboard-animated-shell'
+import { DashboardAnimatedShell } from '@/components/dashboard/DashboardAnimatedShell'
 import {
   DashboardSLACards,
   SLACardsSkeleton,
-} from '@/components/dashboard/dashboard-sla-cards'
+} from '@/components/dashboard/DashboardSlaCards'
 import {
   DashboardLabelsTable,
   TableSkeleton,
-} from '@/components/dashboard/dashboard-labels-table'
-import { PageHeader } from '@/components/layout/page-header'
-import { SearchInput } from '@/components/shared/search-input'
-import { ResetFiltersButton } from '@/components/shared/reset-filters-button'
+} from '@/components/dashboard/DashboardLabelsTable'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { SearchInput } from '@/components/shared/SearchInput'
+import { ResetFiltersButton } from '@/components/shared/ResetFiltersButton'
 
 export const metadata: Metadata = {
   title: 'Dashboard',

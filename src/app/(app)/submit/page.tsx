@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 
 import { requireApplicant } from '@/lib/auth/require-role'
-import { PageShell } from '@/components/layout/page-shell'
-import { SubmitPageTabs } from '@/components/submit/submit-page-tabs'
+import { PageShell } from '@/components/layout/PageShell'
+import { SubmitPageTabs } from '@/components/submit/SubmitPageTabs'
 
 export const metadata: Metadata = {
   title: 'Submit Application',

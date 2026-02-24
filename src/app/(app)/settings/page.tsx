@@ -15,14 +15,14 @@ import {
   getFieldOverrideRates,
 } from '@/db/queries/stats'
 import { requireSpecialist } from '@/lib/auth/require-role'
-import { PageHeader } from '@/components/layout/page-header'
-import { PageShell } from '@/components/layout/page-shell'
-import { ApprovalThreshold } from '@/components/settings/approval-threshold'
-import { AutoApprovalToggle } from '@/components/settings/auto-approval-toggle'
-import { ConfidenceThreshold } from '@/components/settings/confidence-threshold'
-import { FieldStrictness } from '@/components/settings/field-strictness'
-import { SLASettings } from '@/components/settings/sla-settings'
-import { Skeleton } from '@/components/ui/skeleton'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { PageShell } from '@/components/layout/PageShell'
+import { ApprovalThreshold } from '@/components/settings/ApprovalThreshold'
+import { AutoApprovalToggle } from '@/components/settings/AutoApprovalToggle'
+import { ConfidenceThreshold } from '@/components/settings/ConfidenceThreshold'
+import { FieldStrictness } from '@/components/settings/FieldStrictness'
+import { SLASettings } from '@/components/settings/SlaSettings'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 export const metadata: Metadata = {
   title: 'Settings',

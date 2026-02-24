@@ -10,19 +10,19 @@ import { getApplicantByEmail } from '@/db/queries/applicants'
 import { getApplicantLabelCount } from '@/db/queries/labels'
 import { requireApplicant } from '@/lib/auth/require-role'
 import { searchParamsCache } from '@/lib/search-params-cache'
-import { AutoRefresh } from '@/components/shared/auto-refresh'
-import { PageHeader } from '@/components/layout/page-header'
-import { PageShell } from '@/components/layout/page-shell'
-import { SearchInput } from '@/components/shared/search-input'
-import { ResetFiltersButton } from '@/components/shared/reset-filters-button'
+import { AutoRefresh } from '@/components/shared/AutoRefresh'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { PageShell } from '@/components/layout/PageShell'
+import { SearchInput } from '@/components/shared/SearchInput'
+import { ResetFiltersButton } from '@/components/shared/ResetFiltersButton'
 import {
   SubmissionsSummarySection,
   SummaryCardsSkeleton,
-} from '@/components/submissions/submissions-summary-section'
+} from '@/components/submissions/SubmissionsSummarySection'
 import {
   SubmissionsTableSection,
   SubmissionsTableSkeleton,
-} from '@/components/submissions/submissions-table-section'
+} from '@/components/submissions/SubmissionsTableSection'
 
 export const metadata: Metadata = {
   title: 'Submissions',

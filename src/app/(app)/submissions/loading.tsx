@@ -1,4 +1,4 @@
-import { SubmissionsLoadingSkeleton } from '@/components/shared/submissions-loading-skeleton'
+import { SubmissionsLoadingSkeleton } from '@/components/shared/SubmissionsLoadingSkeleton'
 
 export default function SubmissionsLoading() {
   return <SubmissionsLoadingSkeleton />

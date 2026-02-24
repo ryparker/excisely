@@ -1,7 +1,7 @@
-import { PageHeader } from '@/components/layout/page-header'
-import { STAT_CARD_BASE } from '@/components/shared/stat-card'
-import { Card } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { STAT_CARD_BASE } from '@/components/shared/StatCard'
+import { Card } from '@/components/ui/Card'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 export default function AIErrorsLoading() {
   return (

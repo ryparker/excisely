@@ -1,6 +1,6 @@
-import { PageHeader } from '@/components/layout/page-header'
-import { Card } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { Card } from '@/components/ui/Card'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 export default function RegulationsLoading() {
   return (

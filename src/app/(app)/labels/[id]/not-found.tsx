@@ -1,14 +1,14 @@
 import Link from 'next/link'
 
 import { routes } from '@/config/routes'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui/Button'
 import {
   Card,
   CardContent,
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card'
+} from '@/components/ui/Card'
 
 export default function LabelNotFound() {
   return (

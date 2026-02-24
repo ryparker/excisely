@@ -7,9 +7,9 @@ import { getSLATargets } from '@/db/queries/settings'
 import { fetchSLAMetrics } from '@/db/queries/sla'
 import { getSession } from '@/lib/auth/get-session'
 import { getSLAStatus, worstSLAStatus, type SLAStatus } from '@/lib/sla/status'
-import { AppSidebar } from '@/components/layout/app-sidebar'
-import { MobileHeader } from '@/components/layout/mobile-header'
-import { ParallelRouteGuard } from '@/components/layout/parallel-route-guard'
+import { AppSidebar } from '@/components/layout/AppSidebar'
+import { MobileHeader } from '@/components/layout/MobileHeader'
+import { ParallelRouteGuard } from '@/components/layout/ParallelRouteGuard'
 
 export default async function AppLayout({
   children,

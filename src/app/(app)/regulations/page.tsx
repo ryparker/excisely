@@ -13,14 +13,14 @@ import {
 import { routes } from '@/config/routes'
 
 import { searchParamsCache } from '@/lib/search-params-cache'
-import { ScrollToSection } from './scroll-to-section'
-import { AnimatedCollapse } from '@/components/shared/animated-collapse'
-import { FilterBar } from '@/components/shared/filter-bar'
-import { Highlight } from '@/components/shared/highlight'
-import { SearchInput } from '@/components/shared/search-input'
-import { PageHeader } from '@/components/layout/page-header'
-import { PageShell } from '@/components/layout/page-shell'
-import { Card, CardContent } from '@/components/ui/card'
+import { ScrollToSection } from './ScrollToSection'
+import { AnimatedCollapse } from '@/components/shared/AnimatedCollapse'
+import { FilterBar } from '@/components/shared/FilterBar'
+import { Highlight } from '@/components/shared/Highlight'
+import { SearchInput } from '@/components/shared/SearchInput'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { PageShell } from '@/components/layout/PageShell'
+import { Card, CardContent } from '@/components/ui/Card'
 import {
   BEVERAGE_BADGE_STYLE,
   BEVERAGE_ICON,
@@ -373,10 +373,7 @@ function SectionCard({
               key={field}
               className="rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
             >
-              <Highlight
-                text={formatFieldName(field)}
-                query={query}
-              />
+              <Highlight text={formatFieldName(field)} query={query} />
             </span>
           ))}
         </div>

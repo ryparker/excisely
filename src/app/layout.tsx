@@ -5,7 +5,7 @@ import { NuqsAdapter } from 'nuqs/adapters/next/app'
 import { Toaster } from 'sonner'
 import { Analytics } from '@vercel/analytics/react'
 
-import { TooltipProvider } from '@/components/ui/tooltip'
+import { TooltipProvider } from '@/components/ui/Tooltip'
 
 import './globals.css'
 

@@ -6,12 +6,12 @@ import { getApplicantsWithStats } from '@/db/queries/applicants'
 import { requireSpecialist } from '@/lib/auth/require-role'
 import { searchParamsCache } from '@/lib/search-params-cache'
 import { REASON_CODE_LABELS } from '@/config/override-reasons'
-import { PageHeader } from '@/components/layout/page-header'
-import { PageShell } from '@/components/layout/page-shell'
-import { SearchInput } from '@/components/shared/search-input'
-import { ResetFiltersButton } from '@/components/shared/reset-filters-button'
-import { ApplicantsTable } from '@/components/applicants/applicants-table'
-import { Card, CardContent } from '@/components/ui/card'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { PageShell } from '@/components/layout/PageShell'
+import { SearchInput } from '@/components/shared/SearchInput'
+import { ResetFiltersButton } from '@/components/shared/ResetFiltersButton'
+import { ApplicantsTable } from '@/components/applicants/ApplicantsTable'
+import { Card, CardContent } from '@/components/ui/Card'
 
 export const metadata: Metadata = {
   title: 'Applicants',
