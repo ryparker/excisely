@@ -5,7 +5,7 @@
   "scripts": {
     "clean": "rimraf .next",
     "dev": "yarn clean && next dev",
-    "build": "yarn clean && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
