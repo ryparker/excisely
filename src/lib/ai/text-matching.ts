@@ -67,6 +67,9 @@ export function norm(s: string): string {
  * Smart-joins adjacent tokens that form split numbers: when one word ends with
  * a digit or period and the next starts with a digit or period, they are joined
  * without a space. This handles OCR splitting "12.5%" into "12." + "5%".
+ *
+ * Also performs space-collapsed matching as a fallback, so "750mL" (single OCR
+ * token) matches the extracted value "750 mL" (with space).
  */
 export function findMatchingWords(
   value: string,
@@ -74,6 +77,10 @@ export function findMatchingWords(
 ): IndexedWord[] {
   const target = norm(value)
   if (!target) return []
+
+  // Pre-compute space-collapsed target for fallback matching.
+  // Handles OCR joining tokens: "750mL" → "750ml" matches "750 mL" → "750 ml".
+  const targetCollapsed = target.replace(/ /g, '')
 
   let bestMatch: IndexedWord[] = []
   let bestScore = 0
@@ -108,6 +115,9 @@ export function findMatchingWords(
 
       // Perfect match
       if (accNorm === target) return [...candidates]
+
+      // Space-collapsed match: handles OCR joining tokens (e.g. "750mL" vs "750 mL")
+      if (accNorm.replace(/ /g, '') === targetCollapsed) return [...candidates]
 
       // Score: how much of the target is covered
       if (target.includes(accNorm)) {
@@ -148,7 +158,17 @@ export function matchFieldsToBoundingBoxes(
   return fields.map((field) => {
     if (!field.value) return field
 
-    const matched = findMatchingWords(field.value, combinedWords)
+    let matched = findMatchingWords(field.value, combinedWords)
+
+    // For long values (e.g. health warning), full-text matching is fragile —
+    // a single OCR error in 40+ words breaks the consecutive substring check.
+    // Fall back to matching a shorter prefix to at least locate the field.
+    if (matched.length === 0 && field.value.length > 80) {
+      const words = field.value.split(/\s+/)
+      const prefixLen = Math.min(8, Math.ceil(words.length / 3))
+      const prefix = words.slice(0, prefixLen).join(' ')
+      matched = findMatchingWords(prefix, combinedWords)
+    }
 
     if (matched.length === 0) return field
 
