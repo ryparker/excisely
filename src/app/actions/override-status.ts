@@ -6,13 +6,10 @@ import { z } from 'zod'
 import { getLabelById } from '@/db/queries/labels'
 import { updateLabelStatus } from '@/db/mutations/labels'
 import { insertStatusOverride } from '@/db/mutations/reviews'
-import {
-  CONDITIONAL_DEADLINE_DAYS,
-  CORRECTION_DEADLINE_DAYS,
-} from '@/config/constants'
 import { guardSpecialist } from '@/lib/auth/action-guards'
 import { formatZodError } from '@/lib/actions/parse-zod-error'
-import { addDays } from '@/lib/labels/validation-helpers'
+import { logActionError } from '@/lib/actions/action-error'
+import { computeCorrectionDeadline } from '@/lib/labels/compute-deadline'
 import type { ActionResult } from '@/lib/actions/result-types'
 import { humanizeEnum } from '@/lib/utils'
 
@@ -76,13 +73,7 @@ export async function overrideStatus(
       }
     }
 
-    // Compute correction deadline for the new status
-    let correctionDeadline: Date | null = null
-    if (newStatus === 'conditionally_approved') {
-      correctionDeadline = addDays(new Date(), CONDITIONAL_DEADLINE_DAYS)
-    } else if (newStatus === 'needs_correction') {
-      correctionDeadline = addDays(new Date(), CORRECTION_DEADLINE_DAYS)
-    }
+    const correctionDeadline = computeCorrectionDeadline(newStatus)
 
     // Insert audit trail
     await insertStatusOverride({
@@ -107,10 +98,6 @@ export async function overrideStatus(
 
     return { success: true }
   } catch (error) {
-    console.error('[overrideStatus] Unexpected error:', error)
-    return {
-      success: false,
-      error: 'An unexpected error occurred',
-    }
+    return logActionError('overrideStatus', error)
   }
 }
