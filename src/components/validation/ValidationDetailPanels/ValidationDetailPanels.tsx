@@ -1,13 +1,11 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useMemo } from 'react'
 
-import {
-  AnnotatedImage,
-  type ValidationItemBox,
-} from '@/components/validation/AnnotatedImage'
+import { AnnotatedImage } from '@/components/validation/AnnotatedImage'
 import { ImageTabs } from '@/components/validation/ImageTabs'
 import { FieldComparisonRow } from '@/components/shared/FieldComparisonRow'
+import { useImageFieldNavigation } from '@/hooks/useImageFieldNavigation'
 import type {
   LabelImageData,
   ValidationItemData,
@@ -83,58 +81,22 @@ export function ValidationDetailPanels({
   validationItems,
   hideInternals = false,
 }: ValidationDetailPanelsProps) {
-  const [activeField, setActiveField] = useState<string | null>(null)
-  const [selectedImageId, setSelectedImageId] = useState<string>(
-    images[0]?.id ?? '',
+  const confidenceOverride = useMemo(
+    () => (hideInternals ? () => 0 : undefined),
+    [hideInternals],
   )
 
-  const selectedImage = images.find((img) => img.id === selectedImageId)
-
-  const handleFieldClick = useCallback(
-    (fieldName: string) => {
-      setActiveField((prev) => {
-        const next = prev === fieldName ? null : fieldName
-        // Auto-switch to the image this field belongs to
-        if (next) {
-          const item = validationItems.find((v) => v.fieldName === next)
-          if (item?.labelImageId && item.labelImageId !== selectedImageId) {
-            setSelectedImageId(item.labelImageId)
-          }
-        }
-        return next
-      })
-    },
-    [validationItems, selectedImageId],
-  )
-
-  // Only show bounding boxes for items belonging to the selected image
-  const annotationItems: ValidationItemBox[] = validationItems.map((item) => ({
-    fieldName: item.fieldName,
-    status: item.status,
-    extractedValue: item.status === 'not_found' ? null : item.extractedValue,
-    confidence: hideInternals ? 0 : Number(item.confidence),
-    bboxX:
-      item.labelImageId === selectedImageId && item.bboxX
-        ? Number(item.bboxX)
-        : null,
-    bboxY:
-      item.labelImageId === selectedImageId && item.bboxY
-        ? Number(item.bboxY)
-        : null,
-    bboxWidth:
-      item.labelImageId === selectedImageId && item.bboxWidth
-        ? Number(item.bboxWidth)
-        : null,
-    bboxHeight:
-      item.labelImageId === selectedImageId && item.bboxHeight
-        ? Number(item.bboxHeight)
-        : null,
-    bboxAngle:
-      item.labelImageId === selectedImageId && item.bboxAngle
-        ? Number(item.bboxAngle)
-        : null,
-    labelImageId: item.labelImageId,
-  }))
+  const {
+    activeField,
+    selectedImage,
+    handleFieldClick,
+    handleImageSelect,
+    annotationItems,
+  } = useImageFieldNavigation({
+    images,
+    validationItems,
+    confidenceOverride,
+  })
 
   return (
     <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[55%_1fr]">
@@ -142,11 +104,8 @@ export function ValidationDetailPanels({
       <div className="flex h-[60vh] flex-col lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)]">
         <ImageTabs
           images={images}
-          selectedImageId={selectedImageId}
-          onSelect={(id) => {
-            setSelectedImageId(id)
-            setActiveField(null)
-          }}
+          selectedImageId={selectedImage?.id ?? ''}
+          onSelect={handleImageSelect}
         />
         <div className="min-h-0 flex-1 overflow-hidden">
           {selectedImage && (
@@ -156,11 +115,8 @@ export function ValidationDetailPanels({
               activeField={activeField}
               onFieldClick={handleFieldClick}
               images={images}
-              selectedImageId={selectedImageId}
-              onImageSelect={(id) => {
-                setSelectedImageId(id)
-                setActiveField(null)
-              }}
+              selectedImageId={selectedImage.id}
+              onImageSelect={handleImageSelect}
             />
           )}
         </div>

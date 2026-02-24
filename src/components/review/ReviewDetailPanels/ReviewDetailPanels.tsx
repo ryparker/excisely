@@ -5,10 +5,10 @@ import { useCallback, useState } from 'react'
 import {
   AnnotatedImage,
   type SpecialistAnnotation,
-  type ValidationItemBox,
 } from '@/components/validation/AnnotatedImage'
 import { ImageTabs } from '@/components/validation/ImageTabs'
 import { ReviewFieldList } from '@/components/review/ReviewFieldList'
+import { useImageFieldNavigation } from '@/hooks/useImageFieldNavigation'
 import type { BeverageType } from '@/config/beverage-types'
 import type {
   LabelImageData,
@@ -36,41 +36,24 @@ export function ReviewDetailPanels({
   applicantCorrections,
   beverageType,
 }: ReviewDetailPanelsProps) {
-  const [activeField, setActiveField] = useState<string | null>(null)
-  const [selectedImageId, setSelectedImageId] = useState<string>(
-    images[0]?.id ?? '',
-  )
+  const {
+    activeField,
+    selectedImage,
+    selectedImageId,
+    handleFieldClick,
+    handleImageSelect,
+    annotationItems,
+  } = useImageFieldNavigation({ images, validationItems })
+
+  // Drawing mode state (review-specific)
   const [drawingFieldName, setDrawingFieldName] = useState<string | null>(null)
   const [annotationsMap, setAnnotationsMap] = useState<
     Record<string, { x: number; y: number; width: number; height: number }>
   >({})
 
-  const selectedImage = images.find((img) => img.id === selectedImageId)
-
-  const handleFieldClick = useCallback(
-    (fieldName: string) => {
-      setActiveField((prev) => {
-        const next = prev === fieldName ? null : fieldName
-        // Auto-switch to the image this field belongs to
-        if (next) {
-          const item = validationItems.find((v) => v.fieldName === next)
-          if (item?.labelImageId && item.labelImageId !== selectedImageId) {
-            setSelectedImageId(item.labelImageId)
-          }
-        }
-        return next
-      })
-    },
-    [validationItems, selectedImageId],
-  )
-
   const handleMarkLocation = useCallback((fieldName: string) => {
-    // If the same field is already in drawing mode, reset it so the user
-    // can start a fresh draw (e.g. after placing a pending rect).
     setDrawingFieldName((prev) => {
       if (prev === fieldName) {
-        // Force a state change by going to null first, then back.
-        // Use setTimeout so React sees two distinct state updates.
         setTimeout(() => setDrawingFieldName(fieldName), 0)
         return null
       }
@@ -99,38 +82,8 @@ export function ReviewDetailPanels({
       delete next[fieldName]
       return next
     })
-    // Cancel drawing if active for this field
     setDrawingFieldName((prev) => (prev === fieldName ? null : prev))
   }, [])
-
-  // Only show bounding boxes for items belonging to the selected image
-  const annotationItems: ValidationItemBox[] = validationItems.map((item) => ({
-    fieldName: item.fieldName,
-    status: item.status,
-    extractedValue: item.status === 'not_found' ? null : item.extractedValue,
-    confidence: Number(item.confidence),
-    bboxX:
-      item.labelImageId === selectedImageId && item.bboxX
-        ? Number(item.bboxX)
-        : null,
-    bboxY:
-      item.labelImageId === selectedImageId && item.bboxY
-        ? Number(item.bboxY)
-        : null,
-    bboxWidth:
-      item.labelImageId === selectedImageId && item.bboxWidth
-        ? Number(item.bboxWidth)
-        : null,
-    bboxHeight:
-      item.labelImageId === selectedImageId && item.bboxHeight
-        ? Number(item.bboxHeight)
-        : null,
-    bboxAngle:
-      item.labelImageId === selectedImageId && item.bboxAngle
-        ? Number(item.bboxAngle)
-        : null,
-    labelImageId: item.labelImageId,
-  }))
 
   const specialistAnnotations: SpecialistAnnotation[] = Object.entries(
     annotationsMap,
@@ -146,10 +99,7 @@ export function ReviewDetailPanels({
         <ImageTabs
           images={images}
           selectedImageId={selectedImageId}
-          onSelect={(id) => {
-            setSelectedImageId(id)
-            setActiveField(null)
-          }}
+          onSelect={handleImageSelect}
         />
         <div className="min-h-0 flex-1 overflow-hidden rounded-xl border bg-neutral-950/[0.03] dark:bg-neutral-950/30">
           {selectedImage && (
@@ -164,10 +114,7 @@ export function ReviewDetailPanels({
               annotations={specialistAnnotations}
               images={images}
               selectedImageId={selectedImageId}
-              onImageSelect={(id) => {
-                setSelectedImageId(id)
-                setActiveField(null)
-              }}
+              onImageSelect={handleImageSelect}
             />
           )}
         </div>
