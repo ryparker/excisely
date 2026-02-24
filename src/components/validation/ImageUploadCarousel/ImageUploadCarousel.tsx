@@ -1,34 +1,17 @@
 'use client'
 
 import type { RefObject } from 'react'
-import {
-  AlertTriangle,
-  Camera,
-  CheckCircle,
-  ChevronLeft,
-  ChevronRight,
-  ImagePlus,
-  Loader2,
-  Smartphone,
-  Upload,
-  X,
-  XCircle,
-} from 'lucide-react'
+import { Camera, ImagePlus, Smartphone, Upload, X } from 'lucide-react'
 import Image from 'next/image'
 import { AnimatePresence, motion } from 'motion/react'
 
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from '@/components/ui/HoverCard'
 import { ScanAnimation } from '@/components/validation/ScanAnimation'
 import { cn } from '@/lib/utils'
 import type { ImageQualityResult } from '@/lib/validators/image-quality'
 
-// ---------------------------------------------------------------------------
-// Types (shared with parent)
-// ---------------------------------------------------------------------------
+import { FileStatusOverlay } from './FileStatusOverlay'
+import { QualityWarningBadge } from './QualityWarningBadge'
+import { ScrollButtons } from './ScrollButtons'
 
 export interface FileWithPreview {
   file: File
@@ -38,10 +21,6 @@ export interface FileWithPreview {
   error?: string
   quality?: ImageQualityResult
 }
-
-// ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
 
 interface ImageUploadCarouselProps {
   files: FileWithPreview[]
@@ -71,118 +50,6 @@ interface ImageUploadCarouselProps {
   origin: string
   onShowQrDialog: () => void
 }
-
-// ---------------------------------------------------------------------------
-// Shared sub-components
-// ---------------------------------------------------------------------------
-
-function FileStatusOverlay({
-  status,
-  error,
-}: Pick<FileWithPreview, 'status' | 'error'>) {
-  return (
-    <div className="flex items-center gap-1 text-xs">
-      {status === 'pending' && (
-        <span className="text-white/70">Ready to upload</span>
-      )}
-      {status === 'uploading' && (
-        <span className="flex items-center gap-1 text-white/70">
-          <Loader2 className="size-3 animate-spin" />
-          Uploading...
-        </span>
-      )}
-      {status === 'uploaded' && (
-        <span className="flex items-center gap-1 text-emerald-300">
-          <CheckCircle className="size-3" />
-          Uploaded
-        </span>
-      )}
-      {status === 'error' && (
-        <span className="flex items-center gap-1 text-red-300">
-          <XCircle className="size-3" />
-          {error || 'Failed'}
-        </span>
-      )}
-    </div>
-  )
-}
-
-function QualityWarningBadge({ quality }: { quality: ImageQualityResult }) {
-  if (quality.level !== 'warning') return null
-  return (
-    <HoverCard openDelay={200} closeDelay={100}>
-      <HoverCardTrigger asChild>
-        <div className="absolute top-1.5 left-1.5 flex size-6 cursor-help items-center justify-center rounded-full bg-amber-500/90 text-white shadow-sm">
-          <AlertTriangle className="size-3.5" />
-        </div>
-      </HoverCardTrigger>
-      <HoverCardContent side="bottom" align="start" className="w-64 p-3">
-        <p className="text-[13px] leading-tight font-semibold">
-          Image Quality Warning
-        </p>
-        <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-          {quality.issues[0]?.message ||
-            'This image may be too small for accurate text detection.'}
-        </p>
-        <p className="mt-2 border-t pt-2 text-[11px] leading-relaxed text-muted-foreground/70">
-          For best results, use images at least 500px wide with clear, legible
-          text.
-        </p>
-      </HoverCardContent>
-    </HoverCard>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Scroll buttons
-// ---------------------------------------------------------------------------
-
-function ScrollButtons({
-  canScrollLeft,
-  canScrollRight,
-  onScrollCarousel,
-  stopPropagation,
-}: {
-  canScrollLeft: boolean
-  canScrollRight: boolean
-  onScrollCarousel: (direction: 'left' | 'right') => void
-  stopPropagation?: boolean
-}) {
-  const handleClick =
-    (direction: 'left' | 'right') => (e: React.MouseEvent) => {
-      if (stopPropagation) e.stopPropagation()
-      onScrollCarousel(direction)
-    }
-
-  return (
-    <>
-      {canScrollLeft && (
-        <button
-          type="button"
-          onClick={handleClick('left')}
-          className="absolute top-1/2 left-0 -translate-y-1/2 rounded-full bg-background/90 p-1.5 shadow-md transition-colors hover:bg-accent"
-          aria-label="Scroll left"
-        >
-          <ChevronLeft className="size-4" />
-        </button>
-      )}
-      {canScrollRight && (
-        <button
-          type="button"
-          onClick={handleClick('right')}
-          className="absolute top-1/2 right-0 -translate-y-1/2 rounded-full bg-background/90 p-1.5 shadow-md transition-colors hover:bg-accent"
-          aria-label="Scroll right"
-        >
-          <ChevronRight className="size-4" />
-        </button>
-      )}
-    </>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Main component
-// ---------------------------------------------------------------------------
 
 export function ImageUploadCarousel({
   files,
@@ -217,10 +84,6 @@ export function ImageUploadCarousel({
     />
   ) : null
 
-  // -------------------------------------------------------------------------
-  // Camera / QR button (shared between dropzone variants)
-  // -------------------------------------------------------------------------
-
   const secondaryAction = isTouchDevice ? (
     <button
       type="button"
@@ -246,10 +109,6 @@ export function ImageUploadCarousel({
       Take a photo with your phone
     </button>
   ) : null
-
-  // -------------------------------------------------------------------------
-  // Separate layout: standalone dropzone + image grid (validate mode)
-  // -------------------------------------------------------------------------
 
   if (layout === 'separate') {
     return (
@@ -360,10 +219,6 @@ export function ImageUploadCarousel({
       </>
     )
   }
-
-  // -------------------------------------------------------------------------
-  // Unified layout: merged dropzone + carousel (submit mode)
-  // -------------------------------------------------------------------------
 
   return (
     <div
