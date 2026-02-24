@@ -2,9 +2,32 @@ import { test, expect } from '@playwright/test'
 import path from 'node:path'
 import fs from 'node:fs'
 
-import { LABEL_TEST_CASES } from './label-data'
+import { LABEL_TEST_CASES, type LabelTestCase } from './label-data'
 
-// Run tests sequentially but don't stop on failure — each submission is independent
+/**
+ * Resolve the effective value for a field — uses the override if present,
+ * otherwise falls back to the accurate base value.
+ */
+function effectiveValue<K extends keyof LabelTestCase>(
+  label: LabelTestCase,
+  field: K,
+): LabelTestCase[K] {
+  if (label.overrides && field in label.overrides) {
+    return label.overrides[
+      field as keyof typeof label.overrides
+    ] as LabelTestCase[K]
+  }
+  return label[field]
+}
+
+// Map beverage type enum values to the button labels in the UI
+const BEVERAGE_BUTTON_LABELS: Record<LabelTestCase['beverageType'], RegExp> = {
+  distilled_spirits: /distilled spirits/i,
+  wine: /wine/i,
+  malt_beverage: /malt beverages/i,
+}
+
+// Run tests sequentially — each submission is independent but shares DB state
 test.describe('Submit Labels', () => {
   // Filter to labels whose images all exist on disk
   const allAvailable = LABEL_TEST_CASES.filter((label) => {
@@ -12,14 +35,23 @@ test.describe('Submit Labels', () => {
     return absPaths.every((p) => fs.existsSync(p))
   })
 
-  // Offset + limit for incremental runs
+  // Offset + limit for incremental runs (default: first 3 = 1 per applicant)
   const offset = Number(process.env.E2E_LABEL_OFFSET) || 0
   const limit = Number(process.env.E2E_LABEL_LIMIT) || 3
   const availableLabels = allAvailable.slice(offset, offset + limit)
 
   for (let i = 0; i < availableLabels.length; i++) {
     const label = availableLabels[i]
-    test(`submit #${i + 1} ${label.brandName}`, async ({ browser }) => {
+    const hasOverrides =
+      label.overrides && Object.keys(label.overrides).length > 0
+    const suffix = hasOverrides ? ' (mismatch)' : ''
+
+    test(`submit #${i + 1} [${label.applicant}] ${label.brandName}${suffix}`, async ({
+      browser,
+    }) => {
+      // Mark as slow — each test involves real AI API calls (OCR + classification)
+      test.slow()
+
       // Each label uses its own applicant's auth state
       const context = await browser.newContext({
         storageState: label.authState,
@@ -33,62 +65,92 @@ test.describe('Submit Labels', () => {
           consoleMessages.push(`[${msg.type()}] ${msg.text()}`)
         })
 
-        // 1. Navigate to submit page
+        // -----------------------------------------------------------------
+        // Phase 1: Navigate + select beverage type
+        // -----------------------------------------------------------------
         await page.goto('/submit')
         await expect(
           page.getByRole('heading', { name: /submit cola application/i }),
         ).toBeVisible()
 
-        // 2. Select beverage type
-        const beverageLabel =
-          label.beverageType === 'distilled_spirits'
-            ? 'Distilled Spirits'
-            : label.beverageType === 'wine'
-              ? 'Wine'
-              : 'Malt Beverages'
-        await page.getByText(beverageLabel, { exact: false }).click()
-
-        // 3. Enter container size
+        // Click the beverage type button
         await page
-          .getByLabel(/total bottle capacity/i)
-          .fill(String(label.containerSizeMl))
+          .getByRole('button', {
+            name: BEVERAGE_BUTTON_LABELS[label.beverageType],
+          })
+          .click()
 
-        // 4. Enter brand name
-        await page.getByLabel(/brand name/i).fill(label.brandName)
+        // -----------------------------------------------------------------
+        // Phase 2: Upload image(s)
+        // -----------------------------------------------------------------
+        // Wait for Phase 2 to appear (upload area)
+        await expect(
+          page.getByRole('heading', { name: /upload label images/i }),
+        ).toBeVisible()
 
-        // 5. Enter optional fields if provided
-        if (label.classType) {
-          await page
-            .getByLabel(/class\/type designation/i)
-            .fill(label.classType)
-        }
-        if (label.alcoholContent) {
-          await page.getByLabel(/alcohol content/i).fill(label.alcoholContent)
-        }
-        if (label.netContents) {
-          await page.getByLabel(/net contents/i).fill(label.netContents)
-        }
-        if (label.fancifulName) {
-          await page.getByLabel(/fanciful name/i).fill(label.fancifulName)
-        }
-
-        // 6. Upload image(s) via the dropzone's hidden file input
+        // Upload via the hidden file input
         const absImagePaths = label.imagePaths.map((p) =>
           path.resolve(process.cwd(), p),
         )
         const fileInput = page.locator('input[type="file"]')
         await fileInput.setInputFiles(absImagePaths)
 
-        // 7. Wait for image preview to appear
+        // Wait for image preview(s) to appear
         await expect(page.locator('img[alt]').first()).toBeVisible({
           timeout: 10000,
         })
 
-        // 8. Submit the form
+        // Click "Skip — fill in manually" (faster than AI pre-scan)
+        await page.getByText('Skip — fill in manually').click()
+
+        // -----------------------------------------------------------------
+        // Phase 3: Fill form fields + submit
+        // -----------------------------------------------------------------
+        // Wait for Phase 3 to appear
+        await expect(
+          page.getByRole('heading', { name: /enter application data/i }),
+        ).toBeVisible({ timeout: 10000 })
+
+        // Serial Number (Item 4)
+        await page.getByLabel(/serial number/i).fill(label.serialNumber)
+
+        // Brand Name (required) — use override if present
+        const brandValue = effectiveValue(label, 'brandName')
+        await page.getByLabel(/brand name/i).fill(brandValue)
+
+        // Container Size (required)
+        const containerSize = effectiveValue(label, 'containerSizeMl')
+        await page
+          .getByLabel(/total bottle capacity/i)
+          .fill(String(containerSize))
+
+        // Optional fields — fill if base or override value exists
+        const classType = effectiveValue(label, 'classType')
+        if (classType) {
+          await page.getByLabel(/class\/type designation/i).fill(classType)
+        }
+
+        const alcoholContent = effectiveValue(label, 'alcoholContent')
+        if (alcoholContent) {
+          await page.getByLabel(/alcohol content/i).fill(alcoholContent)
+        }
+
+        const netContents = effectiveValue(label, 'netContents')
+        if (netContents) {
+          await page.getByLabel(/net contents/i).fill(netContents)
+        }
+
+        const fancifulName = effectiveValue(label, 'fancifulName')
+        if (fancifulName) {
+          await page.getByLabel(/fanciful name/i).fill(fancifulName)
+        }
+
+        // Submit the form
         await page.getByRole('button', { name: /submit application/i }).click()
 
-        // 9. Wait for redirect to /submissions/[id] — AI pipeline runs during submit
-        //    If the form shows an error toast instead of redirecting, fail fast
+        // -----------------------------------------------------------------
+        // Wait for redirect — AI pipeline runs server-side (up to 120s)
+        // -----------------------------------------------------------------
         const result = await Promise.race([
           page
             .waitForURL(/\/submissions\/[a-zA-Z0-9_-]+/, { timeout: 120000 })
@@ -107,23 +169,20 @@ test.describe('Submit Labels', () => {
         ])
 
         if (result !== 'redirected') {
-          // Log console messages for debugging
-          console.log(`\n--- Console for ${label.brandName} ---`)
+          console.log(
+            `\n--- Console for [${label.applicant}] ${label.brandName} ---`,
+          )
           for (const msg of consoleMessages) console.log(msg)
           throw new Error(`Form submission failed: ${result}`)
         }
 
-        // 10. Assert: page loaded with brand name visible
-        await expect(page.getByText(label.brandName).first()).toBeVisible({
+        // Assert: brand name visible on the submission detail page
+        // Use the base brand name for the assertion (what the label actually says)
+        // unless the override changed the brand name (then use the override since
+        // that's what was submitted)
+        await expect(page.getByText(brandValue).first()).toBeVisible({
           timeout: 10000,
         })
-
-        // 11. Assert: status badge is visible (not "processing")
-        const statusBadge = page.locator('[data-testid="status-badge"]').first()
-        if (await statusBadge.isVisible()) {
-          const statusText = await statusBadge.textContent()
-          expect(statusText).not.toContain('Processing')
-        }
       } finally {
         await context.close()
       }

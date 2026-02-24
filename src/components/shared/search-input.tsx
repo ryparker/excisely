@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { Loader2, Search, X } from 'lucide-react'
 import { useQueryState, parseAsString } from 'nuqs'
 
@@ -27,10 +27,13 @@ export function SearchInput({
   placeholder = 'Search...',
   className,
 }: SearchInputProps) {
+  const [, startTransition] = useTransition()
   const [, setPage] = useQueryState('page', parseAsString)
   const [search, setSearch] = useQueryState(
     paramKey,
-    parseAsString.withDefault('').withOptions({ shallow: false }),
+    parseAsString
+      .withDefault('')
+      .withOptions({ shallow: false, startTransition }),
   )
 
   const inputRef = useRef<HTMLInputElement>(null)

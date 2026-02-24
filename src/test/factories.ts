@@ -80,7 +80,6 @@ export function createLabel(overrides?: Partial<Label>): Label {
     id: nanoid(),
     specialistId: nanoid(),
     applicantId: null,
-    batchId: null,
     priorLabelId: null,
     beverageType: 'distilled_spirits',
     containerSizeMl: 750,

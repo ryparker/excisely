@@ -1,6 +1,5 @@
-import Link from 'next/link'
 import { desc, asc, eq, sql, count } from 'drizzle-orm'
-import { ArrowRight, Building2 } from 'lucide-react'
+import { Building2 } from 'lucide-react'
 
 import { db } from '@/db'
 import { applicants, labels } from '@/db/schema'
@@ -8,78 +7,19 @@ import { requireSpecialist } from '@/lib/auth/require-role'
 import { REASON_CODE_LABELS } from '@/config/override-reasons'
 import { PageHeader } from '@/components/layout/page-header'
 import { PageShell } from '@/components/layout/page-shell'
-import { ColumnHeader } from '@/components/shared/column-header'
-import { Highlight } from '@/components/shared/highlight'
-import { ResetFiltersButton } from '@/components/shared/reset-filters-button'
 import { SearchInput } from '@/components/shared/search-input'
+import { ResetFiltersButton } from '@/components/shared/reset-filters-button'
+import { ApplicantsTable } from '@/components/applicants/applicants-table'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 
 export const dynamic = 'force-dynamic'
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const RISK_OPTIONS = [
-  { label: 'All', value: '' },
-  { label: 'Low Risk', value: 'low' },
-  { label: 'Medium Risk', value: 'medium' },
-  { label: 'High Risk', value: 'high' },
-]
+const PAGE_SIZE = 20
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(date)
-}
-
-function getRiskBadge(approvalRate: number | null) {
-  if (approvalRate === null) {
-    return (
-      <Badge variant="secondary" className="text-xs">
-        No data
-      </Badge>
-    )
-  }
-
-  if (approvalRate >= 90) {
-    return (
-      <Badge className="bg-green-100 text-green-800 hover:bg-green-100/80 dark:bg-green-900/30 dark:text-green-400">
-        Low Risk
-      </Badge>
-    )
-  }
-
-  if (approvalRate >= 70) {
-    return (
-      <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100/80 dark:bg-amber-900/30 dark:text-amber-400">
-        Medium Risk
-      </Badge>
-    )
-  }
-
-  return (
-    <Badge className="bg-red-100 text-red-800 hover:bg-red-100/80 dark:bg-red-900/30 dark:text-red-400">
-      High Risk
-    </Badge>
-  )
-}
 
 function getRiskLevel(approvalRate: number | null): string {
   if (approvalRate === null) return 'none'
@@ -94,6 +34,7 @@ function getRiskLevel(approvalRate: number | null): string {
 
 interface ApplicantsPageProps {
   searchParams: Promise<{
+    page?: string
     search?: string
     sort?: string
     order?: string
@@ -111,6 +52,7 @@ export default async function ApplicantsPage({
   const sortKey = params.sort ?? ''
   const sortOrder = params.order === 'asc' ? 'asc' : 'desc'
   const riskFilter = params.risk ?? ''
+  const page = Math.max(1, Number(params.page) || 1)
 
   // Computed columns for sorting
   const approvalRateSql = sql<number>`
@@ -182,12 +124,20 @@ export default async function ApplicantsPage({
     return { ...row, approvalRate, topReason }
   })
 
-  // Apply client-side risk filter (computed from approval rate)
+  // Apply risk filter (computed from approval rate)
   const filteredApplicants = riskFilter
     ? applicantsWithStats.filter(
         (a) => getRiskLevel(a.approvalRate) === riskFilter,
       )
     : applicantsWithStats
+
+  // Paginate
+  const tableTotal = filteredApplicants.length
+  const totalPages = Math.max(1, Math.ceil(tableTotal / PAGE_SIZE))
+  const paginatedApplicants = filteredApplicants.slice(
+    (page - 1) * PAGE_SIZE,
+    page * PAGE_SIZE,
+  )
 
   return (
     <PageShell className="space-y-6">
@@ -227,66 +177,13 @@ export default async function ApplicantsPage({
           </CardContent>
         </Card>
       ) : (
-        <Card className="overflow-clip py-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/30 hover:bg-muted/30">
-                <ColumnHeader sortKey="companyName">Company Name</ColumnHeader>
-                <ColumnHeader sortKey="totalLabels" className="text-right">
-                  Total Labels
-                </ColumnHeader>
-                <ColumnHeader sortKey="approvalRate" className="text-right">
-                  Approval Rate
-                </ColumnHeader>
-                <ColumnHeader filterKey="risk" filterOptions={RISK_OPTIONS}>
-                  Risk
-                </ColumnHeader>
-                <TableHead>Top Reason</TableHead>
-                <ColumnHeader sortKey="lastSubmission" defaultSort="desc">
-                  Last Submission
-                </ColumnHeader>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredApplicants.map((applicant) => (
-                <TableRow key={applicant.id}>
-                  <TableCell className="font-medium">
-                    <Highlight
-                      text={applicant.companyName}
-                      query={searchTerm}
-                    />
-                  </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {applicant.totalLabels}
-                  </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {applicant.approvalRate !== null
-                      ? `${applicant.approvalRate}%`
-                      : '--'}
-                  </TableCell>
-                  <TableCell>{getRiskBadge(applicant.approvalRate)}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {applicant.topReason ?? '--'}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {applicant.lastSubmission
-                      ? formatDate(new Date(applicant.lastSubmission))
-                      : '--'}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/applicants/${applicant.id}`}>
-                        View
-                        <ArrowRight className="size-3" />
-                      </Link>
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
+        <ApplicantsTable
+          rows={paginatedApplicants}
+          totalPages={totalPages}
+          tableTotal={tableTotal}
+          pageSize={PAGE_SIZE}
+          searchTerm={searchTerm}
+        />
       )}
     </PageShell>
   )

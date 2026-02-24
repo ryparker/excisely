@@ -25,6 +25,15 @@ interface TimelineApplicant {
 
 interface TimelineValidationResult {
   createdAt: Date
+  processingTimeMs?: number | null
+}
+
+interface TimelineSupersededResult {
+  id: string
+  createdAt: Date
+  modelUsed: string
+  processingTimeMs: number
+  totalTokens: number | null
 }
 
 interface TimelineValidationItem {
@@ -63,6 +72,8 @@ interface BuildTimelineInput {
   validationItems: TimelineValidationItem[]
   humanReviews: TimelineHumanReview[]
   overrides: TimelineOverride[]
+  /** Previous analysis runs that were superseded by re-analysis */
+  supersededResults?: TimelineSupersededResult[]
   /** When true, suppresses the initial status email event (re-analysis should not re-notify applicant) */
   isReanalysis?: boolean
 }
@@ -92,6 +103,7 @@ export function buildTimeline(input: BuildTimelineInput): TimelineEvent[] {
     validationItems,
     humanReviews,
     overrides,
+    supersededResults,
     isReanalysis,
   } = input
 
@@ -109,14 +121,85 @@ export function buildTimeline(input: BuildTimelineInput): TimelineEvent[] {
     status: 'pending',
   })
 
-  // 2. Processing Complete
+  // 2. Processing Complete (current result)
   if (validationResult) {
+    const hasReanalysis =
+      isReanalysis || (supersededResults && supersededResults.length > 0)
     events.push({
       id: `processing-${label.id}`,
       type: 'processing_complete',
       timestamp: validationResult.createdAt,
-      title: 'AI Processing Complete',
+      title: hasReanalysis
+        ? 'AI Reprocessing Complete'
+        : 'AI Processing Complete',
       description: `Label analyzed — ${validationItems.length} field${validationItems.length === 1 ? '' : 's'} extracted and compared`,
+      status: 'processing',
+    })
+  }
+
+  // 2b. Superseded analysis runs + re-analysis trigger events
+  if (supersededResults && supersededResults.length > 0) {
+    // Sort chronologically (oldest first) for trigger timestamp estimation
+    const chronological = [...supersededResults].sort(
+      (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+    )
+
+    for (const run of chronological) {
+      const time = (run.processingTimeMs / 1000).toFixed(1)
+      const tokens = run.totalTokens
+        ? ` · ${run.totalTokens.toLocaleString()} tokens`
+        : ''
+      events.push({
+        id: `processing-superseded-${run.id}`,
+        type: 'processing_complete',
+        timestamp: run.createdAt,
+        title: 'AI Processing Complete',
+        description: `${run.modelUsed} · ${time}s${tokens}`,
+        status: 'processing',
+      })
+    }
+
+    // Add "Re-Analysis Triggered" events between consecutive analysis runs.
+    // Estimate the trigger timestamp as: nextResult.createdAt - processingTimeMs
+    // (i.e., approximately when the specialist clicked "Re-Analyze")
+    for (let i = 0; i < chronological.length; i++) {
+      const nextResult =
+        i < chronological.length - 1 ? chronological[i + 1] : null
+      const nextCreatedAt = nextResult
+        ? nextResult.createdAt
+        : validationResult?.createdAt
+      const nextProcessingMs = nextResult
+        ? nextResult.processingTimeMs
+        : (validationResult?.processingTimeMs ?? 0)
+
+      if (nextCreatedAt) {
+        const triggerTime = new Date(
+          nextCreatedAt.getTime() - (nextProcessingMs ?? 0),
+        )
+        events.push({
+          id: `reanalysis-trigger-${chronological[i].id}`,
+          type: 'reanalysis_triggered',
+          timestamp: triggerTime,
+          title: 'Re-Analysis Triggered',
+          description: 'Specialist requested label re-analysis',
+          status: 'processing',
+        })
+      }
+    }
+  }
+
+  // 2c. Re-analysis in progress — label is processing but already has a result
+  if (
+    label.status === 'processing' &&
+    validationResult &&
+    (!supersededResults || supersededResults.length === 0)
+  ) {
+    events.push({
+      id: `reanalysis-trigger-active-${label.id}`,
+      type: 'reanalysis_triggered',
+      timestamp: new Date(),
+      title: 'Re-Analysis Triggered',
+      description: 'Specialist requested label re-analysis — processing',
       status: 'processing',
     })
   }

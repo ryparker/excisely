@@ -63,7 +63,6 @@ async function clearAllData(db: Db) {
   await db.delete(schema.applicationData)
   await db.delete(schema.labelImages)
   await db.delete(schema.labels)
-  await db.delete(schema.batches)
   await db.delete(schema.applicants)
   await db.delete(schema.acceptedVariants)
   await db.delete(schema.settings)

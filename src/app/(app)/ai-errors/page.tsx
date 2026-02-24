@@ -19,6 +19,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
+import { confidenceColor } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -260,7 +261,7 @@ export default async function AIErrorsPage({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Date</TableHead>
                   <TableHead>Label</TableHead>
                   <TableHead>Field</TableHead>
                   <TableHead>AI Said</TableHead>
@@ -283,7 +284,7 @@ export default async function AIErrorsPage({
 
                   return (
                     <TableRow key={row.id}>
-                      <TableCell className="whitespace-nowrap text-muted-foreground">
+                      <TableCell className="text-right whitespace-nowrap text-muted-foreground tabular-nums">
                         {formatDate(new Date(row.reviewedAt))}
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate font-medium">
@@ -308,7 +309,9 @@ export default async function AIErrorsPage({
                           {specStatus.label}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right font-mono text-sm">
+                      <TableCell
+                        className={`text-right font-mono text-sm tabular-nums ${confidenceColor(row.confidence ? Number(row.confidence) * 100 : null)}`}
+                      >
                         {row.confidence
                           ? `${Math.round(Number(row.confidence) * 100)}%`
                           : '--'}

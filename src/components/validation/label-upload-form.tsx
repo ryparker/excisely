@@ -936,7 +936,7 @@ export function LabelUploadForm({
     clearPipelineStages()
     setIsSubmitting(false)
     toast.info('Processing will continue in the background')
-    router.push(mode === 'submit' ? '/submissions' : '/validate')
+    router.push(mode === 'submit' ? '/submissions' : '/')
   }
 
   // -------------------------------------------------------------------------

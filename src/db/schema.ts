@@ -17,12 +17,6 @@ import { nanoid } from 'nanoid'
 
 export const userRoleEnum = pgEnum('user_role', ['specialist', 'applicant'])
 
-export const batchStatusEnum = pgEnum('batch_status', [
-  'processing',
-  'completed',
-  'failed',
-])
-
 export const beverageTypeEnum = pgEnum('beverage_type', [
   'distilled_spirits',
   'wine',
@@ -215,40 +209,12 @@ export const applicants = pgTable('applicants', {
     .$onUpdate(() => new Date()),
 })
 
-export const batches = pgTable('batches', {
-  id: text('id')
-    .primaryKey()
-    .$defaultFn(() => nanoid()),
-  specialistId: text('specialist_id')
-    .notNull()
-    .references(() => users.id),
-  applicantId: text('applicant_id').references(() => applicants.id),
-  name: text('name'),
-  status: batchStatusEnum('status').notNull().default('processing'),
-  totalLabels: integer('total_labels').notNull().default(0),
-  processedCount: integer('processed_count').notNull().default(0),
-  approvedCount: integer('approved_count').notNull().default(0),
-  conditionallyApprovedCount: integer('conditionally_approved_count')
-    .notNull()
-    .default(0),
-  rejectedCount: integer('rejected_count').notNull().default(0),
-  needsCorrectionCount: integer('needs_correction_count').notNull().default(0),
-  createdAt: timestamp('created_at', { withTimezone: true })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  updatedAt: timestamp('updated_at', { withTimezone: true })
-    .notNull()
-    .$defaultFn(() => new Date())
-    .$onUpdate(() => new Date()),
-})
-
 export const labels = pgTable('labels', {
   id: text('id')
     .primaryKey()
     .$defaultFn(() => nanoid()),
   specialistId: text('specialist_id').references(() => users.id),
   applicantId: text('applicant_id').references(() => applicants.id),
-  batchId: text('batch_id').references(() => batches.id),
   priorLabelId: text('prior_label_id'),
   beverageType: beverageTypeEnum('beverage_type').notNull(),
   containerSizeMl: integer('container_size_ml').notNull(),
@@ -465,7 +431,6 @@ export const statusOverrides = pgTable('status_overrides', {
 export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
   accounts: many(accounts),
-  batches: many(batches),
   labels: many(labels),
   humanReviews: many(humanReviews),
   statusOverrides: many(statusOverrides),
@@ -488,19 +453,6 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
 }))
 
 export const applicantsRelations = relations(applicants, ({ many }) => ({
-  batches: many(batches),
-  labels: many(labels),
-}))
-
-export const batchesRelations = relations(batches, ({ one, many }) => ({
-  specialist: one(users, {
-    fields: [batches.specialistId],
-    references: [users.id],
-  }),
-  applicant: one(applicants, {
-    fields: [batches.applicantId],
-    references: [applicants.id],
-  }),
   labels: many(labels),
 }))
 
@@ -512,10 +464,6 @@ export const labelsRelations = relations(labels, ({ one, many }) => ({
   applicant: one(applicants, {
     fields: [labels.applicantId],
     references: [applicants.id],
-  }),
-  batch: one(batches, {
-    fields: [labels.batchId],
-    references: [batches.id],
   }),
   priorLabel: one(labels, {
     fields: [labels.priorLabelId],
@@ -623,9 +571,6 @@ export type NewVerification = typeof verifications.$inferInsert
 
 export type Applicant = typeof applicants.$inferSelect
 export type NewApplicant = typeof applicants.$inferInsert
-
-export type Batch = typeof batches.$inferSelect
-export type NewBatch = typeof batches.$inferInsert
 
 export type Label = typeof labels.$inferSelect
 export type NewLabel = typeof labels.$inferInsert

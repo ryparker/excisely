@@ -10,7 +10,7 @@ import {
   validationItems,
   validationResults,
 } from '@/db/schema'
-import { extractLabelFields } from '@/lib/ai/extract-label'
+import { extractLabelFieldsForSubmission } from '@/lib/ai/extract-label'
 import { compareField } from '@/lib/ai/compare-fields'
 import { getSession } from '@/lib/auth/get-session'
 import { validateLabelSchema } from '@/lib/validators/label-schema'
@@ -71,7 +71,6 @@ export async function validateLabel(
       stateOfDistillation:
         (formData.get('stateOfDistillation') as string) || undefined,
       applicantId: (formData.get('applicantId') as string) || undefined,
-      batchId: (formData.get('batchId') as string) || undefined,
       priorLabelId: (formData.get('priorLabelId') as string) || undefined,
     }
 
@@ -115,7 +114,6 @@ export async function validateLabel(
       .values({
         specialistId: session.user.id,
         applicantId: input.applicantId || null,
-        batchId: input.batchId || null,
         priorLabelId: input.priorLabelId || null,
         beverageType: input.beverageType,
         containerSizeMl: input.containerSizeMl,
@@ -167,7 +165,7 @@ export async function validateLabel(
 
     // 8. Run AI pipeline with application data for disambiguation
     const appDataForAI = Object.fromEntries(expectedFields)
-    const extraction = await extractLabelFields(
+    const extraction = await extractLabelFieldsForSubmission(
       imageUrls,
       input.beverageType,
       appDataForAI,

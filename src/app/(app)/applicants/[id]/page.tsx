@@ -3,7 +3,6 @@ import { notFound } from 'next/navigation'
 import { and, eq, desc, asc, sql } from 'drizzle-orm'
 import {
   ArrowLeft,
-  ArrowRight,
   Building2,
   Calendar,
   FileCheck,
@@ -18,37 +17,17 @@ import {
   statusOverrides,
 } from '@/db/schema'
 import { REASON_CODE_LABELS } from '@/config/override-reasons'
-import { BEVERAGE_ICON, BEVERAGE_LABEL_FULL } from '@/config/beverage-display'
 import { requireSpecialist } from '@/lib/auth/require-role'
 import { getEffectiveStatus } from '@/lib/labels/effective-status'
 import { PageHeader } from '@/components/layout/page-header'
 import { PageShell } from '@/components/layout/page-shell'
-import { ColumnHeader } from '@/components/shared/column-header'
 import { StatusBadge } from '@/components/shared/status-badge'
+import { ApplicantLabelsTable } from '@/components/applicants/applicant-labels-table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 
 export const dynamic = 'force-dynamic'
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const BEVERAGE_OPTIONS = [
-  { label: 'All Types', value: '' },
-  { label: 'Spirits', value: 'distilled_spirits' },
-  { label: 'Wine', value: 'wine' },
-  { label: 'Malt Beverage', value: 'malt_beverage' },
-]
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -60,12 +39,6 @@ function formatDate(date: Date): string {
     day: 'numeric',
     year: 'numeric',
   }).format(date)
-}
-
-function formatConfidence(value: string | null): string {
-  if (!value) return '--'
-  const num = Number(value)
-  return `${Math.round(num)}%`
 }
 
 function getRiskBadge(approvalRate: number | null) {
@@ -420,76 +393,7 @@ export default async function ApplicantDetailPage({
             </CardContent>
           </Card>
         ) : (
-          <Card className="overflow-clip py-0">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/30 hover:bg-muted/30">
-                  <TableHead>Status</TableHead>
-                  <ColumnHeader sortKey="brandName">Brand Name</ColumnHeader>
-                  <ColumnHeader
-                    sortKey="beverageType"
-                    filterKey="beverageType"
-                    filterOptions={BEVERAGE_OPTIONS}
-                  >
-                    Beverage Type
-                  </ColumnHeader>
-                  <ColumnHeader
-                    sortKey="overallConfidence"
-                    className="text-right"
-                  >
-                    Confidence
-                  </ColumnHeader>
-                  <ColumnHeader sortKey="createdAt" defaultSort="desc">
-                    Date
-                  </ColumnHeader>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredLabels.map((label) => {
-                  const BevIcon = BEVERAGE_ICON[label.beverageType]
-                  return (
-                    <TableRow key={label.id}>
-                      <TableCell>
-                        <StatusBadge status={label.effectiveStatus} />
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {label.brandName ?? 'Untitled'}
-                      </TableCell>
-                      <TableCell>
-                        {BevIcon ? (
-                          <span className="inline-flex items-center gap-1.5 text-sm">
-                            <BevIcon className="size-3.5 text-muted-foreground" />
-                            <span className="text-xs">
-                              {BEVERAGE_LABEL_FULL[label.beverageType] ??
-                                label.beverageType}
-                            </span>
-                          </span>
-                        ) : (
-                          (BEVERAGE_LABEL_FULL[label.beverageType] ??
-                          label.beverageType)
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {formatConfidence(label.overallConfidence)}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {formatDate(label.createdAt)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" asChild>
-                          <Link href={`/labels/${label.id}`}>
-                            View
-                            <ArrowRight className="size-3" />
-                          </Link>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </Card>
+          <ApplicantLabelsTable labels={filteredLabels} />
         )}
       </div>
     </PageShell>

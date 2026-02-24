@@ -42,9 +42,9 @@ The goal is to show iterative, thoughtful engineering judgment — not just what
 
 The bottom line: hiding the API surface from casual observation is a meaningful security layer for a government tool, but we treat it as one layer in a defense-in-depth strategy — not the only layer.
 
-### Specialist Batch Approval Queue *(Feb 23, 2026)*
+### Specialist Bulk Approval Queue *(Feb 23, 2026)*
 
-**Chosen:** Split the specialist dashboard's pending_review labels into two distinct queues -- "Ready to Approve" (batch-approvable, high-confidence labels where all fields match) and "Needs Review" (labels requiring manual specialist attention).
+**Chosen:** Split the specialist dashboard's pending_review labels into two distinct queues -- "Ready to Approve" (bulk-approvable, high-confidence labels where all fields match) and "Needs Review" (labels requiring manual specialist attention).
 
 **Alternatives considered:**
 
@@ -52,7 +52,19 @@ The bottom line: hiding the API surface from casual observation is a meaningful 
 - Fully automatic approval for high-confidence labels with no specialist in the loop
 - Three-tier queue (auto-approve / quick-review / deep-review)
 
-**Reasoning:** Specialists currently treat every submission equally, spending the same time on a label where every field matches at 99% confidence as they do on a label with three mismatches and a missing health warning. By triaging into two queues, the "Ready to Approve" tab lets specialists batch-select and approve high-confidence, all-match labels in seconds -- clearing the bulk of daily volume. This frees their time for "Needs Review" labels that genuinely need human judgment (field conflicts, low confidence, missing required fields). The queue criteria are: Ready = `pending_review` status + AI proposed `approved` + all validation items match + overall confidence >= configurable threshold (default 95%). Auto-approval was explicitly removed as a default -- all labels now route through specialist review. Organizations that trust their AI pipeline enough can re-enable auto-approval via a settings toggle. The separation also gives specialists a psychologically satisfying workflow: clear the easy stack first, then focus on the hard problems.
+**Reasoning:** Specialists currently treat every submission equally, spending the same time on a label where every field matches at 99% confidence as they do on a label with three mismatches and a missing health warning. By triaging into two queues, the "Ready to Approve" tab lets specialists select and approve high-confidence, all-match labels in seconds -- clearing the bulk of daily volume. This frees their time for "Needs Review" labels that genuinely need human judgment (field conflicts, low confidence, missing required fields). The queue criteria are: Ready = `pending_review` status + AI proposed `approved` + all validation items match + overall confidence >= configurable threshold (default 95%). Auto-approval was explicitly removed as a default -- all labels now route through specialist review. Organizations that trust their AI pipeline enough can re-enable auto-approval via a settings toggle. The separation also gives specialists a psychologically satisfying workflow: clear the easy stack first, then focus on the hard problems.
+
+### Batch Upload Deferred *(Feb 23, 2026)*
+
+**Chosen:** Remove the batch upload feature entirely rather than ship a broken implementation.
+
+**Alternatives considered:**
+
+- Fix and ship the existing batch upload (each image treated as a separate application)
+- Redesign batch upload to group multiple images into a single application
+- Keep the code but disable the UI
+
+**Reasoning:** The batch upload feature had a fundamentally broken UX model -- it treated every uploaded image as a separate COLA application, when real applicants submit one application per product with multiple images (front label, back label, neck strip). The task doc explicitly says "a working core application with clean code is preferred over ambitious but incomplete features." Batch upload was a stretch goal mentioned in passing, not a core requirement. Removing broken code and documenting the decision demonstrates better engineering judgment than shipping a feature that misrepresents how TTB submissions work. The correct design would group images into applications (e.g., CSV mapping or drag-to-group UI), which is a meaningful UX project beyond prototype scope. The specialist "bulk approve" feature (selecting multiple ready labels for approval) is a separate, working feature that was kept.
 
 ### Applicant Extraction Model: GPT-4.1 over GPT-5 Mini *(Feb 23, 2026)*
 
@@ -214,7 +226,7 @@ What we explicitly chose NOT to show applicants: confidence scores, match result
 - Pre-signed S3 URLs
 - Uploadthing
 
-**Reasoning:** Server actions in Next.js have a 4.5MB request body limit. Label images can be up to 10MB each, and batch uploads may include 300+ files. Client-side direct uploads bypass this limit entirely -- the browser uploads directly to Vercel Blob's CDN after receiving a short-lived token from our API route (which validates auth and MIME types). `p-limit` controls concurrency to 5 parallel uploads to avoid overwhelming the browser or network.
+**Reasoning:** Server actions in Next.js have a 4.5MB request body limit. Label images can be up to 10MB each, so multi-image submissions would exceed this limit. Client-side direct uploads bypass this entirely -- the browser uploads directly to Vercel Blob's CDN after receiving a short-lived token from our API route (which validates auth and MIME types). `p-limit` controls concurrency to 5 parallel uploads to avoid overwhelming the browser or network.
 
 ### CSS Transforms for Image Zoom/Pan *(Feb 21, 2026)*
 
@@ -277,7 +289,7 @@ Originally scoped as stretch goals, these features were implemented to demonstra
 | Feature                                          | What It Adds                                                                                                                        |
 | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
 | **Review queue & specialist assignment**         | Priority-ordered queue with per-field override controls and human review audit trail                                                |
-| **Batch upload (300+ labels)**                   | Multi-file upload with p-limit concurrency control, batch detail with polling progress                                              |
+| **Specialist bulk approval**                     | Dashboard splits pending labels into "Ready to Approve" (bulk-approvable) and "Needs Review" tabs for efficient triage              |
 | **Applicant management & compliance reputation** | Applicant list/detail with compliance stats, risk badges, and submission history                                                    |
 | **Reports page with charts**                     | Status distribution, validation trends, and field accuracy charts via Recharts                                                      |
 | **Settings page**                                | Confidence threshold slider, per-field strictness toggles, SLA targets -- accessible to all specialists                             |
@@ -291,7 +303,8 @@ Originally scoped as stretch goals, these features were implemented to demonstra
 | **Rate limiting**               | Prototype scope. Production would use `@upstash/ratelimit` + Upstash Redis (in-memory rate limiting does not work on Vercel serverless -- each invocation is isolated) |
 | **COLA system integration**     | Out of scope per Marcus Williams (IT Systems Administrator): "For this prototype, we're not looking to integrate with COLA directly"                                   |
 | **Cron jobs**                   | Lazy evaluation via `getEffectiveStatus()` handles deadline expiration without external infrastructure                                                                 |
-| **Real-time WebSocket updates** | Polling every 2 seconds during batch processing is simpler and sufficient for this use case                                                                            |
+| **Batch upload**                | The UX model was fundamentally wrong (each image as a separate application vs. grouping images into one application). Removed and documented rather than shipping broken code |
+| **Real-time WebSocket updates** | Polling is simpler and sufficient for this use case                                                                                                                    |
 | **Offline support / PWA**       | Government workstations have reliable internet; offline adds complexity with no real benefit                                                                           |
 | **Internationalization (i18n)** | English-only, US government context. TTB vocabulary is English by definition                                                                                           |
 | **Mobile-first responsive**     | Sarah confirmed specialists use desktop workstations ("half our team is over 50"). Desktop-first, tablet-usable                                                        |

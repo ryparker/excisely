@@ -1,5 +1,6 @@
 'use client'
 
+import { useTransition } from 'react'
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
 import { useQueryState, parseAsString } from 'nuqs'
 
@@ -18,14 +19,19 @@ export function SortableTableHead({
   children,
   className,
 }: SortableTableHeadProps) {
+  const [, startTransition] = useTransition()
   const [, setPage] = useQueryState('page', parseAsString)
   const [sort, setSort] = useQueryState(
     'sort',
-    parseAsString.withDefault('').withOptions({ shallow: false }),
+    parseAsString
+      .withDefault('')
+      .withOptions({ shallow: false, startTransition }),
   )
   const [order, setOrder] = useQueryState(
     'order',
-    parseAsString.withDefault('').withOptions({ shallow: false }),
+    parseAsString
+      .withDefault('')
+      .withOptions({ shallow: false, startTransition }),
   )
 
   const isActive = sort === sortKey

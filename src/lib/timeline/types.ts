@@ -5,6 +5,7 @@
 export type TimelineEventType =
   | 'submitted'
   | 'processing_complete'
+  | 'reanalysis_triggered'
   | 'status_determined'
   | 'email_sent'
   | 'specialist_review'

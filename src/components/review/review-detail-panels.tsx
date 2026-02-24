@@ -45,6 +45,7 @@ interface ReviewDetailPanelsProps {
   images: LabelImageData[]
   validationItems: ValidationItemData[]
   applicantCorrections?: ApplicantCorrection[]
+  beverageType: string
 }
 
 export function ReviewDetailPanels({
@@ -52,6 +53,7 @@ export function ReviewDetailPanels({
   images,
   validationItems,
   applicantCorrections,
+  beverageType,
 }: ReviewDetailPanelsProps) {
   const [activeField, setActiveField] = useState<string | null>(null)
   const [selectedImageId, setSelectedImageId] = useState<string>(
@@ -204,6 +206,7 @@ export function ReviewDetailPanels({
               onMarkLocation={handleMarkLocation}
               onClearAnnotation={handleClearAnnotation}
               annotations={annotationsMap}
+              beverageType={beverageType}
             />
           </div>
         </ScrollArea>

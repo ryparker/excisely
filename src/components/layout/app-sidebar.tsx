@@ -353,40 +353,40 @@ export function AppSidebar({
             : staffItems.map(renderItem)}
         </nav>
 
-        {/* CTA button */}
-        <div
-          className={cn(
-            'border-t border-sidebar-border',
-            collapsed ? 'p-2' : 'p-3',
-          )}
-        >
-          {collapsed ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button asChild size="icon" className="w-full">
-                  <Link href={isApplicant ? '/submit' : '/validate'}>
-                    <Plus className="size-4" />
-                  </Link>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right" sideOffset={8}>
-                {isApplicant ? 'New Submission' : 'New Validation'}
-              </TooltipContent>
-            </Tooltip>
-          ) : (
-            <Button
-              asChild
-              className="w-full bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
-            >
-              <Link href={isApplicant ? '/submit' : '/validate'}>
-                <Plus className="size-4" />
-                <span className="whitespace-nowrap">
-                  {isApplicant ? 'New Submission' : 'New Validation'}
-                </span>
-              </Link>
-            </Button>
-          )}
-        </div>
+        {/* CTA button — applicants only (specialists review, they don't submit) */}
+        {isApplicant && (
+          <div
+            className={cn(
+              'border-t border-sidebar-border',
+              collapsed ? 'p-2' : 'p-3',
+            )}
+          >
+            {collapsed ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button asChild size="icon" className="w-full">
+                    <Link href="/submit">
+                      <Plus className="size-4" />
+                    </Link>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={8}>
+                  New Submission
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <Button
+                asChild
+                className="w-full bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
+              >
+                <Link href="/submit">
+                  <Plus className="size-4" />
+                  <span className="whitespace-nowrap">New Submission</span>
+                </Link>
+              </Button>
+            )}
+          </div>
+        )}
 
         {/* Theme toggle — deferred until mount to avoid hydration mismatch (theme is undefined on server) */}
         <div

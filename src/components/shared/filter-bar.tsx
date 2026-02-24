@@ -1,8 +1,14 @@
 'use client'
 
+import { useTransition } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import { useQueryState, parseAsString } from 'nuqs'
 
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card'
 import { cn } from '@/lib/utils'
 
 interface FilterOption {
@@ -11,6 +17,8 @@ interface FilterOption {
   count?: number
   /** Highlight this filter as needing attention (e.g. items awaiting action) */
   attention?: boolean
+  /** Hover card description explaining this filter */
+  description?: string
 }
 
 interface FilterBarProps {
@@ -18,18 +26,24 @@ interface FilterBarProps {
   paramKey?: string
   options: FilterOption[]
   className?: string
+  /** Default filter value when no URL param is set (default: "" = All) */
+  defaultValue?: string
 }
 
 export function FilterBar({
   paramKey = 'status',
   options,
   className,
+  defaultValue = '',
 }: FilterBarProps) {
   const shouldReduceMotion = useReducedMotion()
+  const [, startTransition] = useTransition()
   const [, setPage] = useQueryState('page', parseAsString)
   const [activeValue, setActiveValue] = useQueryState(
     paramKey,
-    parseAsString.withDefault('').withOptions({ shallow: false }),
+    parseAsString
+      .withDefault(defaultValue)
+      .withOptions({ shallow: false, startTransition }),
   )
 
   function handleSelect(value: string) {
@@ -45,7 +59,8 @@ export function FilterBar({
     >
       {options.map((option) => {
         const isActive = activeValue === option.value
-        return (
+
+        const pill = (
           <button
             key={option.value}
             type="button"
@@ -93,6 +108,19 @@ export function FilterBar({
               )}
             </span>
           </button>
+        )
+
+        if (!option.description) {
+          return <span key={option.value}>{pill}</span>
+        }
+
+        return (
+          <HoverCard key={option.value} openDelay={300} closeDelay={100}>
+            <HoverCardTrigger asChild>{pill}</HoverCardTrigger>
+            <HoverCardContent side="bottom" align="start" className="w-64">
+              <p className="text-xs leading-relaxed">{option.description}</p>
+            </HoverCardContent>
+          </HoverCard>
         )
       })}
     </div>

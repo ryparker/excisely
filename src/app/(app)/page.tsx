@@ -30,12 +30,43 @@ export const dynamic = 'force-dynamic'
 const PAGE_SIZE = 20
 
 const STATUS_FILTERS = [
-  { label: 'All', value: '' },
-  { label: 'Approved', value: 'approved' },
-  { label: 'Pending Review', value: 'pending_review', attention: true },
-  { label: 'Conditionally Approved', value: 'conditionally_approved' },
-  { label: 'Needs Correction', value: 'needs_correction', attention: true },
-  { label: 'Rejected', value: 'rejected' },
+  {
+    label: 'All',
+    value: 'all',
+    description: 'Show all labels regardless of status.',
+  },
+  {
+    label: 'Approved',
+    value: 'approved',
+    description:
+      'Labels that have been fully approved. No further action needed.',
+  },
+  {
+    label: 'Pending Review',
+    value: 'pending_review',
+    attention: true,
+    description:
+      'AI analysis is complete. These labels need specialist review.',
+  },
+  {
+    label: 'Conditionally Approved',
+    value: 'conditionally_approved',
+    description:
+      'Approved with conditions. Applicant has 7 days to submit corrections.',
+  },
+  {
+    label: 'Needs Correction',
+    value: 'needs_correction',
+    attention: true,
+    description:
+      'Issues identified that require applicant corrections within 30 days.',
+  },
+  {
+    label: 'Rejected',
+    value: 'rejected',
+    description:
+      'Label applications that were rejected. Applicants have been notified.',
+  },
 ] as const
 
 interface HomePageProps {
@@ -59,7 +90,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const currentPage = Math.max(1, Number(params.page) || 1)
   const offset = (currentPage - 1) * PAGE_SIZE
   const searchTerm = params.search?.trim() ?? ''
-  const statusFilter = params.status ?? ''
+  // Default to "Pending Review" so specialists see actionable items first.
+  // "all" means no status filter; absence of param means use default.
+  const statusParam = params.status ?? 'pending_review'
+  const statusFilter = statusParam === 'all' ? '' : statusParam
   const queueFilter = params.queue ?? ''
   const sortKey = params.sort ?? ''
   const sortOrder = params.order === 'asc' ? 'asc' : 'desc'
@@ -231,7 +265,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     statusCounts[row.status] = row.count
     totalLabels += row.count
   }
-  statusCounts[''] = totalLabels // "All" filter
+  statusCounts['all'] = totalLabels // "All" filter
 
   // Build SLA card data
   const slaCards: SLAMetricCardData[] = [
@@ -342,6 +376,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           </div>
           <FilterBar
             paramKey="status"
+            defaultValue="pending_review"
             options={STATUS_FILTERS.map((f) => ({
               label: f.label,
               value: f.value,
@@ -350,6 +385,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                 'attention' in f &&
                 f.attention &&
                 (statusCounts[f.value] ?? 0) > 0,
+              description: f.description,
             }))}
           />
         </div>
@@ -366,7 +402,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               </p>
               {!searchTerm && !statusFilter && (
                 <p className="mt-1 text-xs text-muted-foreground/60">
-                  Start by validating a label.
+                  Labels will appear here once applicants submit them.
                 </p>
               )}
             </div>

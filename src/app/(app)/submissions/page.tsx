@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import {
   eq,
   and,
@@ -11,7 +11,6 @@ import {
   gt,
   type SQL,
 } from 'drizzle-orm'
-import { FileText, Plus } from 'lucide-react'
 
 import { db } from '@/db'
 import { labels, applicationData, applicants } from '@/db/schema'
@@ -25,7 +24,6 @@ import { ResetFiltersButton } from '@/components/shared/reset-filters-button'
 import { SearchInput } from '@/components/shared/search-input'
 import { SubmissionsSummaryCards } from '@/components/submissions/submissions-summary-cards'
 import { SubmissionsTable } from '@/components/submissions/submissions-table'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 
 export const dynamic = 'force-dynamic'
@@ -78,14 +76,11 @@ export default async function SubmissionsPage({
     .where(eq(applicants.contactEmail, session.user.email))
     .limit(1)
 
-  // Build where conditions
-  const conditions: SQL[] = []
+  // No applicant record means no submissions — go straight to submit
+  if (!applicantRecord) redirect('/submit')
 
-  if (applicantRecord) {
-    conditions.push(eq(labels.applicantId, applicantRecord.id))
-  } else {
-    conditions.push(eq(labels.id, '__none__'))
-  }
+  // Build where conditions
+  const conditions: SQL[] = [eq(labels.applicantId, applicantRecord.id)]
 
   // Multi-field search
   if (searchTerm) {
@@ -163,13 +158,11 @@ export default async function SubmissionsPage({
         .leftJoin(applicationData, eq(labels.id, applicationData.labelId))
         .where(whereClause),
       // Unfiltered status counts (scoped to this applicant) for summary cards
-      applicantRecord
-        ? db
-            .select({ status: labels.status, count: count() })
-            .from(labels)
-            .where(eq(labels.applicantId, applicantRecord.id))
-            .groupBy(labels.status)
-        : Promise.resolve([]),
+      db
+        .select({ status: labels.status, count: count() })
+        .from(labels)
+        .where(eq(labels.applicantId, applicantRecord.id))
+        .groupBy(labels.status),
       db
         .select({
           id: labels.id,
@@ -198,20 +191,18 @@ export default async function SubmissionsPage({
         .limit(PAGE_SIZE)
         .offset(offset),
       // Nearest correction deadline
-      applicantRecord
-        ? db
-            .select({ deadline: labels.correctionDeadline })
-            .from(labels)
-            .where(
-              and(
-                eq(labels.applicantId, applicantRecord.id),
-                gt(labels.correctionDeadline, new Date()),
-                eq(labels.deadlineExpired, false),
-              ),
-            )
-            .orderBy(asc(labels.correctionDeadline))
-            .limit(1)
-        : Promise.resolve([]),
+      db
+        .select({ deadline: labels.correctionDeadline })
+        .from(labels)
+        .where(
+          and(
+            eq(labels.applicantId, applicantRecord.id),
+            gt(labels.correctionDeadline, new Date()),
+            eq(labels.deadlineExpired, false),
+          ),
+        )
+        .orderBy(asc(labels.correctionDeadline))
+        .limit(1),
     ])
 
   const tableTotal = tableCountResult[0]?.total ?? 0
@@ -260,6 +251,9 @@ export default async function SubmissionsPage({
 
   const hasAnySubmissions = totalLabels > 0
 
+  // First-time applicants go straight to the submit page
+  if (!hasAnySubmissions) redirect('/submit')
+
   return (
     <PageShell className="space-y-6">
       <AutoRefresh />
@@ -268,60 +262,25 @@ export default async function SubmissionsPage({
         description="Your submitted label applications and their verification results."
       />
 
-      {hasAnySubmissions && (
-        <SubmissionsSummaryCards
-          total={totalLabels}
-          approved={approvedCount}
-          approvalRate={approvalRate}
-          inReview={inReviewCount}
-          needsAttention={attentionCount}
-          nearestDeadline={nearestDeadlineText}
+      <SubmissionsSummaryCards
+        total={totalLabels}
+        approved={approvedCount}
+        approvalRate={approvalRate}
+        inReview={inReviewCount}
+        needsAttention={attentionCount}
+        nearestDeadline={nearestDeadlineText}
+      />
+
+      <div className="flex items-center gap-2">
+        <SearchInput
+          paramKey="search"
+          placeholder="Search by name, serial number, or type..."
+          className="flex-1"
         />
-      )}
+        <ResetFiltersButton paramKeys={['status', 'beverageType']} />
+      </div>
 
-      {hasAnySubmissions && (
-        <div className="flex items-center gap-2">
-          <SearchInput
-            paramKey="search"
-            placeholder="Search by name, serial number, or type..."
-            className="flex-1"
-          />
-          <ResetFiltersButton paramKeys={['status', 'beverageType']} />
-        </div>
-      )}
-
-      {!hasAnySubmissions ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
-              <FileText className="size-6 text-muted-foreground" />
-            </div>
-            <h3 className="font-heading text-lg font-semibold">
-              No submissions yet
-            </h3>
-            <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-              Submit a label image with your application data and our AI will
-              verify it against TTB requirements.
-            </p>
-            <Button asChild className="mt-5">
-              <Link href="/submit">
-                <Plus className="size-4" />
-                Submit Your First Label
-              </Link>
-            </Button>
-            <p className="mt-3 text-xs text-muted-foreground/60">
-              Need to submit multiple labels? Use the{' '}
-              <Link
-                href="/submit?tab=batch"
-                className="text-primary hover:underline"
-              >
-                batch upload
-              </Link>{' '}
-              option.
-            </p>
-          </CardContent>
-        </Card>
-      ) : labelsWithStatus.length === 0 ? (
+      {labelsWithStatus.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <p className="text-sm text-muted-foreground">

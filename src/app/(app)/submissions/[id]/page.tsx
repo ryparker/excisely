@@ -25,7 +25,7 @@ import { getSignedImageUrl } from '@/lib/storage/blob'
 import { buildApplicantTimeline } from '@/lib/timeline/build-timeline'
 import { PageHeader } from '@/components/layout/page-header'
 import { PageShell } from '@/components/layout/page-shell'
-import { StatusExplainer } from '@/components/shared/status-explainer'
+import { StatusBadge } from '@/components/shared/status-badge'
 import { AutoRefresh } from '@/components/shared/auto-refresh'
 import { ValidationDetailPanels } from '@/components/validation/validation-detail-panels'
 import { ProcessingStatusBanner } from '@/components/validation/processing-status-banner'
@@ -185,11 +185,7 @@ export default async function SubmissionDetailPage({
             .filter(Boolean)
             .join(' · ')}
         >
-          <StatusExplainer
-            status={effectiveStatus}
-            role="applicant"
-            className="px-3 py-1 text-sm"
-          />
+          <StatusBadge status={effectiveStatus} className="px-3 py-1 text-sm" />
         </PageHeader>
       </div>
 

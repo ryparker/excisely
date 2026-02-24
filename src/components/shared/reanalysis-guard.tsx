@@ -28,8 +28,8 @@ export function ReanalysisGuard({
   const isProcessing = labelStatus === 'pending' || labelStatus === 'processing'
 
   if (isProcessing || isReanalyzing) {
-    return <>{processingContent}</>
+    return <div className="space-y-5">{processingContent}</div>
   }
 
-  return <>{normalContent}</>
+  return <div className="space-y-5">{normalContent}</div>
 }

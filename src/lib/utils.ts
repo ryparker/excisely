@@ -41,3 +41,16 @@ export function timeAgo(date: Date): string {
     year: 'numeric',
   })
 }
+
+/**
+ * Returns a Tailwind text color class based on a confidence score (0-100).
+ * Green (>=90), amber (>=70), red (<70). Returns muted for null/undefined.
+ */
+export function confidenceColor(value: number | string | null): string {
+  if (value === null || value === undefined) return 'text-muted-foreground/40'
+  const num = typeof value === 'string' ? Number(value) : value
+  if (Number.isNaN(num)) return 'text-muted-foreground/40'
+  if (num >= 90) return 'text-emerald-600 dark:text-emerald-400'
+  if (num >= 70) return 'text-amber-600 dark:text-amber-400'
+  return 'text-red-600 dark:text-red-400'
+}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { FileText } from 'lucide-react'
 import { motion, useReducedMotion } from 'motion/react'
@@ -189,9 +189,12 @@ export function SubmissionsTable({
 }: SubmissionsTableProps) {
   const router = useRouter()
   const shouldReduceMotion = useReducedMotion()
+  const [, startTransition] = useTransition()
   const [currentPage, setCurrentPage] = useQueryState(
     'page',
-    parseAsInteger.withDefault(1).withOptions({ shallow: false }),
+    parseAsInteger
+      .withDefault(1)
+      .withOptions({ shallow: false, startTransition }),
   )
 
   const offset = (currentPage - 1) * pageSize
@@ -217,7 +220,11 @@ export function SubmissionsTable({
             <ColumnHeader sortKey="flaggedCount" className="text-right">
               Issues
             </ColumnHeader>
-            <ColumnHeader sortKey="createdAt" defaultSort="desc">
+            <ColumnHeader
+              sortKey="createdAt"
+              defaultSort="desc"
+              className="text-right"
+            >
               Submitted
             </ColumnHeader>
           </TableRow>
@@ -301,7 +308,7 @@ export function SubmissionsTable({
                 >
                   {row.flaggedCount > 0 ? row.flaggedCount : '--'}
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
+                <TableCell className="text-right text-sm text-muted-foreground tabular-nums">
                   {formatDate(row.createdAt)}
                 </TableCell>
               </RowTag>

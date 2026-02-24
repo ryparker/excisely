@@ -11,7 +11,7 @@ import {
   validationItems,
   validationResults,
 } from '@/db/schema'
-import { extractLabelFields } from '@/lib/ai/extract-label'
+import { extractLabelFieldsForSubmission } from '@/lib/ai/extract-label'
 import { compareField } from '@/lib/ai/compare-fields'
 import { getSession } from '@/lib/auth/get-session'
 import {
@@ -104,7 +104,7 @@ export async function reanalyzeLabel(
 
     // 7. Run AI pipeline (outside transaction — external API call)
     const appDataForAI = Object.fromEntries(expectedFields)
-    const extraction = await extractLabelFields(
+    const extraction = await extractLabelFieldsForSubmission(
       imageUrls,
       label.beverageType,
       appDataForAI,

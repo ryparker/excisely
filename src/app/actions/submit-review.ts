@@ -45,7 +45,7 @@ const fieldOverrideSchema = z.object({
 
 const submitReviewSchema = z.object({
   labelId: z.string().min(1),
-  overrides: z.array(fieldOverrideSchema).min(1),
+  overrides: z.array(fieldOverrideSchema),
 })
 
 // ---------------------------------------------------------------------------

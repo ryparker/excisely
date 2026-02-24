@@ -11,6 +11,7 @@ import {
   X,
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 import { Badge } from '@/components/ui/badge'
 import {
@@ -121,36 +122,27 @@ const HANDLE_POSITIONS: { handle: ResizeHandle; x: number; y: number }[] = [
   { handle: 'se', x: 1, y: 1 },
 ]
 
-/** Invert CSS transform (translate + scale with origin-center) to get normalized image coords. */
+/**
+ * Convert screen (clientX/Y) to normalized 0-1 image coordinates.
+ * Uses getBoundingClientRect() on the <img> element so it automatically
+ * accounts for any CSS transforms (scale, translate, origin-center) without
+ * needing to manually invert the transform matrix.
+ */
 function screenToNormalizedCoords(
   clientX: number,
   clientY: number,
   container: HTMLDivElement | null,
-  currentScale: number,
-  currentTranslate: { x: number; y: number },
 ): { x: number; y: number } | null {
   if (!container) return null
-  const containerRect = container.getBoundingClientRect()
   const imageEl = container.querySelector('img')
   if (!imageEl) return null
 
-  const imageWidth = imageEl.naturalWidth || containerRect.width
-  const imageHeight = imageEl.naturalHeight || containerRect.height
-  const displayWidth = containerRect.width
-  const displayHeight = (imageHeight / imageWidth) * displayWidth
-
-  const relScreenX = clientX - containerRect.left
-  const relScreenY = clientY - containerRect.top
-  const relX =
-    (relScreenX - displayWidth / 2 - currentTranslate.x) / currentScale +
-    displayWidth / 2
-  const relY =
-    (relScreenY - displayHeight / 2 - currentTranslate.y) / currentScale +
-    displayHeight / 2
+  const imageRect = imageEl.getBoundingClientRect()
+  if (imageRect.width === 0 || imageRect.height === 0) return null
 
   return {
-    x: Math.max(0, Math.min(1, relX / displayWidth)),
-    y: Math.max(0, Math.min(1, relY / displayHeight)),
+    x: Math.max(0, Math.min(1, (clientX - imageRect.left) / imageRect.width)),
+    y: Math.max(0, Math.min(1, (clientY - imageRect.top) / imageRect.height)),
   }
 }
 
@@ -667,14 +659,8 @@ export function AnnotatedImage({
   // --- Coordinate conversion for drawing ---
   const screenToNormalized = useCallback(
     (clientX: number, clientY: number) =>
-      screenToNormalizedCoords(
-        clientX,
-        clientY,
-        containerRef.current,
-        scale,
-        translate,
-      ),
-    [scale, translate],
+      screenToNormalizedCoords(clientX, clientY, containerRef.current),
+    [],
   )
 
   // --- Inline view handlers ---
@@ -815,15 +801,10 @@ export function AnnotatedImage({
   const handlePendingMouseDown = useCallback(
     (e: React.MouseEvent, handle: ResizeHandle | 'move') => {
       if (!pendingRect) return
-      const norm = isExpanded
-        ? screenToNormalizedCoords(
-            e.clientX,
-            e.clientY,
-            expandedContainerRef.current,
-            expandedScale,
-            expandedTranslate,
-          )
-        : screenToNormalized(e.clientX, e.clientY)
+      const container = isExpanded
+        ? expandedContainerRef.current
+        : containerRef.current
+      const norm = screenToNormalizedCoords(e.clientX, e.clientY, container)
       if (!norm) return
       setAdjustMode({
         type: handle,
@@ -831,13 +812,7 @@ export function AnnotatedImage({
         startRect: { ...pendingRect },
       })
     },
-    [
-      pendingRect,
-      screenToNormalized,
-      isExpanded,
-      expandedScale,
-      expandedTranslate,
-    ],
+    [pendingRect, isExpanded],
   )
 
   // Confirm pending rect → commit annotation
@@ -887,19 +862,38 @@ export function AnnotatedImage({
     [],
   )
 
-  // Center image vertically when expanded view opens
+  // Center image vertically when expanded view opens or the image changes
   useEffect(() => {
     if (!isExpanded) return
     const container = expandedContainerRef.current
     if (!container) return
-    // Wait a frame for the container to have layout dimensions
-    const raf = requestAnimationFrame(() => {
+
+    let imgEl: HTMLImageElement | null = null
+
+    const refit = () => {
       const fit = computeFitView(container)
       setExpandedScale(fit.scale)
       setExpandedTranslate({ x: 0, y: fit.translateY })
+
+      setRotation(0)
+    }
+
+    // Wait a frame for the container to have layout dimensions
+    const raf = requestAnimationFrame(() => {
+      imgEl = container.querySelector('img')
+      if (imgEl?.complete && imgEl.naturalWidth > 0) {
+        // Image already loaded (cached) — fit immediately
+        refit()
+      } else if (imgEl) {
+        // Image still loading — refit once it finishes
+        imgEl.addEventListener('load', refit, { once: true })
+      }
     })
-    return () => cancelAnimationFrame(raf)
-  }, [isExpanded, computeFitView])
+    return () => {
+      cancelAnimationFrame(raf)
+      imgEl?.removeEventListener('load', refit)
+    }
+  }, [isExpanded, imageUrl, computeFitView])
 
   const handleRotate = useCallback(() => {
     setRotation((prev) => (prev + 90) % 360)
@@ -938,8 +932,6 @@ export function AnnotatedImage({
           e.clientX,
           e.clientY,
           expandedContainerRef.current,
-          expandedScale,
-          expandedTranslate,
         )
         if (norm) {
           setIsDrawingActive(true)
@@ -957,7 +949,7 @@ export function AnnotatedImage({
         y: e.clientY - expandedTranslate.y,
       })
     },
-    [expandedTranslate, expandedScale, isDrawing, pendingRect],
+    [expandedTranslate, isDrawing, pendingRect],
   )
 
   const handleExpandedMouseMove = useCallback(
@@ -968,8 +960,6 @@ export function AnnotatedImage({
           e.clientX,
           e.clientY,
           expandedContainerRef.current,
-          expandedScale,
-          expandedTranslate,
         )
         if (!norm) return
 
@@ -1021,8 +1011,6 @@ export function AnnotatedImage({
           e.clientX,
           e.clientY,
           expandedContainerRef.current,
-          expandedScale,
-          expandedTranslate,
         )
         if (norm) {
           const x = Math.min(drawStart.x, norm.x)
@@ -1047,8 +1035,6 @@ export function AnnotatedImage({
       drawStart,
       adjustMode,
       pendingRect,
-      expandedScale,
-      expandedTranslate,
     ],
   )
 
@@ -1526,282 +1512,287 @@ export function AnnotatedImage({
         </div>
       </div>
 
-      {/* Expanded lightbox overlay */}
-      {isExpanded && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          onClick={isDrawing ? undefined : handleCollapse}
-        >
+      {/* Expanded lightbox overlay — portaled to document.body to escape
+          parent stacking contexts (Motion transforms) that trap z-index */}
+      {isExpanded &&
+        createPortal(
           <div
-            className="relative flex max-h-[85vh] w-[90vw] max-w-[90vw] flex-col overflow-hidden rounded-xl border bg-background shadow-2xl"
-            style={{ height: '85vh' }}
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            onClick={isDrawing ? undefined : handleCollapse}
           >
-            {/* Close button */}
-            <button
-              type="button"
-              className="absolute top-3 right-3 z-20 flex items-center justify-center rounded-md bg-background/80 p-2.5 text-muted-foreground backdrop-blur-sm transition-colors hover:bg-muted hover:text-foreground active:scale-95"
-              onClick={handleCollapse}
-              aria-label="Close expanded view"
+            <div
+              className="relative flex max-h-[85vh] w-[90vw] max-w-[90vw] flex-col overflow-hidden rounded-xl border bg-background shadow-2xl"
+              style={{ height: '85vh' }}
+              onClick={(e) => e.stopPropagation()}
             >
-              <X className="h-4 w-4" />
-            </button>
+              {/* Close button */}
+              <button
+                type="button"
+                className="absolute top-3 right-3 z-20 flex items-center justify-center rounded-md bg-background/80 p-2.5 text-muted-foreground backdrop-blur-sm transition-colors hover:bg-muted hover:text-foreground active:scale-95"
+                onClick={handleCollapse}
+                aria-label="Close expanded view"
+              >
+                <X className="h-4 w-4" />
+              </button>
 
-            {/* Image tabs (when multiple images available) */}
-            {images &&
-              images.length > 1 &&
-              selectedImageId &&
-              onImageSelect && (
-                <div className="shrink-0 border-b px-4 pt-3 pb-1">
-                  <ImageTabs
-                    images={images}
-                    selectedImageId={selectedImageId}
-                    onSelect={onImageSelect}
-                  />
+              {/* Image tabs (when multiple images available) */}
+              {images &&
+                images.length > 1 &&
+                selectedImageId &&
+                onImageSelect && (
+                  <div className="shrink-0 border-b px-4 pt-3 pb-1">
+                    <ImageTabs
+                      images={images}
+                      selectedImageId={selectedImageId}
+                      onSelect={onImageSelect}
+                    />
+                  </div>
+                )}
+
+              {/* Drawing mode banner */}
+              {isDrawing && drawingFieldName && (
+                <div
+                  className="flex shrink-0 items-center justify-center gap-2 bg-indigo-600 px-4 py-2 text-sm font-medium text-white"
+                  role="status"
+                >
+                  {pendingRect ? (
+                    <>
+                      Adjust the rectangle, then{' '}
+                      <button
+                        type="button"
+                        className="rounded bg-white/20 px-1.5 py-0.5 font-semibold transition-colors hover:bg-white/30 active:scale-95"
+                        onClick={handleConfirmPending}
+                      >
+                        Confirm
+                      </button>{' '}
+                      or{' '}
+                      <button
+                        type="button"
+                        className="rounded bg-white/20 px-1.5 py-0.5 font-semibold transition-colors hover:bg-white/30 active:scale-95"
+                        onClick={handleRedrawPending}
+                      >
+                        Redraw
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      Draw a rectangle around{' '}
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <strong className="cursor-help border-b border-dashed border-white/40">
+                              {FIELD_DISPLAY_NAMES[drawingFieldName] ??
+                                drawingFieldName.replace(/_/g, ' ')}
+                            </strong>
+                          </TooltipTrigger>
+                          {FIELD_TOOLTIPS[drawingFieldName] && (
+                            <TooltipContent side="bottom" className="max-w-xs">
+                              {FIELD_TOOLTIPS[drawingFieldName].description}
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                      </TooltipProvider>
+                    </>
+                  )}
+                  <kbd className="ml-1 rounded border border-indigo-400/50 bg-indigo-500/50 px-1.5 py-0.5 font-mono text-xs text-indigo-100">
+                    Esc
+                  </kbd>
+                  <span className="text-indigo-200">
+                    {pendingRect ? 'to redraw' : 'to cancel'}
+                  </span>
                 </div>
               )}
 
-            {/* Drawing mode banner */}
-            {isDrawing && drawingFieldName && (
-              <div
-                className="flex shrink-0 items-center justify-center gap-2 bg-indigo-600 px-4 py-2 text-sm font-medium text-white"
-                role="status"
-              >
-                {pendingRect ? (
-                  <>
-                    Adjust the rectangle, then{' '}
-                    <button
-                      type="button"
-                      className="rounded bg-white/20 px-1.5 py-0.5 font-semibold transition-colors hover:bg-white/30 active:scale-95"
-                      onClick={handleConfirmPending}
-                    >
-                      Confirm
-                    </button>{' '}
-                    or{' '}
-                    <button
-                      type="button"
-                      className="rounded bg-white/20 px-1.5 py-0.5 font-semibold transition-colors hover:bg-white/30 active:scale-95"
-                      onClick={handleRedrawPending}
-                    >
-                      Redraw
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    Draw a rectangle around{' '}
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <strong className="cursor-help border-b border-dashed border-white/40">
-                            {FIELD_DISPLAY_NAMES[drawingFieldName] ??
-                              drawingFieldName.replace(/_/g, ' ')}
-                          </strong>
-                        </TooltipTrigger>
-                        {FIELD_TOOLTIPS[drawingFieldName] && (
-                          <TooltipContent side="bottom" className="max-w-xs">
-                            {FIELD_TOOLTIPS[drawingFieldName].description}
-                          </TooltipContent>
-                        )}
-                      </Tooltip>
-                    </TooltipProvider>
-                  </>
-                )}
-                <kbd className="ml-1 rounded border border-indigo-400/50 bg-indigo-500/50 px-1.5 py-0.5 font-mono text-xs text-indigo-100">
-                  Esc
-                </kbd>
-                <span className="text-indigo-200">
-                  {pendingRect ? 'to redraw' : 'to cancel'}
-                </span>
-              </div>
-            )}
-
-            {/* Image viewer fills remaining space */}
-            <div className="relative min-h-0 flex-1">
-              <ImageViewerContent
-                imageUrl={imageUrl}
-                boxesWithCoords={boxesWithCoords}
-                activeField={activeField}
-                onFieldClick={isDrawing ? undefined : onFieldClick}
-                showOverlays={effectiveShowOverlays}
-                scale={expandedScale}
-                translate={expandedTranslate}
-                rotation={rotation}
-                isDragging={expandedIsDragging}
-                onMouseDown={handleExpandedMouseDown}
-                onMouseMove={handleExpandedMouseMove}
-                onMouseUp={handleExpandedMouseUp}
-                onDoubleClick={isDrawing ? () => {} : handleExpandedDoubleClick}
-                containerRef={expandedContainerRef}
-                isDrawing={isDrawing && !pendingRect}
-                drawingRect={drawingRect}
-                pendingRect={pendingRect}
-                onPendingMouseDown={handlePendingMouseDown}
-                onConfirmPending={handleConfirmPending}
-                onRedrawPending={handleRedrawPending}
-                annotations={annotations}
-                colorMode={colorMode}
-              />
-
-              {/* Crop preview (expanded view) */}
-              {(() => {
-                const previewSource = pendingRect ?? drawingRect
-                if (
-                  !previewSource ||
-                  previewSource.width < 0.01 ||
-                  previewSource.height < 0.01
-                )
-                  return null
-
-                const cropAspect =
-                  (previewSource.width * imageAspect) / previewSource.height
-                const MAX_DIM = 220
-                const MIN_DIM = 80
-                let previewW: number
-                let previewH: number
-                if (cropAspect >= 1) {
-                  previewW = Math.min(MAX_DIM, Math.max(MIN_DIM, MAX_DIM))
-                  previewH = Math.max(
-                    MIN_DIM,
-                    Math.round(previewW / cropAspect),
-                  )
-                } else {
-                  previewH = Math.min(MAX_DIM, Math.max(MIN_DIM, MAX_DIM))
-                  previewW = Math.max(
-                    MIN_DIM,
-                    Math.round(previewH * cropAspect),
-                  )
-                }
-                const imgW = previewW / previewSource.width
-                const imgH = previewH / previewSource.height
-
-                const rectCenterX = previewSource.x + previewSource.width / 2
-                const rectCenterY = previewSource.y + previewSource.height / 2
-                const placeRight = rectCenterX < 0.5
-                const placeBottom = rectCenterY < 0.5
-
-                const positionStyle: React.CSSProperties = {
-                  width: previewW,
-                  height: previewH,
-                  ...(placeRight ? { right: 12 } : { left: 12 }),
-                  ...(placeBottom ? { bottom: 52 } : { top: 12 }),
-                }
-
-                return (
-                  <div
-                    className="pointer-events-none absolute z-20 overflow-hidden rounded-lg border-2 border-indigo-500/80 bg-black shadow-xl transition-[top,right,bottom,left] duration-200"
-                    style={positionStyle}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={imageUrl}
-                      alt="Crop preview"
-                      draggable={false}
-                      className="absolute block"
-                      style={{
-                        width: imgW,
-                        height: imgH,
-                        left: -previewSource.x * imgW,
-                        top: -previewSource.y * imgH,
-                        maxWidth: 'none',
-                      }}
-                    />
-                    <span className="absolute top-1 left-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
-                      Preview
-                    </span>
-                  </div>
-                )
-              })()}
-
-              {/* Expanded view controls toolbar */}
-              <div className="absolute right-3 bottom-3 flex items-center gap-1.5">
-                {/* Toggle overlays */}
-                <button
-                  type="button"
-                  className="flex items-center justify-center rounded-md bg-background/80 p-2.5 text-muted-foreground backdrop-blur-sm transition-colors hover:bg-muted hover:text-foreground active:scale-95"
-                  onClick={() => setShowOverlays((prev) => !prev)}
-                  aria-label={
-                    showOverlays ? 'Hide highlights' : 'Show highlights'
+              {/* Image viewer fills remaining space */}
+              <div className="relative min-h-0 flex-1">
+                <ImageViewerContent
+                  imageUrl={imageUrl}
+                  boxesWithCoords={boxesWithCoords}
+                  activeField={activeField}
+                  onFieldClick={isDrawing ? undefined : onFieldClick}
+                  showOverlays={effectiveShowOverlays}
+                  scale={expandedScale}
+                  translate={expandedTranslate}
+                  rotation={rotation}
+                  isDragging={expandedIsDragging}
+                  onMouseDown={handleExpandedMouseDown}
+                  onMouseMove={handleExpandedMouseMove}
+                  onMouseUp={handleExpandedMouseUp}
+                  onDoubleClick={
+                    isDrawing ? () => {} : handleExpandedDoubleClick
                   }
-                  title={showOverlays ? 'Hide highlights' : 'Show highlights'}
-                >
-                  {showOverlays ? (
-                    <Eye className="h-3.5 w-3.5" />
-                  ) : (
-                    <EyeOff className="h-3.5 w-3.5" />
-                  )}
-                </button>
+                  containerRef={expandedContainerRef}
+                  isDrawing={isDrawing && !pendingRect}
+                  drawingRect={drawingRect}
+                  pendingRect={pendingRect}
+                  onPendingMouseDown={handlePendingMouseDown}
+                  onConfirmPending={handleConfirmPending}
+                  onRedrawPending={handleRedrawPending}
+                  annotations={annotations}
+                  colorMode={colorMode}
+                />
 
-                {/* Rotate */}
-                <button
-                  type="button"
-                  className="flex items-center justify-center rounded-md bg-background/80 p-2.5 text-muted-foreground backdrop-blur-sm transition-colors hover:bg-muted hover:text-foreground active:scale-95"
-                  onClick={handleRotate}
-                  aria-label="Rotate 90°"
-                  title="Rotate 90°"
-                >
-                  <RotateCw className="h-3.5 w-3.5" />
-                </button>
+                {/* Crop preview (expanded view) */}
+                {(() => {
+                  const previewSource = pendingRect ?? drawingRect
+                  if (
+                    !previewSource ||
+                    previewSource.width < 0.01 ||
+                    previewSource.height < 0.01
+                  )
+                    return null
 
-                {/* Reset */}
-                <button
-                  type="button"
-                  className="flex items-center justify-center rounded-md bg-background/80 p-2.5 text-muted-foreground backdrop-blur-sm transition-colors hover:bg-muted hover:text-foreground active:scale-95"
-                  onClick={() => {
-                    setRotation(0)
-                    const container = expandedContainerRef.current
-                    if (container) {
-                      const fit = computeFitView(container)
-                      setExpandedScale(fit.scale)
-                      setExpandedTranslate({ x: 0, y: fit.translateY })
-                    } else {
-                      setExpandedScale(1)
-                      setExpandedTranslate({ x: 0, y: 0 })
+                  const cropAspect =
+                    (previewSource.width * imageAspect) / previewSource.height
+                  const MAX_DIM = 220
+                  const MIN_DIM = 80
+                  let previewW: number
+                  let previewH: number
+                  if (cropAspect >= 1) {
+                    previewW = Math.min(MAX_DIM, Math.max(MIN_DIM, MAX_DIM))
+                    previewH = Math.max(
+                      MIN_DIM,
+                      Math.round(previewW / cropAspect),
+                    )
+                  } else {
+                    previewH = Math.min(MAX_DIM, Math.max(MIN_DIM, MAX_DIM))
+                    previewW = Math.max(
+                      MIN_DIM,
+                      Math.round(previewH * cropAspect),
+                    )
+                  }
+                  const imgW = previewW / previewSource.width
+                  const imgH = previewH / previewSource.height
+
+                  const rectCenterX = previewSource.x + previewSource.width / 2
+                  const rectCenterY = previewSource.y + previewSource.height / 2
+                  const placeRight = rectCenterX < 0.5
+                  const placeBottom = rectCenterY < 0.5
+
+                  const positionStyle: React.CSSProperties = {
+                    width: previewW,
+                    height: previewH,
+                    ...(placeRight ? { right: 12 } : { left: 12 }),
+                    ...(placeBottom ? { bottom: 52 } : { top: 12 }),
+                  }
+
+                  return (
+                    <div
+                      className="pointer-events-none absolute z-20 overflow-hidden rounded-lg border-2 border-indigo-500/80 bg-black shadow-xl transition-[top,right,bottom,left] duration-200"
+                      style={positionStyle}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={imageUrl}
+                        alt="Crop preview"
+                        draggable={false}
+                        className="absolute block"
+                        style={{
+                          width: imgW,
+                          height: imgH,
+                          left: -previewSource.x * imgW,
+                          top: -previewSource.y * imgH,
+                          maxWidth: 'none',
+                        }}
+                      />
+                      <span className="absolute top-1 left-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                        Preview
+                      </span>
+                    </div>
+                  )
+                })()}
+
+                {/* Expanded view controls toolbar */}
+                <div className="absolute right-3 bottom-3 flex items-center gap-1.5">
+                  {/* Toggle overlays */}
+                  <button
+                    type="button"
+                    className="flex items-center justify-center rounded-md bg-background/80 p-2.5 text-muted-foreground backdrop-blur-sm transition-colors hover:bg-muted hover:text-foreground active:scale-95"
+                    onClick={() => setShowOverlays((prev) => !prev)}
+                    aria-label={
+                      showOverlays ? 'Hide highlights' : 'Show highlights'
                     }
-                  }}
-                  aria-label="Reset view"
-                  title="Reset view"
-                >
-                  <Home className="h-3.5 w-3.5" />
-                </button>
+                    title={showOverlays ? 'Hide highlights' : 'Show highlights'}
+                  >
+                    {showOverlays ? (
+                      <Eye className="h-3.5 w-3.5" />
+                    ) : (
+                      <EyeOff className="h-3.5 w-3.5" />
+                    )}
+                  </button>
 
-                {/* Collapse */}
-                <button
-                  type="button"
-                  className="flex items-center justify-center rounded-md bg-background/80 p-2.5 text-muted-foreground backdrop-blur-sm transition-colors hover:bg-muted hover:text-foreground active:scale-95"
-                  onClick={handleCollapse}
-                  aria-label="Collapse image"
-                  title="Collapse image"
-                >
-                  <Minimize2 className="h-3.5 w-3.5" />
-                </button>
-
-                {/* Zoom controls */}
-                <div className="flex items-center gap-1 rounded-md bg-background/80 px-1 py-0.5 text-xs text-muted-foreground backdrop-blur-sm">
+                  {/* Rotate */}
                   <button
                     type="button"
-                    className="rounded px-2 py-1 transition-colors hover:bg-muted active:scale-95"
-                    onClick={handleExpandedZoomOut}
-                    aria-label="Zoom out"
+                    className="flex items-center justify-center rounded-md bg-background/80 p-2.5 text-muted-foreground backdrop-blur-sm transition-colors hover:bg-muted hover:text-foreground active:scale-95"
+                    onClick={handleRotate}
+                    aria-label="Rotate 90°"
+                    title="Rotate 90°"
                   >
-                    −
+                    <RotateCw className="h-3.5 w-3.5" />
                   </button>
-                  <span className="min-w-[3ch] text-center tabular-nums">
-                    {Math.round(expandedScale * 100)}%
-                  </span>
+
+                  {/* Reset */}
                   <button
                     type="button"
-                    className="rounded px-2 py-1 transition-colors hover:bg-muted active:scale-95"
-                    onClick={handleExpandedZoomIn}
-                    aria-label="Zoom in"
+                    className="flex items-center justify-center rounded-md bg-background/80 p-2.5 text-muted-foreground backdrop-blur-sm transition-colors hover:bg-muted hover:text-foreground active:scale-95"
+                    onClick={() => {
+                      setRotation(0)
+                      const container = expandedContainerRef.current
+                      if (container) {
+                        const fit = computeFitView(container)
+                        setExpandedScale(fit.scale)
+                        setExpandedTranslate({ x: 0, y: fit.translateY })
+                      } else {
+                        setExpandedScale(1)
+                        setExpandedTranslate({ x: 0, y: 0 })
+                      }
+                    }}
+                    aria-label="Reset view"
+                    title="Reset view"
                   >
-                    +
+                    <Home className="h-3.5 w-3.5" />
                   </button>
+
+                  {/* Collapse */}
+                  <button
+                    type="button"
+                    className="flex items-center justify-center rounded-md bg-background/80 p-2.5 text-muted-foreground backdrop-blur-sm transition-colors hover:bg-muted hover:text-foreground active:scale-95"
+                    onClick={handleCollapse}
+                    aria-label="Collapse image"
+                    title="Collapse image"
+                  >
+                    <Minimize2 className="h-3.5 w-3.5" />
+                  </button>
+
+                  {/* Zoom controls */}
+                  <div className="flex items-center gap-1 rounded-md bg-background/80 px-1 py-0.5 text-xs text-muted-foreground backdrop-blur-sm">
+                    <button
+                      type="button"
+                      className="rounded px-2 py-1 transition-colors hover:bg-muted active:scale-95"
+                      onClick={handleExpandedZoomOut}
+                      aria-label="Zoom out"
+                    >
+                      −
+                    </button>
+                    <span className="min-w-[3ch] text-center tabular-nums">
+                      {Math.round(expandedScale * 100)}%
+                    </span>
+                    <button
+                      type="button"
+                      className="rounded px-2 py-1 transition-colors hover:bg-muted active:scale-95"
+                      onClick={handleExpandedZoomIn}
+                      aria-label="Zoom in"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </>
   )
 }

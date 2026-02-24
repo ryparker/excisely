@@ -14,17 +14,21 @@ import {
 const mocks = vi.hoisted(() => ({
   revalidatePath: vi.fn(),
   getSession: vi.fn(),
-  extractLabelFields: vi.fn(),
+  extractLabelFieldsForSubmission: vi.fn(),
   compareField: vi.fn(),
+  getAutoApprovalEnabled: vi.fn(),
   db: {} as Record<string, unknown>,
 }))
 
 vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidatePath }))
 vi.mock('@/lib/auth/get-session', () => ({ getSession: mocks.getSession }))
 vi.mock('@/lib/ai/extract-label', () => ({
-  extractLabelFields: mocks.extractLabelFields,
+  extractLabelFieldsForSubmission: mocks.extractLabelFieldsForSubmission,
 }))
 vi.mock('@/lib/ai/compare-fields', () => ({ compareField: mocks.compareField }))
+vi.mock('@/lib/settings/get-settings', () => ({
+  getAutoApprovalEnabled: mocks.getAutoApprovalEnabled,
+}))
 vi.mock('@/db', () => ({ db: mocks.db }))
 
 // ---------------------------------------------------------------------------
@@ -61,38 +65,26 @@ function makeChain(rows: unknown[] = []) {
   return self
 }
 
-// We need a transaction mock where the callback receives a tx object
-// that also has chainable query builders
-function makeTxDb() {
-  const txSelectChain = makeChain([])
-  const txInsertChain = makeChain([{ id: nanoid() }])
-  const txUpdateChain = makeChain([])
-
-  return {
-    select: vi.fn().mockReturnValue(txSelectChain),
-    insert: vi.fn().mockReturnValue(txInsertChain),
-    update: vi.fn().mockReturnValue(txUpdateChain),
-    _selectChain: txSelectChain,
-    _insertChain: txInsertChain,
-    _updateChain: txUpdateChain,
-  }
-}
-
-let selectChain: ReturnType<typeof makeChain>
 let updateChain: ReturnType<typeof makeChain>
-let txDb: ReturnType<typeof makeTxDb>
 
 /**
- * Sets up mocks.db with fresh chains. The `selectResponses` array provides
- * sequential return values for successive `db.select()` calls:
+ * Sets up mocks.db with fresh chains.
+ *
+ * `selectResponses` provides sequential return values for db.select() calls:
  *   [0] = label query
  *   [1] = applicationData query (via Promise.all)
  *   [2] = labelImages query (via Promise.all)
+ *   [3] = currentResult query (for superseding)
+ *
+ * `insertResponses` provides sequential return values for db.insert() calls:
+ *   [0] = new validationResult (needs returning { id })
+ *   [1] = validationItems (return value unused)
  */
-function setupDb(selectResponses: unknown[][] = []) {
-  selectChain = makeChain([])
+function setupDb(
+  selectResponses: unknown[][] = [],
+  insertResponses: unknown[][] = [[{ id: nanoid() }], []],
+) {
   updateChain = makeChain([])
-  txDb = makeTxDb()
 
   let selectCallIndex = 0
   mocks.db.select = vi.fn().mockImplementation(() => {
@@ -100,9 +92,15 @@ function setupDb(selectResponses: unknown[][] = []) {
     selectCallIndex++
     return makeChain(rows)
   })
+
+  let insertCallIndex = 0
+  mocks.db.insert = vi.fn().mockImplementation(() => {
+    const rows = insertResponses[insertCallIndex] ?? []
+    insertCallIndex++
+    return makeChain(rows)
+  })
+
   mocks.db.update = vi.fn().mockReturnValue(updateChain)
-  mocks.db.insert = vi.fn().mockReturnValue(makeChain([]))
-  mocks.db.transaction = vi.fn().mockImplementation(async (fn) => fn(txDb))
 }
 
 // ---------------------------------------------------------------------------
@@ -169,6 +167,7 @@ describe('reanalyzeLabel', () => {
       confidence: 95,
       reasoning: 'Exact match',
     })
+    mocks.getAutoApprovalEnabled.mockResolvedValue(false)
   })
 
   // -------------------------------------------------------------------------
@@ -228,7 +227,7 @@ describe('reanalyzeLabel', () => {
       [labelImage], // labelImages query
     ])
 
-    mocks.extractLabelFields.mockRejectedValue(
+    mocks.extractLabelFieldsForSubmission.mockRejectedValue(
       new Error('AI service unavailable'),
     )
 
@@ -246,7 +245,7 @@ describe('reanalyzeLabel', () => {
   // Success flow
   // -------------------------------------------------------------------------
 
-  it('calls extractLabelFields with correct arguments', async () => {
+  it('calls extractLabelFieldsForSubmission with correct arguments', async () => {
     mocks.getSession.mockResolvedValue(createSession())
     const label = createLabel({
       id: 'lbl_test',
@@ -258,13 +257,18 @@ describe('reanalyzeLabel', () => {
       brandName: 'Test Brand',
     })
 
-    setupDb([[label], [appData], [labelImage]])
+    setupDb([
+      [label], // label query
+      [appData], // applicationData query
+      [labelImage], // labelImages query
+      [], // currentResult query (none)
+    ])
 
-    mocks.extractLabelFields.mockResolvedValue(defaultExtraction())
+    mocks.extractLabelFieldsForSubmission.mockResolvedValue(defaultExtraction())
 
     await reanalyzeLabel('lbl_test')
 
-    expect(mocks.extractLabelFields).toHaveBeenCalledWith(
+    expect(mocks.extractLabelFieldsForSubmission).toHaveBeenCalledWith(
       [labelImage.imageUrl],
       'distilled_spirits',
       expect.any(Object),
@@ -280,28 +284,28 @@ describe('reanalyzeLabel', () => {
       isCurrent: true,
     })
 
-    setupDb([[label], [appData], [labelImage]])
-
-    // Make the tx select (for current result) return the previous result
-    txDb._selectChain.then.mockImplementation(
-      (resolve: (v: unknown) => unknown) =>
-        Promise.resolve([prevResult]).then(resolve),
-    )
-
-    // Make the tx insert (for new result) return a new ID
     const newResultId = nanoid()
-    txDb._insertChain.then.mockImplementation(
-      (resolve: (v: unknown) => unknown) =>
-        Promise.resolve([{ id: newResultId }]).then(resolve),
+
+    setupDb(
+      [
+        [label], // label query
+        [appData], // applicationData query
+        [labelImage], // labelImages query
+        [prevResult], // currentResult query returns previous result
+      ],
+      [
+        [{ id: newResultId }], // new validationResult insert
+        [], // validationItems insert
+      ],
     )
 
-    mocks.extractLabelFields.mockResolvedValue(defaultExtraction())
+    mocks.extractLabelFieldsForSubmission.mockResolvedValue(defaultExtraction())
 
     const result = await reanalyzeLabel('lbl_test')
     expect(result).toEqual({ success: true, labelId: 'lbl_test' })
 
-    // Verify tx.update was called to supersede old result
-    expect(txDb.update).toHaveBeenCalled()
+    // Verify db.update was called to supersede old result
+    expect(mocks.db.update).toHaveBeenCalled()
   })
 
   it('creates new validation items from field comparisons', async () => {
@@ -309,25 +313,28 @@ describe('reanalyzeLabel', () => {
     const label = createLabel({ id: 'lbl_test', status: 'pending_review' })
     const appData = createApplicationData({ labelId: 'lbl_test' })
 
-    setupDb([[label], [appData], [labelImage]])
-
-    txDb._selectChain.then.mockImplementation(
-      (resolve: (v: unknown) => unknown) => Promise.resolve([]).then(resolve),
-    )
-
     const newResultId = nanoid()
-    txDb._insertChain.then.mockImplementation(
-      (resolve: (v: unknown) => unknown) =>
-        Promise.resolve([{ id: newResultId }]).then(resolve),
+
+    setupDb(
+      [
+        [label], // label query
+        [appData], // applicationData query
+        [labelImage], // labelImages query
+        [], // currentResult query (none)
+      ],
+      [
+        [{ id: newResultId }], // new validationResult insert
+        [], // validationItems insert
+      ],
     )
 
-    mocks.extractLabelFields.mockResolvedValue(defaultExtraction())
+    mocks.extractLabelFieldsForSubmission.mockResolvedValue(defaultExtraction())
 
     const result = await reanalyzeLabel('lbl_test')
     expect(result).toEqual({ success: true, labelId: 'lbl_test' })
 
-    // Verify tx.insert was called (once for result, once for items)
-    expect(txDb.insert).toHaveBeenCalled()
+    // Verify db.insert was called (once for result, once for items)
+    expect(mocks.db.insert).toHaveBeenCalled()
   })
 
   it('routes to pending_review when mismatches found', async () => {
@@ -340,14 +347,19 @@ describe('reanalyzeLabel', () => {
     })
     const appData = createApplicationData({ labelId: 'lbl_test' })
 
-    setupDb([[label], [appData], [labelImage]])
+    const newResultId = nanoid()
 
-    txDb._selectChain.then.mockImplementation(
-      (resolve: (v: unknown) => unknown) => Promise.resolve([]).then(resolve),
-    )
-    txDb._insertChain.then.mockImplementation(
-      (resolve: (v: unknown) => unknown) =>
-        Promise.resolve([{ id: nanoid() }]).then(resolve),
+    setupDb(
+      [
+        [label], // label query
+        [appData], // applicationData query
+        [labelImage], // labelImages query
+        [], // currentResult query (none)
+      ],
+      [
+        [{ id: newResultId }], // new validationResult insert
+        [], // validationItems insert
+      ],
     )
 
     // Make compareField return a mismatch for mandatory field
@@ -357,16 +369,16 @@ describe('reanalyzeLabel', () => {
       reasoning: 'Values differ significantly',
     })
 
-    mocks.extractLabelFields.mockResolvedValue(defaultExtraction())
+    mocks.extractLabelFieldsForSubmission.mockResolvedValue(defaultExtraction())
 
     const result = await reanalyzeLabel('lbl_test')
     expect(result).toEqual({ success: true, labelId: 'lbl_test' })
 
-    // Verify the label was updated to pending_review (via tx.update)
-    const updateSetCalls = txDb._updateChain.set.mock.calls
+    // Verify the label was updated to pending_review (via db.update)
+    const updateSetCalls = updateChain.set.mock.calls
     const lastSetCall = updateSetCalls[updateSetCalls.length - 1]?.[0]
     expect(lastSetCall).toBeDefined()
-    // The status should be pending_review since there was a mismatch
+    // The status should be pending_review since auto-approval is disabled
     expect(lastSetCall.status).toBe('pending_review')
   })
 
@@ -375,17 +387,22 @@ describe('reanalyzeLabel', () => {
     const label = createLabel({ id: 'lbl_test', status: 'approved' })
     const appData = createApplicationData({ labelId: 'lbl_test' })
 
-    setupDb([[label], [appData], [labelImage]])
+    const newResultId = nanoid()
 
-    txDb._selectChain.then.mockImplementation(
-      (resolve: (v: unknown) => unknown) => Promise.resolve([]).then(resolve),
-    )
-    txDb._insertChain.then.mockImplementation(
-      (resolve: (v: unknown) => unknown) =>
-        Promise.resolve([{ id: nanoid() }]).then(resolve),
+    setupDb(
+      [
+        [label], // label query
+        [appData], // applicationData query
+        [labelImage], // labelImages query
+        [], // currentResult query (none)
+      ],
+      [
+        [{ id: newResultId }], // new validationResult insert
+        [], // validationItems insert
+      ],
     )
 
-    mocks.extractLabelFields.mockResolvedValue(defaultExtraction())
+    mocks.extractLabelFieldsForSubmission.mockResolvedValue(defaultExtraction())
 
     await reanalyzeLabel('lbl_test')
 

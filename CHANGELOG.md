@@ -26,7 +26,7 @@ All notable changes to Excisely are documented here. This project follows a narr
 
 ### Added
 - **AI Errors page** — New route for viewing and triaging AI pipeline failures (OCR errors, classification timeouts, malformed responses). Previously these were silent failures visible only in server logs.
-- **Auto-refresh component** — Shared polling component for pages that need live updates (batch processing, queue status).
+- **Auto-refresh component** — Shared polling component for pages that need live updates (queue status).
 - **Reanalysis guard** — Prevents concurrent re-analysis of the same label, with UI feedback showing when a label is already being processed.
 - **Hover card component** — Added shadcn/ui hover card for rich tooltips on field labels and status badges.
 - **Zustand stores** — Client-side state management for annotation interactions, upload progress, and review session state.
@@ -35,9 +35,11 @@ All notable changes to Excisely are documented here. This project follows a narr
 - **Get settings helper** — Server-side utility for reading specialist-configured thresholds and strictness settings.
 - **Override reason codes** — Predefined reason codes for status overrides (regulatory basis for specialist decisions).
 
+### Removed
+- **Batch upload feature** — Removed the multi-file batch upload (routes, components, server actions, store, CSV parser) because the UX model was fundamentally wrong — it treated every image as a separate application, when real applicants submit one application per product with multiple images. The specialist "bulk approve" feature (selecting multiple ready labels for approval) is unaffected.
+
 ### Fixed
 - **Extract label pipeline hardened** — Better error handling for OCR failures, classification timeouts, and edge cases in the field merging step.
-- **Process batch item reliability** — Improved error recovery for individual items in batch processing so one failure doesn't halt the entire batch.
 - **Schema refinements** — Minor column additions to support new features.
 
 ---
@@ -92,7 +94,7 @@ All notable changes to Excisely are documented here. This project follows a narr
 - **Phase 2 (AI Pipeline):** Google Cloud Vision OCR for word-level bounding polygons, GPT-5 Mini classification via AI SDK structured output, field comparison engine (exact/fuzzy/normalized matching with Dice coefficient), TTB config files (beverage types, class/type codes, health warning text, qualifying phrases).
 - **Phase 3 (Core UI):** Validation form with React Hook Form + dropzone + Vercel Blob upload, annotated image viewer with SVG bounding box overlays + CSS transform zoom/pan, side-by-side field comparison with character-level diff highlighting, paginated validation history with nuqs URL state, role-aware dashboard.
 - **Phase 4 (Review Queue):** Review list with priority/FIFO ordering, review detail with per-field override controls, human review audit trail.
-- **Phase 5 (Batch Upload):** Multi-file batch upload with p-limit concurrency control, batch detail page with polling progress.
+- **Phase 5 (Specialist Bulk Approval):** Dashboard splits pending labels into "Ready to Approve" and "Needs Review" queues for efficient triage.
 - **Phase 6 (Applicants/Reports/Settings):** Applicant list with compliance stats and risk badges, reports page with Recharts charts, settings page with confidence threshold slider and per-field strictness toggles.
 - **Phase 7 (Polish):** Security headers (CSP, HSTS, X-Frame-Options), robots.txt, input sanitization, Vercel Analytics, loading skeletons and error boundaries per route, seed script (~1,000 labels), Docker Compose for local Postgres.
 

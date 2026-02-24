@@ -1,4 +1,11 @@
+'use client'
+
 import { Badge } from '@/components/ui/badge'
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card'
 import { cn } from '@/lib/utils'
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
@@ -38,6 +45,23 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   },
 }
 
+const STATUS_DESCRIPTIONS: Record<string, string> = {
+  pending:
+    'Received and queued. The AI pipeline will begin processing shortly.',
+  processing:
+    'AI analysis in progress — OCR extraction and field classification typically takes 6-9 seconds.',
+  pending_review:
+    'AI analysis complete. A labeling specialist will review the field comparisons and make a determination.',
+  approved:
+    'This label has been approved. No further action needed unless a re-analysis is requested.',
+  conditionally_approved:
+    'Approved with conditions. The applicant has a 7-day window to submit corrections for flagged fields.',
+  needs_correction:
+    'Issues identified that require applicant corrections. A 30-day correction window has been set.',
+  rejected:
+    'This label application has been rejected. The applicant has been notified with the reasons.',
+}
+
 interface StatusBadgeProps {
   status: string
   className?: string
@@ -45,13 +69,27 @@ interface StatusBadgeProps {
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
   const config = STATUS_CONFIG[status] ?? STATUS_CONFIG.pending
+  const description = STATUS_DESCRIPTIONS[status]
 
-  return (
+  const badge = (
     <Badge
       variant="outline"
       className={cn('font-medium', config.className, className)}
     >
       {config.label}
     </Badge>
+  )
+
+  if (!description) return badge
+
+  return (
+    <HoverCard openDelay={300} closeDelay={100}>
+      <HoverCardTrigger asChild>
+        <span className="cursor-help">{badge}</span>
+      </HoverCardTrigger>
+      <HoverCardContent side="bottom" align="start" className="w-64">
+        <p className="text-xs leading-relaxed">{description}</p>
+      </HoverCardContent>
+    </HoverCard>
   )
 }

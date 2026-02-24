@@ -6,6 +6,7 @@ import {
   Clock,
   Cpu,
   Mail,
+  RotateCw,
   Scale,
   ShieldAlert,
   UserCheck,
@@ -26,6 +27,7 @@ import { TimelineEmailPreview } from './timeline-email-preview'
 const ICON_MAP: Record<string, typeof Mail> = {
   submitted: Check,
   processing_complete: Cpu,
+  reanalysis_triggered: RotateCw,
   status_determined: Scale,
   email_sent: Mail,
   specialist_review: UserCheck,

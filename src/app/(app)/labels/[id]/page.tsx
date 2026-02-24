@@ -21,7 +21,7 @@ import { getSignedImageUrl } from '@/lib/storage/blob'
 import { buildTimeline } from '@/lib/timeline/build-timeline'
 import { PageHeader } from '@/components/layout/page-header'
 import { PageShell } from '@/components/layout/page-shell'
-import { StatusExplainer } from '@/components/shared/status-explainer'
+import { StatusBadge } from '@/components/shared/status-badge'
 import { ReanalyzeButton } from '@/components/shared/reanalyze-button'
 import { ReanalysisGuard } from '@/components/shared/reanalysis-guard'
 import { StatusOverrideDialog } from '@/components/shared/status-override-dialog'
@@ -30,7 +30,6 @@ import { ValidationDetailPanels } from '@/components/validation/validation-detai
 import { ReviewDetailPanels } from '@/components/review/review-detail-panels'
 import { ProcessingStatusBanner } from '@/components/validation/processing-status-banner'
 import { ProcessingDetailPanels } from '@/components/validation/processing-detail-panels'
-import { AnalysisHistory } from '@/components/validation/analysis-history'
 import { AutoRefresh } from '@/components/shared/auto-refresh'
 import { CorrespondenceTimeline } from '@/components/timeline/correspondence-timeline'
 import { Button } from '@/components/ui/button'
@@ -236,9 +235,8 @@ export default async function LabelDetailPage({
                 : undefined
             }
           >
-            <StatusExplainer
+            <StatusBadge
               status={effectiveStatus}
-              role="specialist"
               className="px-3 py-1 text-sm"
             />
             {effectiveStatus !== 'pending' &&
@@ -285,7 +283,7 @@ export default async function LabelDetailPage({
         labelId={label.id}
         labelStatus={label.status}
         processingContent={
-          <>
+          <div className="space-y-5">
             <AutoRefresh intervalMs={3_000} />
             <ProcessingStatusBanner imageCount={images.length} />
             {signedImages.length > 0 && (
@@ -296,10 +294,10 @@ export default async function LabelDetailPage({
                 containerSizeMl={label.containerSizeMl}
               />
             )}
-          </>
+          </div>
         }
         normalContent={
-          <>
+          <div className="space-y-5">
             {/* Summary bar + specialist guidance */}
             <div className="space-y-3 rounded-lg border bg-muted/30 px-4 py-3">
               <ValidationSummary
@@ -344,6 +342,7 @@ export default async function LabelDetailPage({
                   labelId={label.id}
                   images={signedImages}
                   validationItems={mappedItems}
+                  beverageType={label.beverageType}
                   applicantCorrections={
                     (results?.aiRawResponse as Record<string, unknown>)
                       ?.applicantCorrections as
@@ -366,18 +365,7 @@ export default async function LabelDetailPage({
                 No validation data available for this label.
               </div>
             )}
-
-            {/* Analysis history (for re-analyzed labels) */}
-            <AnalysisHistory
-              runs={supersededResults.map((r) => ({
-                id: r.id,
-                createdAt: r.createdAt,
-                modelUsed: r.modelUsed,
-                processingTimeMs: r.processingTimeMs,
-                totalTokens: r.totalTokens,
-              }))}
-            />
-          </>
+          </div>
         }
       />
 
@@ -398,7 +386,12 @@ export default async function LabelDetailPage({
               }
             : null,
           applicant,
-          validationResult: results ? { createdAt: results.createdAt } : null,
+          validationResult: results
+            ? {
+                createdAt: results.createdAt,
+                processingTimeMs: results.processingTimeMs,
+              }
+            : null,
           validationItems: items.map((item) => ({
             fieldName: item.fieldName,
             status: item.status,
@@ -422,6 +415,13 @@ export default async function LabelDetailPage({
             reasonCode: o.reasonCode,
             createdAt: o.createdAt,
             specialistName: o.specialistName,
+          })),
+          supersededResults: supersededResults.map((r) => ({
+            id: r.id,
+            createdAt: r.createdAt,
+            modelUsed: r.modelUsed,
+            processingTimeMs: r.processingTimeMs,
+            totalTokens: r.totalTokens,
           })),
           isReanalysis: hasSupersededResults,
         })}

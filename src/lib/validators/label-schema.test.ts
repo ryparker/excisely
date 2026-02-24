@@ -28,7 +28,6 @@ describe('validateLabelSchema', () => {
       ageStatement: '12 Years',
       stateOfDistillation: 'Kentucky',
       applicantId: 'abc123',
-      batchId: 'batch456',
       priorLabelId: 'prior789',
     })
     expect(result.success).toBe(true)

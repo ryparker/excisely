@@ -70,7 +70,7 @@ export function ReanalyzeButton({ labelId }: ReanalyzeButtonProps) {
           <AlertDialogDescription>
             This will re-run AI text extraction and field classification on the
             label images. Previous results will be superseded. No new
-            notification will be sent to the applicant. Typically takes 2-4
+            notification will be sent to the applicant. Typically takes 10-20
             seconds.
           </AlertDialogDescription>
         </AlertDialogHeader>

@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
+  AlertTriangle,
   CheckCircle2,
   XCircle,
   SearchX,
@@ -26,6 +27,11 @@ import {
   HoverCardTrigger,
 } from '@/components/ui/hover-card'
 import { cn } from '@/lib/utils'
+import {
+  determineOverallStatus,
+  type ValidationItemStatus,
+} from '@/lib/labels/validation-helpers'
+import type { BeverageType } from '@/config/beverage-types'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -70,6 +76,7 @@ interface ReviewFieldListProps {
     string,
     { x: number; y: number; width: number; height: number }
   >
+  beverageType: string
 }
 
 // ---------------------------------------------------------------------------
@@ -173,10 +180,18 @@ export function ReviewFieldList({
   onMarkLocation,
   onClearAnnotation,
   annotations,
+  beverageType,
 }: ReviewFieldListProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+
+  // Scroll error into view when it appears
+  useEffect(() => {
+    if (error && errorRef.current) {
+      errorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [error])
 
   // Build corrections map: fieldName → correction details
   const correctionsMap = new Map<string, ApplicantCorrection>()
@@ -200,6 +215,22 @@ export function ReviewFieldList({
   const allFlaggedResolved = flaggedItems.every(
     (item) => overrides[item.id]?.resolvedStatus !== undefined,
   )
+
+  // Compute projected label status based on current overrides
+  const projectedStatus = (() => {
+    if (!allFlaggedResolved) return null
+    const finalStatuses = validationItems.map((item) => {
+      const override = overrides[item.id]
+      const isFlaggedMatch = flaggedMatchIds.has(item.id)
+      return {
+        fieldName: item.fieldName,
+        status: (isFlaggedMatch && override?.resolvedStatus
+          ? override.resolvedStatus
+          : (override?.resolvedStatus ?? item.status)) as ValidationItemStatus,
+      }
+    })
+    return determineOverallStatus(finalStatuses, beverageType as BeverageType)
+  })()
 
   const handleOverrideStatus = (itemId: string, status: ResolvedStatus) => {
     setOverrides((prev) => ({
@@ -247,6 +278,8 @@ export function ReviewFieldList({
       overrides[item.id]?.resolvedStatus !== undefined,
   ).length
 
+  const errorRef = useRef<HTMLDivElement>(null)
+
   const handleSubmit = () => {
     setError(null)
 
@@ -278,11 +311,6 @@ export function ReviewFieldList({
 
     const overrideEntries = [...flaggedOverrides, ...matchOverrides]
 
-    if (overrideEntries.length === 0) {
-      setError('Please resolve at least one flagged field before submitting.')
-      return
-    }
-
     startTransition(async () => {
       const formData = new FormData()
       formData.set('labelId', labelId)
@@ -304,8 +332,11 @@ export function ReviewFieldList({
       {flaggedItems.length > 0 && (
         <div className="space-y-3">
           <div>
-            <h2 className="text-[11px] font-semibold tracking-widest text-red-600/70 uppercase dark:text-red-400/70">
-              Flagged Fields ({flaggedItems.length})
+            <h2 className="font-heading text-base font-semibold text-red-600 dark:text-red-400">
+              Flagged Fields
+              <span className="ml-1.5 text-sm font-normal text-red-600/60 tabular-nums dark:text-red-400/60">
+                ({flaggedItems.length})
+              </span>
             </h2>
             <p className="mt-1 text-[13px] leading-snug text-muted-foreground">
               Resolve each flagged field by confirming the AI result or
@@ -429,8 +460,11 @@ export function ReviewFieldList({
       {/* Matched fields — flaggable by specialist */}
       {matchedItems.length > 0 && (
         <div className="space-y-2.5">
-          <h2 className="text-[11px] font-semibold tracking-widest text-muted-foreground/60 uppercase">
-            Matched Fields ({matchedItems.length})
+          <h2 className="font-heading text-base font-semibold text-muted-foreground">
+            Matched Fields
+            <span className="ml-1.5 text-sm font-normal text-muted-foreground/50 tabular-nums">
+              ({matchedItems.length})
+            </span>
           </h2>
           {matchedItems.map((item) => {
             const isFlagged = flaggedMatchIds.has(item.id)
@@ -591,7 +625,10 @@ export function ReviewFieldList({
 
       {/* Error message */}
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400">
+        <div
+          ref={errorRef}
+          className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400"
+        >
           {error}
         </div>
       )}
@@ -600,7 +637,17 @@ export function ReviewFieldList({
       <div className="sticky bottom-0 rounded-lg border bg-background/95 px-4 pt-4 pb-3 shadow-sm backdrop-blur-sm">
         <Button
           size="lg"
-          className="w-full active:scale-[0.98]"
+          className={cn(
+            'w-full active:scale-[0.98]',
+            projectedStatus?.status === 'rejected' &&
+              'bg-red-600 text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800',
+            projectedStatus?.status === 'needs_correction' &&
+              'bg-amber-600 text-white hover:bg-amber-700 dark:bg-amber-600 dark:hover:bg-amber-700',
+            projectedStatus?.status === 'conditionally_approved' &&
+              'bg-amber-500 text-white hover:bg-amber-600 dark:bg-amber-500 dark:hover:bg-amber-600',
+            projectedStatus?.status === 'approved' &&
+              'bg-green-600 text-white hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700',
+          )}
           disabled={!allFlaggedResolved || isPending}
           onClick={handleSubmit}
         >
@@ -609,15 +656,40 @@ export function ReviewFieldList({
               <Loader2 className="size-4 animate-spin" />
               Submitting Review...
             </>
-          ) : (
+          ) : !allFlaggedResolved ? (
             <>
               <Send className="size-4" />
               Complete Review
-              {!allFlaggedResolved && (
-                <span className="text-xs tabular-nums opacity-70">
-                  ({flaggedItems.length - Object.keys(overrides).length}{' '}
-                  remaining)
-                </span>
+              <span className="text-xs tabular-nums opacity-70">
+                ({flaggedItems.length - Object.keys(overrides).length}{' '}
+                remaining)
+              </span>
+            </>
+          ) : (
+            <>
+              {projectedStatus?.status === 'approved' && (
+                <>
+                  <CheckCircle2 className="size-4" />
+                  Approve Label
+                </>
+              )}
+              {projectedStatus?.status === 'conditionally_approved' && (
+                <>
+                  <AlertTriangle className="size-4" />
+                  Conditionally Approve
+                </>
+              )}
+              {projectedStatus?.status === 'needs_correction' && (
+                <>
+                  <XCircle className="size-4" />
+                  Request Corrections
+                </>
+              )}
+              {projectedStatus?.status === 'rejected' && (
+                <>
+                  <XCircle className="size-4" />
+                  Reject Label
+                </>
               )}
               {matchOverrideCount > 0 && (
                 <span className="text-xs tabular-nums opacity-70">
@@ -628,12 +700,17 @@ export function ReviewFieldList({
             </>
           )}
         </Button>
-        {!allFlaggedResolved && (
+        {!allFlaggedResolved ? (
           <p className="mt-2 text-center text-[11px] text-muted-foreground">
             Resolve all {flaggedItems.length} flagged field
             {flaggedItems.length !== 1 ? 's' : ''} to enable submission.
           </p>
-        )}
+        ) : projectedStatus?.deadlineDays ? (
+          <p className="mt-2 text-center text-[11px] text-muted-foreground">
+            Applicant will have {projectedStatus.deadlineDays} days to submit
+            corrections.
+          </p>
+        ) : null}
       </div>
     </div>
   )

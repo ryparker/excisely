@@ -198,6 +198,19 @@ Received → Processing → Approved
 | `PRODUCTION.md`                                       | Production readiness gaps — what we'd address before a real release (security, data, ops)                                           |
 | `DECISIONS.md`                                        | Living decision log — engineering trade-offs with dates, reasoning, and revisions                                                   |
 | `CHANGELOG.md`                                        | Narrative changelog — what changed and why, grouped by version                                                                      |
+| `docs/ai-pipelines.md`                                | AI pipeline architecture — all 4 pipelines, stages, models, comparison engine, cost model. **Keep updated when changing AI code.**   |
+
+## AI Pipeline Documentation
+
+**When you modify AI pipeline code** — models, prompts, classification functions, extraction orchestrators, comparison strategies, or bounding box resolution — **update `docs/ai-pipelines.md` immediately.** This document explains how the hybrid pipeline works and why each design decision was made. It's a key artifact for evaluators to understand the AI architecture.
+
+Changes that require updating the doc:
+- Adding, removing, or renaming a pipeline
+- Changing the model or model settings (reasoningEffort, temperature)
+- Modifying what's sent to the model (images, word indices, application data)
+- Changing comparison strategies or thresholds
+- Modifying the bounding box resolution approach
+- Adding new classification schemas or prompt builders
 
 ## Available Skills
 

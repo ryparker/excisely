@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useCallback, useRef } from 'react'
+import React, { useState, useCallback, useRef, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, FileText, Loader2, RefreshCw, ShieldCheck } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
@@ -12,6 +12,7 @@ import { batchApprove } from '@/app/actions/batch-approve'
 import { useReanalysisStore } from '@/stores/reanalysis-store'
 import { REASON_CODE_LABELS } from '@/config/override-reasons'
 import { BEVERAGE_ICON, BEVERAGE_LABEL_FULL } from '@/config/beverage-display'
+import { confidenceColor } from '@/lib/utils'
 import { ColumnHeader } from '@/components/shared/column-header'
 import { Highlight } from '@/components/shared/highlight'
 import { StatusBadge } from '@/components/shared/status-badge'
@@ -220,9 +221,12 @@ export function LabelsTable({
   queueMode,
   searchTerm = '',
 }: LabelsTableProps) {
+  const [, startTransition] = useTransition()
   const [currentPage, setCurrentPage] = useQueryState(
     'page',
-    parseAsInteger.withDefault(1).withOptions({ shallow: false }),
+    parseAsInteger
+      .withDefault(1)
+      .withOptions({ shallow: false, startTransition }),
   )
   const router = useRouter()
   const isApplicant = userRole === 'applicant'
@@ -451,12 +455,18 @@ export function LabelsTable({
                   Confidence
                 </ColumnHeader>
               )}
-              {!isApplicant && <TableHead>Deadline</TableHead>}
-              <ColumnHeader sortKey="createdAt" defaultSort="desc">
+              {!isApplicant && (
+                <TableHead className="text-right">Deadline</TableHead>
+              )}
+              <ColumnHeader
+                sortKey="createdAt"
+                defaultSort="desc"
+                className="text-right"
+              >
                 {isApplicant ? 'Submitted' : 'Date'}
               </ColumnHeader>
               {isApplicant && (
-                <ColumnHeader sortKey="lastReviewedAt">
+                <ColumnHeader sortKey="lastReviewedAt" className="text-right">
                   Last Reviewed
                 </ColumnHeader>
               )}
@@ -551,25 +561,27 @@ export function LabelsTable({
                       })()}
                     </TableCell>
                     {!isApplicant && (
-                      <TableCell className="text-right font-mono">
+                      <TableCell className="text-right font-mono tabular-nums">
                         {label.flaggedCount > 0 ? label.flaggedCount : '--'}
                       </TableCell>
                     )}
                     {!isApplicant && (
-                      <TableCell className="text-right font-mono">
+                      <TableCell
+                        className={`text-right font-mono tabular-nums ${confidenceColor(label.overallConfidence)}`}
+                      >
                         {formatConfidence(label.overallConfidence)}
                       </TableCell>
                     )}
                     {!isApplicant && (
-                      <TableCell>
+                      <TableCell className="text-right">
                         {getDeadlineDisplay(label.correctionDeadline)}
                       </TableCell>
                     )}
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-right text-muted-foreground tabular-nums">
                       {formatDate(label.createdAt)}
                     </TableCell>
                     {isApplicant && (
-                      <TableCell className="text-muted-foreground">
+                      <TableCell className="text-right text-muted-foreground tabular-nums">
                         {label.lastReviewedAt ? (
                           formatDate(label.lastReviewedAt)
                         ) : (

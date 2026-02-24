@@ -126,7 +126,7 @@ export default async function RegulationsPage({
         <SearchInput
           paramKey="search"
           placeholder="Search regulations..."
-          className="w-full sm:max-w-xs"
+          className="w-full sm:flex-1"
         />
         <FilterBar paramKey="part" options={PART_FILTER_OPTIONS} />
       </div>

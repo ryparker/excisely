@@ -30,7 +30,6 @@ export const validateLabelSchema = z.object({
   ageStatement: z.string().trim().optional(),
   stateOfDistillation: z.string().trim().optional(),
   applicantId: z.string().trim().optional(),
-  batchId: z.string().trim().optional(),
   priorLabelId: z.string().trim().optional(),
 })
 

@@ -592,7 +592,7 @@ export const REGULATION_PARTS: RegulationPart[] = [
     part: 5,
     title: 'Distilled Spirits',
     description:
-      'Brand name, class/type, alcohol content, net contents, name and address, age statements, and country of origin for spirits labels.',
+      'Covers age statements, proof/ABV tolerances, state of distillation claims, standards of fill, and bottled-in-bond rules unique to spirits.',
     ecfrUrl: 'https://www.ecfr.gov/current/title-27/part-5',
     sections: PART_5_SECTIONS,
   },
@@ -600,7 +600,7 @@ export const REGULATION_PARTS: RegulationPart[] = [
     part: 4,
     title: 'Wine',
     description:
-      'Brand name, varietal, appellation of origin, vintage year, alcohol content, sulfite declaration, and other wine label requirements.',
+      'Covers appellation of origin, vintage year, varietal percentages, sulfite declarations, and "Estate Bottled" rules unique to wine.',
     ecfrUrl: 'https://www.ecfr.gov/current/title-27/part-4',
     sections: PART_4_SECTIONS,
   },
@@ -608,7 +608,7 @@ export const REGULATION_PARTS: RegulationPart[] = [
     part: 7,
     title: 'Malt Beverages',
     description:
-      'Brand name, class designation, net contents, name and address, and optional alcohol content for beer and malt beverage labels.',
+      'Covers class designations (Ale, Lager, Stout), optional vs. state-required ABV disclosure, and flavored malt beverage rules.',
     ecfrUrl: 'https://www.ecfr.gov/current/title-27/part-7',
     sections: PART_7_SECTIONS,
   },
