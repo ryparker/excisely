@@ -34,6 +34,8 @@ interface SLAMetricCardProps {
   value: number | null
   target: number
   unit: string
+  /** Unit for the target when it differs from value (e.g. value in "m", target in "h") */
+  targetUnit?: string
   status: SLAStatus
   index: number
 }
@@ -45,13 +47,22 @@ export function SLAMetricCard({
   value,
   target,
   unit,
+  targetUnit,
   status,
   index,
 }: SLAMetricCardProps) {
   const Icon = ICON_MAP[iconName] ?? Clock
   const shouldReduceMotion = useReducedMotion()
   const displayValue = useCountUp(value)
-  const progress = value !== null ? Math.min(value / target, 1.5) : 0
+  // When value unit differs from target unit (e.g. minutes vs hours), normalize for progress
+  const normalizedValue =
+    value !== null && targetUnit && unit !== targetUnit
+      ? unit === 'm'
+        ? value / 60 // minutes → hours
+        : value
+      : value
+  const progress =
+    normalizedValue !== null ? Math.min(normalizedValue / target, 1.5) : 0
   // Clamp bar to 100% visually
   const barScale = Math.min(progress, 1)
 
@@ -97,7 +108,7 @@ export function SLAMetricCard({
         </span>
         <span className="font-mono text-xs text-muted-foreground/60">
           / {target}
-          {unit}
+          {targetUnit ?? unit}
         </span>
       </div>
 
@@ -141,6 +152,7 @@ export interface SLAMetricCardData {
   value: number | null
   target: number
   unit: string
+  targetUnit?: string
   status: SLAStatus
 }
 

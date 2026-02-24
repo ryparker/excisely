@@ -7,6 +7,16 @@ import {
 } from '@/components/dashboard/SlaMetricCard'
 import { Skeleton } from '@/components/ui/Skeleton'
 
+/** Convert hours to the best display unit: minutes if < 1h, hours otherwise. */
+function formatDuration(hours: number | null): {
+  value: number | null
+  unit: string
+} {
+  if (hours === null) return { value: null, unit: 'h' }
+  if (hours < 1) return { value: Math.round(hours * 60), unit: 'm' }
+  return { value: Math.round(hours), unit: 'h' }
+}
+
 export function SLACardsSkeleton() {
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -46,12 +56,9 @@ export async function DashboardSLACards() {
       label: 'Response Time',
       description:
         'Average time from label submission to first specialist review. Lower is better.',
-      value:
-        slaMetrics.avgReviewResponseHours !== null
-          ? Math.round(slaMetrics.avgReviewResponseHours)
-          : null,
+      ...formatDuration(slaMetrics.avgReviewResponseHours),
       target: slaTargets.reviewResponseHours,
-      unit: 'h',
+      targetUnit: 'h',
       status:
         slaMetrics.avgReviewResponseHours !== null
           ? getSLAStatus(
@@ -65,12 +72,9 @@ export async function DashboardSLACards() {
       label: 'Total Turnaround',
       description:
         'Average time from submission to final decision (approved, rejected, or needs correction). Lower is better.',
-      value:
-        slaMetrics.avgTotalTurnaroundHours !== null
-          ? Math.round(slaMetrics.avgTotalTurnaroundHours)
-          : null,
+      ...formatDuration(slaMetrics.avgTotalTurnaroundHours),
       target: slaTargets.totalTurnaroundHours,
-      unit: 'h',
+      targetUnit: 'h',
       status:
         slaMetrics.avgTotalTurnaroundHours !== null
           ? getSLAStatus(
