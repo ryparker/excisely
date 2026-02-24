@@ -7,6 +7,7 @@ All notable changes to Excisely are documented here. This project follows a narr
 ## Unreleased
 
 ### Added
+- **Auto-detect beverage type from label images** — Applicants can now skip the beverage type selection step. The AI pipeline detects the product type from OCR keywords (whiskey/bourbon → spirits, cabernet/sulfites → wine, ale/lager → malt) before running type-specific extraction. Happy path runs in ~4-9s (same as manual selection). Falls back to the generic pipeline for ambiguous labels. Auto-detected type shows an "AI detected" badge that disappears when the user overrides it.
 - **Regulations Reference page** — New `/regulations` route with curated plain-English summaries of ~30 key CFR sections across Parts 4 (Wine), 5 (Spirits), 7 (Malt Beverages), and 16 (Health Warning). Searchable, filterable by part and field, with deep links to eCFR for authoritative full text. Progressive disclosure: summary first, key requirements on expand, full legal text one click away.
 - **Contextual regulation links in field tooltips** — Hovering over any field label (Brand Name, Alcohol Content, etc.) now shows CFR citation badges linking to the specific regulation. Puts regulatory context right where specialists already look.
 - **Regulation links on flagged fields** — When a field shows a mismatch or needs correction, a "See regulation" link appears below the AI reasoning, connecting the discrepancy to the specific rule being enforced.

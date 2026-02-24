@@ -55,10 +55,13 @@ export function ProcessingProgress({
   const isComplete = stage === 'complete'
   const isTimeout = stage === 'timeout'
   const isError = stage === 'error'
+  const isSlow = stage === 'slow'
 
   const currentIdx = isTerminal
     ? stages.length // all stages "done"
-    : stages.findIndex((s) => s.id === stage)
+    : isSlow
+      ? stages.length - 1 // keep last stage active
+      : stages.findIndex((s) => s.id === stage)
   const [smoothProgress, setSmoothProgress] = useState(0)
   const stageStartRef = useRef<number>(0)
 
@@ -118,9 +121,11 @@ export function ProcessingProgress({
       ? 'Taking longer than expected'
       : isError
         ? 'Something went wrong'
-        : imageCount > 1
-          ? `Analyzing your ${imageCount} labels`
-          : 'Analyzing your label'
+        : isSlow
+          ? 'Almost there'
+          : imageCount > 1
+            ? `Analyzing your ${imageCount} labels`
+            : 'Analyzing your label'
 
   const HeaderIcon = isComplete
     ? CheckCircle
@@ -188,7 +193,9 @@ export function ProcessingProgress({
                 ? 'Your submission has been saved and will continue processing in the background'
                 : isError
                   ? 'Your submission could not be completed. Please try again.'
-                  : `This typically takes ${getTimeEstimateLabel(imageCount)}`}
+                  : isSlow
+                    ? 'Taking a bit longer than usual — hang tight'
+                    : `This typically takes ${getTimeEstimateLabel(imageCount)}`}
           </p>
         </div>
 

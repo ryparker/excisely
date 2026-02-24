@@ -8,6 +8,18 @@ The goal is to show iterative, thoughtful engineering judgment — not just what
 
 ## 1. Engineering Decisions
 
+### Auto-Detect Beverage Type via Keyword Matching Before AI Classification *(Feb 23, 2026)*
+
+**Chosen:** Two-step pipeline — rule-based keyword matching on OCR text to detect beverage type (~0ms, free), then type-specific gpt-4.1 extraction. Falls back to the existing all-fields gpt-5-mini pipeline when keywords are ambiguous.
+
+**Alternatives considered:**
+
+- **Always use Pipeline 4 (all-fields extraction)** — simpler, but slower (~10-20s vs ~4-9s) and less accurate (generic prompts extract more noise than type-specific ones)
+- **Ask the LLM to detect type in a separate call** — accurate but adds ~3-5s of latency and ~$0.001/label for a task that keyword matching handles for free
+- **Require user to always select type first** — the status quo, but adds unnecessary friction when the label clearly indicates the product type
+
+**Reasoning:** Most labels contain unambiguous type indicators (e.g., "bourbon whiskey", "cabernet sauvignon", "India pale ale"). Keyword matching catches these for free in <1ms. Type-specific prompts (Pipeline 3) are both faster and more accurate than the generic all-fields prompt (Pipeline 4) because they only ask for relevant fields. The fallback ensures ambiguous labels still work. Net result: same accuracy, ~6-11s faster for the common case, zero additional cost.
+
 ### Hybrid Regulations Reference: Curated In-App + eCFR External Links *(Feb 23, 2026)*
 
 **Chosen:** Curate ~30 key CFR sections as a static TypeScript config file with plain-English summaries, and link out to eCFR (the official electronic Code of Federal Regulations) for authoritative full text.

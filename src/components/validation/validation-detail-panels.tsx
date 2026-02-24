@@ -133,6 +133,12 @@ export function ValidationDetailPanels({
         {/* Right panel — field comparisons (45%) */}
         <ScrollArea className="flex-1">
           <div className="space-y-3 pr-4 pb-1 pl-1">
+            <h2 className="font-heading text-base font-semibold text-muted-foreground">
+              Matched Fields
+              <span className="ml-1.5 text-sm font-normal text-muted-foreground/50 tabular-nums">
+                ({validationItems.length})
+              </span>
+            </h2>
             {validationItems.map((item) => (
               <FieldComparisonRow
                 key={item.id}

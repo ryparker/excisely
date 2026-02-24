@@ -5,9 +5,11 @@ import { useDropzone } from 'react-dropzone'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
+  Camera,
   CheckCircle,
   ChevronLeft,
   ChevronRight,
+  ImagePlus,
   Loader2,
   Pencil,
   ScanText,
@@ -232,11 +234,20 @@ export function LabelUploadForm({
   const [hasScannedOnce, setHasScannedOnce] = useState(false)
   const [imageCountAtLastScan, setImageCountAtLastScan] = useState(0)
   const [manualFormEntry, setManualFormEntry] = useState(false)
+  const [beverageTypeSource, setBeverageTypeSource] = useState<
+    'user' | 'ai' | null
+  >(null)
 
   // Carousel scroll state
   const carouselRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)
+
+  // Show camera button only on touch devices (phones/tablets)
+  const [isTouchDevice, setIsTouchDevice] = useState(false)
+  useEffect(() => {
+    setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0)
+  }, [])
 
   // Extraction store
   const extraction = useExtractionStore()
@@ -377,8 +388,8 @@ export function LabelUploadForm({
     }
   }, [files.length, extraction.status, setSubmissionStep])
 
-  // Submit-mode phase gating
-  const showPhase2 = mode === 'submit' ? !!beverageType : true
+  // Submit-mode phase gating (phase 2 always visible — AI can auto-detect type)
+  const showPhase2 = true
   const showPhase3 =
     mode === 'submit'
       ? extraction.status === 'success' ||
@@ -393,7 +404,9 @@ export function LabelUploadForm({
   const scanButtonLabel =
     hasScannedOnce && files.length !== imageCountAtLastScan
       ? `Re-scan with ${files.length} image${files.length > 1 ? 's' : ''}`
-      : `Scan ${files.length} image${files.length > 1 ? 's' : ''}`
+      : mode === 'submit' && !beverageType
+        ? `Scan & detect type from ${files.length} image${files.length > 1 ? 's' : ''}`
+        : `Scan ${files.length} image${files.length > 1 ? 's' : ''}`
 
   // -------------------------------------------------------------------------
   // Carousel scroll handling
@@ -510,6 +523,23 @@ export function LabelUploadForm({
     },
   })
 
+  // Camera capture — opens rear camera on mobile via capture="environment"
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const openCamera = useCallback(() => {
+    cameraInputRef.current?.click()
+  }, [])
+  const handleCameraCapture = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const capturedFiles = e.target.files
+      if (capturedFiles?.length) {
+        onDrop(Array.from(capturedFiles))
+      }
+      // Reset so the same file can be re-captured
+      e.target.value = ''
+    },
+    [onDrop],
+  )
+
   // -------------------------------------------------------------------------
   // Upload files to Vercel Blob
   // -------------------------------------------------------------------------
@@ -561,11 +591,6 @@ export function LabelUploadForm({
   async function handleScanLabels() {
     if (files.length === 0) return
 
-    if (mode === 'submit' && !beverageType) {
-      toast.error('Select a beverage type before scanning')
-      return
-    }
-
     extraction.startExtraction()
 
     try {
@@ -604,6 +629,15 @@ export function LabelUploadForm({
         setValue('beverageType', detectedBeverageType as BeverageType, {
           shouldValidate: true,
         })
+        setBeverageTypeSource('ai')
+      }
+
+      // If type still not set after scan, prompt manual selection
+      if (!getValues('beverageType') && !detectedBeverageType) {
+        toast.info(
+          'Could not detect the product type. Please select it above.',
+          { duration: 6000 },
+        )
       }
 
       // Build pre-fill map from extracted fields (applied below + deferred via useEffect)
@@ -828,11 +862,10 @@ export function LabelUploadForm({
 
       startPipelineStages(files.length)
 
-      // Submission uses gpt-5-mini reasoning which can take 15-40s.
-      // Show the timeout state after 15s so the user isn't left waiting.
+      // Show a reassurance message after 30s (non-terminal — stages stay active)
       if (mode === 'submit') {
         stageTimersRef.current.push(
-          setTimeout(() => setProcessingStage('timeout'), 15_000),
+          setTimeout(() => setProcessingStage('slow'), 30_000),
         )
       }
 
@@ -870,8 +903,8 @@ export function LabelUploadForm({
         formData.set('aiExtractedFields', JSON.stringify(aiFields))
       }
 
-      // Race the server action against a 75s client-side timeout
-      const CLIENT_TIMEOUT_MS = 75_000
+      // Race the server action against a 45s client-side timeout
+      const CLIENT_TIMEOUT_MS = 45_000
       const clientTimeout = new Promise<never>((_, reject) =>
         setTimeout(
           () => reject(new Error('CLIENT_TIMEOUT')),
@@ -892,13 +925,13 @@ export function LabelUploadForm({
 
         extraction.setSubmissionStep(5)
 
-        // Show completion state with all-green checks
+        // Stop fake stage timers and show completion state
+        for (const t of stageTimersRef.current) clearTimeout(t)
+        stageTimersRef.current = []
         setProcessingStage('complete')
 
         // Brief pause for the completion animation, then navigate
         await new Promise((resolve) => setTimeout(resolve, 1500))
-
-        clearPipelineStages()
         setIsSubmitting(false)
 
         if (mode === 'submit') {
@@ -1016,6 +1049,17 @@ export function LabelUploadForm({
   // Shared: Dropzone component
   // -------------------------------------------------------------------------
 
+  const cameraInput = isTouchDevice ? (
+    <input
+      ref={cameraInputRef}
+      type="file"
+      accept="image/jpeg,image/png,image/webp"
+      capture="environment"
+      className="hidden"
+      onChange={handleCameraCapture}
+    />
+  ) : null
+
   const dropzone = (
     <div
       {...getRootProps()}
@@ -1029,6 +1073,7 @@ export function LabelUploadForm({
       )}
     >
       <input {...getInputProps()} />
+      {cameraInput}
       <Upload
         className={cn(
           'mx-auto mb-3 text-muted-foreground',
@@ -1043,6 +1088,19 @@ export function LabelUploadForm({
       <p className="mt-1 text-xs text-muted-foreground">
         JPEG, PNG, or WebP up to 10 MB
       </p>
+      {isTouchDevice && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            openCamera()
+          }}
+          className="mx-auto mt-3 flex items-center gap-1.5 rounded-md bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+        >
+          <Camera className="size-3.5" />
+          Take a photo
+        </button>
+      )}
     </div>
   )
 
@@ -1087,28 +1145,28 @@ export function LabelUploadForm({
               )}
               unoptimized
             />
-            <div className="absolute inset-x-0 bottom-0 bg-background/80 px-2 py-1.5">
-              <p className="truncate text-xs font-medium">
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent px-2.5 pt-5 pb-2">
+              <p className="truncate text-xs font-medium text-white">
                 {fileEntry.file.name}
               </p>
               <div className="flex items-center gap-1 text-xs">
                 {fileEntry.status === 'pending' && (
-                  <span className="text-muted-foreground">Ready to upload</span>
+                  <span className="text-white/70">Ready to upload</span>
                 )}
                 {fileEntry.status === 'uploading' && (
-                  <span className="flex items-center gap-1 text-muted-foreground">
+                  <span className="flex items-center gap-1 text-white/70">
                     <Loader2 className="size-3 animate-spin" />
                     Uploading...
                   </span>
                 )}
                 {fileEntry.status === 'uploaded' && (
-                  <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                  <span className="flex items-center gap-1 text-emerald-300">
                     <CheckCircle className="size-3" />
                     Uploaded
                   </span>
                 )}
                 {fileEntry.status === 'error' && (
-                  <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
+                  <span className="flex items-center gap-1 text-red-300">
                     <XCircle className="size-3" />
                     {fileEntry.error || 'Failed'}
                   </span>
@@ -1118,7 +1176,7 @@ export function LabelUploadForm({
             {fileEntry.quality?.level === 'warning' && (
               <HoverCard openDelay={200} closeDelay={100}>
                 <HoverCardTrigger asChild>
-                  <div className="absolute top-1.5 left-1.5 flex size-6 cursor-help items-center justify-center rounded-full bg-amber-500/90 text-white">
+                  <div className="absolute top-1.5 left-1.5 flex size-6 cursor-help items-center justify-center rounded-full bg-amber-500/90 text-white shadow-sm">
                     <AlertTriangle className="size-3.5" />
                   </div>
                 </HoverCardTrigger>
@@ -1144,7 +1202,7 @@ export function LabelUploadForm({
             <button
               type="button"
               onClick={() => removeFile(index)}
-              className="hover:text-destructive-foreground absolute top-1 right-1 rounded-full bg-background/80 p-1.5 text-muted-foreground transition-colors hover:bg-destructive active:scale-95"
+              className="hover:text-destructive-foreground absolute top-1 right-1 rounded-full bg-black/50 p-1.5 text-white/80 backdrop-blur-sm transition-colors hover:bg-destructive active:scale-95"
               aria-label={`Remove ${fileEntry.file.name}`}
             >
               <X className="size-3.5" />
@@ -1189,26 +1247,63 @@ export function LabelUploadForm({
     <div
       {...getRootProps()}
       className={cn(
-        'rounded-xl border-2 border-dashed transition-colors',
+        'rounded-xl border-2 border-dashed transition-all',
         isDragActive
-          ? 'border-primary bg-primary/5'
-          : 'border-muted-foreground/25',
+          ? 'scale-[1.01] border-primary bg-primary/5'
+          : files.length === 0
+            ? 'border-muted-foreground/30 hover:border-primary/50 hover:bg-accent/30'
+            : 'border-muted-foreground/25',
         files.length === 0 && 'cursor-pointer',
       )}
       onClick={files.length === 0 ? openFileDialog : undefined}
     >
       <input {...getInputProps()} />
+      {cameraInput}
       {files.length === 0 ? (
-        <div className="flex min-h-[14rem] flex-col items-center justify-center p-8 text-center">
-          <Upload className="mx-auto mb-3 size-8 text-muted-foreground" />
-          <p className="text-sm font-medium">
-            {isDragActive
-              ? 'Drop images here...'
-              : 'Drag and drop label images, or click to browse'}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            JPEG, PNG, or WebP up to 10 MB
-          </p>
+        <div className="flex min-h-[34rem] flex-col gap-5 p-5">
+          {/* Ghost placeholder cards */}
+          <div className="flex flex-1 gap-3">
+            <div className="flex min-h-44 w-full flex-1 flex-col items-center justify-center gap-2.5 rounded-xl border-2 border-dashed border-muted-foreground/20 bg-muted/5 sm:w-1/2 md:w-1/3 md:flex-none">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-muted/60">
+                <ImagePlus className="size-5 text-muted-foreground/40" />
+              </div>
+              <span className="text-xs font-medium text-muted-foreground/40">
+                Front label
+              </span>
+            </div>
+            <div className="hidden min-h-44 flex-1 flex-col items-center justify-center gap-2.5 rounded-xl border-2 border-dashed border-muted-foreground/15 bg-muted/5 sm:flex sm:w-1/2 md:w-1/3 md:flex-none">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-muted/40">
+                <ImagePlus className="size-5 text-muted-foreground/25" />
+              </div>
+              <span className="text-xs font-medium text-muted-foreground/25">
+                Back label
+              </span>
+            </div>
+          </div>
+          {/* Upload instructions */}
+          <div className="flex flex-col items-center gap-2 text-center">
+            <p className="text-sm font-medium">
+              {isDragActive
+                ? 'Drop images here...'
+                : 'Drag and drop label images, or click to browse'}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              JPEG, PNG, or WebP up to 10 MB
+            </p>
+            {isTouchDevice && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  openCamera()
+                }}
+                className="mt-1 flex items-center gap-1.5 rounded-md bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              >
+                <Camera className="size-3.5" />
+                Take a photo
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <div className="p-3">
@@ -1226,7 +1321,7 @@ export function LabelUploadForm({
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.9 }}
-                    className="group relative h-52 w-[75%] shrink-0 snap-center overflow-hidden rounded-xl border bg-muted/20 sm:w-[calc(50%-0.375rem)] md:w-[calc(33.333%-0.5rem)]"
+                    className="group relative h-[31rem] w-[75%] shrink-0 snap-center overflow-hidden rounded-xl border bg-muted/20 sm:w-[calc(50%-0.375rem)] md:w-[calc(33.333%-0.5rem)]"
                   >
                     {extraction.status === 'extracting' && <ScanAnimation />}
                     <Image
@@ -1236,28 +1331,28 @@ export function LabelUploadForm({
                       className="object-cover"
                       unoptimized
                     />
-                    <div className="absolute inset-x-0 bottom-0 bg-background/80 px-2 py-1.5">
-                      <p className="truncate text-xs font-medium">
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent px-2.5 pt-5 pb-2">
+                      <p className="truncate text-xs font-medium text-white">
                         {fileEntry.file.name}
                       </p>
                       <div className="flex items-center gap-1 text-xs">
                         {fileEntry.status === 'pending' && (
-                          <span className="text-muted-foreground">Ready</span>
+                          <span className="text-white/70">Ready</span>
                         )}
                         {fileEntry.status === 'uploading' && (
-                          <span className="flex items-center gap-1 text-muted-foreground">
+                          <span className="flex items-center gap-1 text-white/70">
                             <Loader2 className="size-3 animate-spin" />
                             Uploading...
                           </span>
                         )}
                         {fileEntry.status === 'uploaded' && (
-                          <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                          <span className="flex items-center gap-1 text-emerald-300">
                             <CheckCircle className="size-3" />
                             Uploaded
                           </span>
                         )}
                         {fileEntry.status === 'error' && (
-                          <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
+                          <span className="flex items-center gap-1 text-red-300">
                             <XCircle className="size-3" />
                             {fileEntry.error || 'Failed'}
                           </span>
@@ -1267,7 +1362,7 @@ export function LabelUploadForm({
                     {fileEntry.quality?.level === 'warning' && (
                       <HoverCard openDelay={200} closeDelay={100}>
                         <HoverCardTrigger asChild>
-                          <div className="absolute top-1.5 left-1.5 flex size-6 cursor-help items-center justify-center rounded-full bg-amber-500/90 text-white">
+                          <div className="absolute top-1.5 left-1.5 flex size-6 cursor-help items-center justify-center rounded-full bg-amber-500/90 text-white shadow-sm">
                             <AlertTriangle className="size-3.5" />
                           </div>
                         </HoverCardTrigger>
@@ -1296,7 +1391,7 @@ export function LabelUploadForm({
                         e.stopPropagation()
                         removeFile(index)
                       }}
-                      className="hover:text-destructive-foreground absolute top-1.5 right-1.5 rounded-full bg-background/80 p-1.5 text-muted-foreground transition-colors hover:bg-destructive active:scale-95"
+                      className="hover:text-destructive-foreground absolute top-1.5 right-1.5 rounded-full bg-black/50 p-1.5 text-white/80 backdrop-blur-sm transition-colors hover:bg-destructive active:scale-95"
                       aria-label={`Remove ${fileEntry.file.name}`}
                     >
                       <X className="size-3.5" />
@@ -1306,19 +1401,32 @@ export function LabelUploadForm({
               </AnimatePresence>
 
               {/* Add more card */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  openFileDialog()
-                }}
-                className="flex h-52 w-[75%] shrink-0 snap-center flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-muted-foreground/25 bg-muted/10 transition-colors hover:border-primary/50 hover:bg-accent/30 sm:w-[calc(50%-0.375rem)] md:w-[calc(33.333%-0.5rem)]"
-              >
-                <Upload className="size-6 text-muted-foreground" />
-                <span className="text-sm font-medium text-muted-foreground">
-                  Add more
-                </span>
-              </button>
+              <div className="flex h-[31rem] w-[75%] shrink-0 snap-center flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-muted-foreground/25 bg-muted/10 sm:w-[calc(50%-0.375rem)] md:w-[calc(33.333%-0.5rem)]">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    openFileDialog()
+                  }}
+                  className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                >
+                  <Upload className="size-4" />
+                  {isTouchDevice ? 'Browse files' : 'Add more'}
+                </button>
+                {isTouchDevice && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      openCamera()
+                    }}
+                    className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <Camera className="size-4" />
+                    Take a photo
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Carousel arrows */}
@@ -2234,59 +2342,7 @@ export function LabelUploadForm({
             transition={phaseTransition}
             className="space-y-8"
           >
-            {/* Phase 1: Beverage Type */}
-            <div>
-              <h2 className="font-heading text-lg font-semibold tracking-tight">
-                What type of product is this?
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                This determines which fields we look for on the label.
-              </p>
-              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                {BEVERAGE_TYPE_OPTIONS.map((option) => {
-                  const Icon = option.icon
-                  const isSelected = beverageType === option.value
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => {
-                        setValue('beverageType', option.value, {
-                          shouldValidate: true,
-                        })
-                        setValue('classTypeCode', '')
-                      }}
-                      className={cn(
-                        'flex flex-col items-center gap-2 rounded-xl border-2 p-6 text-center transition-all hover:bg-accent/50',
-                        isSelected
-                          ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
-                          : 'border-input',
-                      )}
-                    >
-                      <Icon
-                        className={cn(
-                          'size-8',
-                          isSelected ? 'text-primary' : 'text-muted-foreground',
-                        )}
-                      />
-                      <span className="text-sm font-semibold">
-                        {option.label}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {option.description}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-              {errors.beverageType && (
-                <p className="mt-2 text-sm text-destructive">
-                  {errors.beverageType.message}
-                </p>
-              )}
-            </div>
-
-            {/* Phase 2: Image Upload + Scan */}
+            {/* Phase 1: Image Upload + Scan (upload first, AI detects type) */}
             <AnimatePresence>
               {showPhase2 && (
                 <motion.div
@@ -2312,26 +2368,36 @@ export function LabelUploadForm({
                   {files.length > 0 && (
                     <div className="space-y-3">
                       {showScanButton && (
-                        <Button
+                        <button
                           type="button"
-                          variant="outline"
-                          size="lg"
                           onClick={handleScanLabels}
                           disabled={extraction.status === 'extracting'}
-                          className="w-full"
+                          className={cn(
+                            'relative flex h-12 w-full items-center justify-center gap-2.5 rounded-xl text-sm font-semibold transition-all',
+                            'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none',
+                            'disabled:pointer-events-none disabled:opacity-50',
+                            extraction.status === 'extracting'
+                              ? 'bg-muted text-muted-foreground'
+                              : [
+                                  'bg-gradient-to-r from-gold via-[oklch(0.84_0.13_75)] to-gold text-gold-foreground',
+                                  'shadow-[0_1px_2px_rgba(0,0,0,0.1),0_4px_16px_-2px_oklch(0.82_0.12_85/0.3)]',
+                                  'hover:shadow-[0_1px_2px_rgba(0,0,0,0.1),0_6px_20px_-2px_oklch(0.82_0.12_85/0.45)] hover:brightness-[1.08]',
+                                  'active:scale-[0.98] active:brightness-100',
+                                ],
+                          )}
                         >
                           {extraction.status === 'extracting' ? (
                             <>
-                              <Loader2 className="animate-spin" />
+                              <Loader2 className="size-4 animate-spin" />
                               Scanning...
                             </>
                           ) : (
                             <>
-                              <ScanText />
+                              <ScanText className="size-4" />
                               {scanButtonLabel}
                             </>
                           )}
-                        </Button>
+                        </button>
                       )}
 
                       {extraction.status !== 'success' && !manualFormEntry && (
@@ -2339,13 +2405,85 @@ export function LabelUploadForm({
                           <button
                             type="button"
                             onClick={() => setManualFormEntry(true)}
-                            className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+                            className="text-sm text-muted-foreground/70 underline-offset-4 transition-colors hover:text-foreground hover:underline"
                           >
                             Skip — fill in manually
                           </button>
                         </p>
                       )}
                     </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Phase 2: Beverage Type (shown after scan or manual entry) */}
+            <AnimatePresence>
+              {(hasScannedOnce || manualFormEntry) && (
+                <motion.div
+                  initial={phaseInitial}
+                  animate={phaseAnimate}
+                  exit={phaseExit}
+                  transition={phaseTransition}
+                >
+                  <h2 className="font-heading text-lg font-semibold tracking-tight">
+                    What type of product is this?
+                  </h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {beverageTypeSource === 'ai'
+                      ? 'AI detected the product type from your label. You can change it if needed.'
+                      : 'Select the product type for this label.'}
+                  </p>
+                  <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    {BEVERAGE_TYPE_OPTIONS.map((option) => {
+                      const Icon = option.icon
+                      const isSelected = beverageType === option.value
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => {
+                            setValue('beverageType', option.value, {
+                              shouldValidate: true,
+                            })
+                            setValue('classTypeCode', '')
+                            setBeverageTypeSource('user')
+                          }}
+                          className={cn(
+                            'flex flex-col items-center gap-2 rounded-xl border-2 p-6 text-center transition-all hover:bg-accent/50',
+                            isSelected
+                              ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
+                              : 'border-input',
+                          )}
+                        >
+                          <Icon
+                            className={cn(
+                              'size-8',
+                              isSelected
+                                ? 'text-primary'
+                                : 'text-muted-foreground',
+                            )}
+                          />
+                          <span className="text-sm font-semibold">
+                            {option.label}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {option.description}
+                          </span>
+                          {isSelected && beverageTypeSource === 'ai' && (
+                            <span className="flex items-center gap-1 text-xs text-primary">
+                              <Sparkles className="size-3" />
+                              AI detected
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {errors.beverageType && (
+                    <p className="mt-2 text-sm text-destructive">
+                      {errors.beverageType.message}
+                    </p>
                   )}
                 </motion.div>
               )}
@@ -2385,6 +2523,53 @@ export function LabelUploadForm({
                 </p>
               )}
             </div>
+
+            {/* Type of Product — inline form field with segmented control */}
+            {mode === 'submit' &&
+              extraction.status !== 'extracting' &&
+              beverageType && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label className="flex items-center gap-1.5 text-sm font-medium">
+                      Type of Product
+                    </Label>
+                    {beverageTypeSource === 'ai' && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                        <Sparkles className="size-2.5" />
+                        AI detected
+                      </span>
+                    )}
+                  </div>
+                  <div className="inline-flex rounded-lg border border-input bg-muted/30 p-0.5">
+                    {BEVERAGE_TYPE_OPTIONS.map((option) => {
+                      const Icon = option.icon
+                      const isSelected = beverageType === option.value
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => {
+                            setValue('beverageType', option.value, {
+                              shouldValidate: true,
+                            })
+                            setValue('classTypeCode', '')
+                            setBeverageTypeSource('user')
+                          }}
+                          className={cn(
+                            'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+                            isSelected
+                              ? 'bg-background text-foreground shadow-sm'
+                              : 'text-muted-foreground hover:text-foreground',
+                          )}
+                        >
+                          <Icon className="size-3.5" />
+                          {option.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
             {formFields}
             {extraction.status !== 'extracting' && submitButtons}

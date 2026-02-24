@@ -443,10 +443,10 @@ function ImageViewerContent({
                             ),
                       )}
                       style={{
-                        left: `calc(${Number(item.bboxX) * 100}% - 4px)`,
-                        top: `calc(${Number(item.bboxY) * 100}% - 4px)`,
-                        width: `calc(${Number(item.bboxWidth) * 100}% + 8px)`,
-                        height: `calc(${Number(item.bboxHeight) * 100}% + 8px)`,
+                        left: `calc(${Number(item.bboxX) * 100}% - 2px)`,
+                        top: `calc(${Number(item.bboxY) * 100}% - 2px)`,
+                        width: `calc(${Number(item.bboxWidth) * 100}% + 4px)`,
+                        height: `calc(${Number(item.bboxHeight) * 100}% + 4px)`,
                         boxShadow: isActive ? activeColors.shadow : undefined,
                       }}
                       onClick={(e) => {

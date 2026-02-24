@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import Link from 'next/link'
 import { and, eq, sql, count } from 'drizzle-orm'
 import { ArrowRight, Flag, AlertTriangle, ShieldAlert } from 'lucide-react'
@@ -10,6 +11,7 @@ import { PageHeader } from '@/components/layout/page-header'
 import { PageShell } from '@/components/layout/page-shell'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
   TableBody,
@@ -75,33 +77,174 @@ const FIELD_NAMES = [
   'standards_of_fill',
 ] as const
 
+const ERROR_TYPES = [
+  { value: 'all', label: 'All' },
+  { value: 'missed', label: 'Missed Errors' },
+  { value: 'over_flagged', label: 'Over-Flagged' },
+] as const
+
+const PAGE_SIZE = 20
+
 // ---------------------------------------------------------------------------
-// Page
+// URL builder
 // ---------------------------------------------------------------------------
 
-interface AIErrorsPageProps {
-  searchParams: Promise<{
-    field?: string
-    type?: string
-    page?: string
-  }>
+function buildUrl(
+  current: Record<string, string | undefined>,
+  overrides: Record<string, string>,
+) {
+  const params = new URLSearchParams()
+  for (const [key, val] of Object.entries({ ...current, ...overrides })) {
+    if (val && val !== '' && !(key === 'page' && val === '1')) {
+      params.set(key, val)
+    }
+  }
+  const qs = params.toString()
+  return `/ai-errors${qs ? `?${qs}` : ''}`
 }
 
-export default async function AIErrorsPage({
-  searchParams,
-}: AIErrorsPageProps) {
-  await requireSpecialist()
+// ---------------------------------------------------------------------------
+// Filter component (server-component-compatible with link-based navigation)
+// ---------------------------------------------------------------------------
 
-  const params = await searchParams
-  const fieldFilter = params.field ?? ''
-  const typeFilter = params.type ?? 'all'
-  const currentPage = Math.max(1, Number(params.page) || 1)
-  const pageSize = 20
+function AIErrorFilters({
+  fieldFilter,
+  typeFilter,
+}: {
+  fieldFilter: string
+  typeFilter: string
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-4">
+      {/* Error type pills */}
+      <div className="flex items-center gap-1">
+        {ERROR_TYPES.map((t) => (
+          <Button
+            key={t.value}
+            variant={typeFilter === t.value ? 'default' : 'outline'}
+            size="sm"
+            className="h-8 text-xs"
+            asChild
+          >
+            <Link
+              href={buildUrl(
+                { field: fieldFilter || undefined },
+                t.value === 'all' ? {} : { type: t.value },
+              )}
+            >
+              {t.label}
+            </Link>
+          </Button>
+        ))}
+      </div>
 
-  // ---------------------------------------------------------------------------
-  // Summary stats: count reviews where specialist disagreed with AI
-  // ---------------------------------------------------------------------------
+      {/* Field filter pills */}
+      <div className="flex flex-wrap items-center gap-1">
+        <Button
+          variant={!fieldFilter ? 'secondary' : 'ghost'}
+          size="sm"
+          className="h-7 text-[11px]"
+          asChild
+        >
+          <Link
+            href={buildUrl(
+              { type: typeFilter !== 'all' ? typeFilter : undefined },
+              {},
+            )}
+          >
+            All Fields
+          </Link>
+        </Button>
+        {FIELD_NAMES.map((name) => (
+          <Button
+            key={name}
+            variant={fieldFilter === name ? 'secondary' : 'ghost'}
+            size="sm"
+            className="h-7 text-[11px]"
+            asChild
+          >
+            <Link
+              href={buildUrl(
+                { type: typeFilter !== 'all' ? typeFilter : undefined },
+                { field: name },
+              )}
+            >
+              {FIELD_DISPLAY_NAMES[name] ?? name}
+            </Link>
+          </Button>
+        ))}
+      </div>
+    </div>
+  )
+}
 
+// ---------------------------------------------------------------------------
+// Skeletons
+// ---------------------------------------------------------------------------
+
+function AIErrorStatsSkeleton() {
+  return (
+    <div className="grid gap-4 sm:grid-cols-3">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <Card key={i} className="p-4">
+          <Skeleton className="mb-2 h-4 w-24" />
+          <Skeleton className="h-8 w-16" />
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+function AIErrorTableSkeleton() {
+  return (
+    <>
+      {/* Filters skeleton */}
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-9 w-48" />
+        <Skeleton className="h-9 w-36" />
+      </div>
+
+      <Card className="py-0">
+        {/* Table header */}
+        <div className="border-b px-6 py-3">
+          <div className="grid grid-cols-7 gap-4">
+            <Skeleton className="h-4 w-16" />
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-4 w-16" />
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-4 w-12" />
+            <Skeleton className="ml-auto h-4 w-16" />
+          </div>
+        </div>
+
+        {/* Table rows */}
+        <div className="divide-y">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div
+              key={i}
+              className="grid grid-cols-7 items-center gap-4 px-6 py-3"
+            >
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-6 w-16 rounded-full" />
+              <Skeleton className="h-6 w-20 rounded-full" />
+              <Skeleton className="h-4 w-10" />
+              <Skeleton className="ml-auto h-8 w-16" />
+            </div>
+          ))}
+        </div>
+      </Card>
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Async section: Stats cards + total badge
+// ---------------------------------------------------------------------------
+
+async function AIErrorStats() {
   const [statsResult] = await db
     .select({
       totalErrors: count(),
@@ -119,95 +262,13 @@ export default async function AIErrorsPage({
     overFlagged: statsResult?.overFlagged ?? 0,
   }
 
-  // ---------------------------------------------------------------------------
-  // Build filter conditions
-  // ---------------------------------------------------------------------------
-
-  // Cast to text because originalStatus (validation_item_status) and
-  // resolvedStatus (resolved_status) are different PostgreSQL enums.
-  const statusMismatch = sql`${humanReviews.originalStatus}::text != ${humanReviews.resolvedStatus}::text`
-  const conditions = [statusMismatch]
-
-  if (
-    fieldFilter &&
-    FIELD_NAMES.includes(fieldFilter as (typeof FIELD_NAMES)[number])
-  ) {
-    conditions.push(
-      eq(
-        validationItems.fieldName,
-        fieldFilter as (typeof FIELD_NAMES)[number],
-      ),
-    )
-  }
-
-  if (typeFilter === 'missed') {
-    conditions.push(eq(humanReviews.originalStatus, 'match'))
-  } else if (typeFilter === 'over_flagged') {
-    conditions.push(sql`${humanReviews.originalStatus}::text != 'match'`)
-    conditions.push(eq(humanReviews.resolvedStatus, 'match'))
-  }
-
-  // ---------------------------------------------------------------------------
-  // Query AI error rows
-  // ---------------------------------------------------------------------------
-
-  const totalQuery = await db
-    .select({ count: count() })
-    .from(humanReviews)
-    .innerJoin(
-      validationItems,
-      eq(humanReviews.validationItemId, validationItems.id),
-    )
-    .where(and(...conditions))
-
-  const totalCount = totalQuery[0]?.count ?? 0
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
-  const offset = (currentPage - 1) * pageSize
-
-  const rows = await db
-    .select({
-      id: humanReviews.id,
-      reviewedAt: humanReviews.reviewedAt,
-      originalStatus: humanReviews.originalStatus,
-      resolvedStatus: humanReviews.resolvedStatus,
-      reviewerNotes: humanReviews.reviewerNotes,
-      fieldName: validationItems.fieldName,
-      confidence: validationItems.confidence,
-      labelId: humanReviews.labelId,
-      brandName: sql<string>`(
-        SELECT ad.brand_name FROM application_data ad
-        WHERE ad.label_id = ${humanReviews.labelId}
-        LIMIT 1
-      )`,
-      specialistName: users.name,
-    })
-    .from(humanReviews)
-    .innerJoin(
-      validationItems,
-      eq(humanReviews.validationItemId, validationItems.id),
-    )
-    .innerJoin(users, eq(humanReviews.specialistId, users.id))
-    .where(and(...conditions))
-    .orderBy(sql`${humanReviews.reviewedAt} desc`)
-    .limit(pageSize)
-    .offset(offset)
-
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
-
   return (
-    <PageShell className="space-y-6">
-      <PageHeader
-        title="AI Errors"
-        description="Fields where specialist review disagreed with AI classification."
-      >
+    <>
+      <div className="flex items-center">
         <Badge variant="secondary" className="text-sm">
           {stats.totalErrors} total
         </Badge>
-      </PageHeader>
-
-      {/* Summary stat cards */}
+      </div>
       <div className="grid gap-4 sm:grid-cols-3">
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Total AI Errors</p>
@@ -240,8 +301,96 @@ export default async function AIErrorsPage({
           </p>
         </Card>
       </div>
+    </>
+  )
+}
 
-      {/* Filters */}
+// ---------------------------------------------------------------------------
+// Async section: Filters + table + pagination
+// ---------------------------------------------------------------------------
+
+async function AIErrorTableSection({
+  fieldFilter,
+  typeFilter,
+  currentPage,
+}: {
+  fieldFilter: string
+  typeFilter: string
+  currentPage: number
+}) {
+  // Cast to text because originalStatus (validation_item_status) and
+  // resolvedStatus (resolved_status) are different PostgreSQL enums.
+  const statusMismatch = sql`${humanReviews.originalStatus}::text != ${humanReviews.resolvedStatus}::text`
+  const conditions = [statusMismatch]
+
+  if (
+    fieldFilter &&
+    FIELD_NAMES.includes(fieldFilter as (typeof FIELD_NAMES)[number])
+  ) {
+    conditions.push(
+      eq(
+        validationItems.fieldName,
+        fieldFilter as (typeof FIELD_NAMES)[number],
+      ),
+    )
+  }
+
+  if (typeFilter === 'missed') {
+    conditions.push(eq(humanReviews.originalStatus, 'match'))
+  } else if (typeFilter === 'over_flagged') {
+    conditions.push(sql`${humanReviews.originalStatus}::text != 'match'`)
+    conditions.push(eq(humanReviews.resolvedStatus, 'match'))
+  }
+
+  const offset = (currentPage - 1) * PAGE_SIZE
+
+  const [totalQuery, rows] = await Promise.all([
+    db
+      .select({ count: count() })
+      .from(humanReviews)
+      .innerJoin(
+        validationItems,
+        eq(humanReviews.validationItemId, validationItems.id),
+      )
+      .where(and(...conditions)),
+    db
+      .select({
+        id: humanReviews.id,
+        reviewedAt: humanReviews.reviewedAt,
+        originalStatus: humanReviews.originalStatus,
+        resolvedStatus: humanReviews.resolvedStatus,
+        reviewerNotes: humanReviews.reviewerNotes,
+        fieldName: validationItems.fieldName,
+        confidence: validationItems.confidence,
+        labelId: humanReviews.labelId,
+        brandName: sql<string>`(
+          SELECT ad.brand_name FROM application_data ad
+          WHERE ad.label_id = ${humanReviews.labelId}
+          LIMIT 1
+        )`,
+        specialistName: users.name,
+      })
+      .from(humanReviews)
+      .innerJoin(
+        validationItems,
+        eq(humanReviews.validationItemId, validationItems.id),
+      )
+      .innerJoin(users, eq(humanReviews.specialistId, users.id))
+      .where(and(...conditions))
+      .orderBy(sql`${humanReviews.reviewedAt} desc`)
+      .limit(PAGE_SIZE)
+      .offset(offset),
+  ])
+
+  const totalCount = totalQuery[0]?.count ?? 0
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
+  const params = {
+    field: fieldFilter || undefined,
+    type: typeFilter !== 'all' ? typeFilter : undefined,
+  }
+
+  return (
+    <>
       <AIErrorFilters fieldFilter={fieldFilter} typeFilter={typeFilter} />
 
       {rows.length === 0 ? (
@@ -339,13 +488,15 @@ export default async function AIErrorsPage({
           {totalPages > 1 && (
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                Showing {offset + 1}–{Math.min(offset + pageSize, totalCount)}{' '}
+                Showing {offset + 1}–{Math.min(offset + PAGE_SIZE, totalCount)}{' '}
                 of {totalCount}
               </p>
               <div className="flex gap-1">
                 {currentPage > 1 && (
                   <Link
-                    href={buildUrl(params, { page: String(currentPage - 1) })}
+                    href={buildUrl(params, {
+                      page: String(currentPage - 1),
+                    })}
                     className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
                   >
                     Previous
@@ -353,7 +504,9 @@ export default async function AIErrorsPage({
                 )}
                 {currentPage < totalPages && (
                   <Link
-                    href={buildUrl(params, { page: String(currentPage + 1) })}
+                    href={buildUrl(params, {
+                      page: String(currentPage + 1),
+                    })}
                     className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
                   >
                     Next
@@ -364,105 +517,48 @@ export default async function AIErrorsPage({
           )}
         </>
       )}
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
+interface AIErrorsPageProps {
+  searchParams: Promise<{
+    field?: string
+    type?: string
+    page?: string
+  }>
+}
+
+export default async function AIErrorsPage({
+  searchParams,
+}: AIErrorsPageProps) {
+  await requireSpecialist()
+
+  const params = await searchParams
+  const fieldFilter = params.field ?? ''
+  const typeFilter = params.type ?? 'all'
+  const currentPage = Math.max(1, Number(params.page) || 1)
+
+  return (
+    <PageShell className="space-y-6">
+      <PageHeader
+        title="AI Errors"
+        description="Fields where specialist review disagreed with AI classification."
+      />
+      <Suspense fallback={<AIErrorStatsSkeleton />}>
+        <AIErrorStats />
+      </Suspense>
+      <Suspense fallback={<AIErrorTableSkeleton />}>
+        <AIErrorTableSection
+          fieldFilter={fieldFilter}
+          typeFilter={typeFilter}
+          currentPage={currentPage}
+        />
+      </Suspense>
     </PageShell>
   )
-}
-
-// ---------------------------------------------------------------------------
-// Filter component (server-component-compatible with link-based navigation)
-// ---------------------------------------------------------------------------
-
-const ERROR_TYPES = [
-  { value: 'all', label: 'All' },
-  { value: 'missed', label: 'Missed Errors' },
-  { value: 'over_flagged', label: 'Over-Flagged' },
-] as const
-
-function AIErrorFilters({
-  fieldFilter,
-  typeFilter,
-}: {
-  fieldFilter: string
-  typeFilter: string
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-4">
-      {/* Error type pills */}
-      <div className="flex items-center gap-1">
-        {ERROR_TYPES.map((t) => (
-          <Button
-            key={t.value}
-            variant={typeFilter === t.value ? 'default' : 'outline'}
-            size="sm"
-            className="h-8 text-xs"
-            asChild
-          >
-            <Link
-              href={buildUrl(
-                { field: fieldFilter || undefined },
-                t.value === 'all' ? {} : { type: t.value },
-              )}
-            >
-              {t.label}
-            </Link>
-          </Button>
-        ))}
-      </div>
-
-      {/* Field filter pills */}
-      <div className="flex flex-wrap items-center gap-1">
-        <Button
-          variant={!fieldFilter ? 'secondary' : 'ghost'}
-          size="sm"
-          className="h-7 text-[11px]"
-          asChild
-        >
-          <Link
-            href={buildUrl(
-              { type: typeFilter !== 'all' ? typeFilter : undefined },
-              {},
-            )}
-          >
-            All Fields
-          </Link>
-        </Button>
-        {FIELD_NAMES.map((name) => (
-          <Button
-            key={name}
-            variant={fieldFilter === name ? 'secondary' : 'ghost'}
-            size="sm"
-            className="h-7 text-[11px]"
-            asChild
-          >
-            <Link
-              href={buildUrl(
-                { type: typeFilter !== 'all' ? typeFilter : undefined },
-                { field: name },
-              )}
-            >
-              {FIELD_DISPLAY_NAMES[name] ?? name}
-            </Link>
-          </Button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// URL builder
-// ---------------------------------------------------------------------------
-
-function buildUrl(
-  current: Record<string, string | undefined>,
-  overrides: Record<string, string>,
-) {
-  const params = new URLSearchParams()
-  for (const [key, val] of Object.entries({ ...current, ...overrides })) {
-    if (val && val !== '' && !(key === 'page' && val === '1')) {
-      params.set(key, val)
-    }
-  }
-  const qs = params.toString()
-  return `/ai-errors${qs ? `?${qs}` : ''}`
 }

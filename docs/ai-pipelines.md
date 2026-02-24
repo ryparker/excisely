@@ -27,9 +27,9 @@ This hybrid approach plays to each system's strengths: Cloud Vision for pixel-ac
 
 ---
 
-## The Four Pipelines
+## The Five Pipelines
 
-The system has four pipelines optimized for different use cases. They all share Stage 1 (OCR) and Stage 3 (bounding box resolution) but differ in how Stage 2 (classification) is configured.
+The system has five pipelines optimized for different use cases. They all share Stage 1 (OCR) and Stage 3 (bounding box resolution) but differ in how Stage 2 (classification) is configured.
 
 ### Pipeline Comparison
 
@@ -41,7 +41,10 @@ The system has four pipelines optimized for different use cases. They all share 
   Specialist     5-mini   Yes       Yes         Default      Yes         20-60s+
   Fast Pre-fill  4.1      No        No          N/A          No (80)     ~3-5s
   Full Extract   5-mini   Yes       Yes         Default      Yes         20-60s+
+  Auto-Detect    4.1*     No        No          N/A*         No* (80)    ~4-9s*
 ```
+
+\* Auto-Detect uses gpt-4.1 when keywords detect the type (happy path, ~4-9s). Falls back to gpt-5-mini Full Extract pipeline when type is ambiguous (~10-20s).
 
 ---
 
@@ -177,7 +180,7 @@ This pipeline hardcodes confidence at 80 and provides no reasoning. That's fine 
 
 **Function:** `extractLabelFieldsForApplicant()`
 **Model:** gpt-5-mini (text-only, no images sent despite being available)
-**Used by:** Applicant form pre-fill when beverage type is unknown
+**Used by:** Fallback for Pipeline 5 when keyword detection fails
 
 ```
   Blob Storage        Cloud Vision          gpt-5-mini             Index Lookup
@@ -205,6 +208,54 @@ This pipeline uses the **union of all fields** from all beverage types and asks 
 - Malt beverages: "ale", "lager", "IPA", "brewed by", "hard seltzer"
 
 Once the beverage type is detected, the form switches to the Fast Pre-fill Pipeline for subsequent scans.
+
+---
+
+### 5. Auto-Detect Pipeline
+
+**Function:** `extractLabelFieldsWithAutoDetect()`
+**Model:** gpt-4.1 (happy path) or gpt-5-mini (fallback)
+**Used by:** Applicant form pre-fill when beverage type is not selected
+
+```
+  Blob Storage        Cloud Vision       Keyword Detection     gpt-4.1 or 5-mini    Local CPU
+  ┌──────────┐       ┌────────────┐       ┌──────────────┐     ┌──────────────┐     ┌──────────┐
+  │  Fetch   │──────>│    OCR     │──────>│ Score types  │─┬──>│ Fast Extract │────>│ Match    │
+  │  images  │ bytes │ (parallel) │ text  │ by keywords  │ │   │ (type-aware) │     │ fields   │
+  │          │       │            │       │              │ │   │ gpt-4.1      │     │ to OCR   │
+  │ ~200ms   │       │  ~600ms    │       │  ~0ms        │ │   │ ~3-8s        │     │  ~1ms    │
+  └──────────┘       └────────────┘       └──────────────┘ │   └──────────────┘     └──────────┘
+                                                  │        │
+                                             (ambiguous?)  └──>│ Full Extract │────>│ Match    │
+                                                               │ (all fields) │     │ fields   │
+                                                               │ gpt-5-mini   │     │ to OCR   │
+                                                               │ ~10-20s      │     │  ~1ms    │
+                                                               └──────────────┘     └──────────┘
+```
+
+**Why this exists:**
+
+Previously (Pipeline 4), when no beverage type was selected, the system sent all fields from all types to gpt-5-mini — slower (~10-20s) and less accurate than type-specific prompts. The auto-detect pipeline adds a zero-cost keyword matching step:
+
+1. **Keyword detection** (~0ms): Score each beverage type by counting OCR text hits against type-specific keyword lists (whiskey/bourbon/proof → spirits, wine/cabernet/sulfites → wine, ale/lager/brewed → malt)
+2. **Clear winner?** → Fast type-specific extraction via Pipeline 3 (gpt-4.1, ~3-8s)
+3. **Ambiguous?** → Fall back to Pipeline 4's full extraction (gpt-5-mini, ~10-20s)
+
+**Performance:**
+- Happy path (clear keywords): ~4-9s — same speed as manual type selection
+- Fallback (ambiguous): ~10-20s — no worse than before
+
+**Keyword matching rules:**
+- Each type has ~30 keywords (spirits: "whiskey", "bourbon", "proof", "distilled by"...)
+- Score = count of matching keywords in OCR text
+- Winner needs at least 1 hit AND 1+ more hits than runner-up
+- Returns null (triggers fallback) if tied or no keywords found
+
+**UX impact:**
+- Applicants can skip the beverage type selection step entirely
+- AI auto-fills the type card with an "AI detected" badge
+- If detection fails, a toast prompts manual selection
+- User can override AI-detected type at any time
 
 ---
 

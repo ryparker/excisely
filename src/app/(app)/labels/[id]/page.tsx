@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { eq, and, desc } from 'drizzle-orm'
@@ -15,6 +16,7 @@ import {
   humanReviews,
   users,
 } from '@/db/schema'
+import type { Label, ApplicationData, Applicant } from '@/db/schema'
 import { requireSpecialist } from '@/lib/auth/require-role'
 import { getEffectiveStatus } from '@/lib/labels/effective-status'
 import { getSignedImageUrl } from '@/lib/storage/blob'
@@ -33,6 +35,7 @@ import { ProcessingDetailPanels } from '@/components/validation/processing-detai
 import { AutoRefresh } from '@/components/shared/auto-refresh'
 import { CorrespondenceTimeline } from '@/components/timeline/correspondence-timeline'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { timeAgo } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
@@ -43,133 +46,77 @@ const REVIEWABLE_STATUSES = new Set([
   'conditionally_approved',
 ])
 
-interface LabelDetailPageProps {
-  params: Promise<{ id: string }>
+// ---------------------------------------------------------------------------
+// Skeleton components for Suspense fallbacks
+// ---------------------------------------------------------------------------
+
+function ContentSkeleton() {
+  return (
+    <div className="space-y-5">
+      <Skeleton className="h-20 rounded-lg" />
+      <div className="flex gap-6">
+        <div className="w-[55%] shrink-0">
+          <Skeleton className="aspect-[4/3] rounded-xl" />
+        </div>
+        <div className="flex-1 space-y-3">
+          <Skeleton className="h-10 w-48" />
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 rounded-xl" />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
 }
 
-export default async function LabelDetailPage({
-  params,
-}: LabelDetailPageProps) {
-  await requireSpecialist()
+function TimelineSkeleton() {
+  return <Skeleton className="h-48 rounded-xl" />
+}
 
-  const { id } = await params
+// ---------------------------------------------------------------------------
+// Async section: Label content (images, validation items, summary)
+// ---------------------------------------------------------------------------
 
-  // Fetch label
-  const [label] = await db
-    .select()
-    .from(labels)
-    .where(eq(labels.id, id))
-    .limit(1)
-
-  if (!label) {
-    notFound()
-  }
-
-  // Fetch all related data in parallel
-  const [appData, images, results, applicant, overrides, reviews] =
-    await Promise.all([
-      db
-        .select()
-        .from(applicationData)
-        .where(eq(applicationData.labelId, id))
-        .limit(1)
-        .then((rows) => rows[0] ?? null),
-      db
-        .select()
-        .from(labelImages)
-        .where(eq(labelImages.labelId, id))
-        .orderBy(labelImages.sortOrder),
-      db
-        .select()
-        .from(validationResults)
-        .where(
-          and(
-            eq(validationResults.labelId, id),
-            eq(validationResults.isCurrent, true),
-          ),
-        )
-        .limit(1)
-        .then((rows) => rows[0] ?? null),
-      label.applicantId
-        ? db
-            .select()
-            .from(applicants)
-            .where(eq(applicants.id, label.applicantId))
-            .limit(1)
-            .then((rows) => rows[0] ?? null)
-        : null,
-      db
-        .select({
-          id: statusOverrides.id,
-          previousStatus: statusOverrides.previousStatus,
-          newStatus: statusOverrides.newStatus,
-          justification: statusOverrides.justification,
-          reasonCode: statusOverrides.reasonCode,
-          createdAt: statusOverrides.createdAt,
-          specialistName: users.name,
-        })
-        .from(statusOverrides)
-        .innerJoin(users, eq(statusOverrides.specialistId, users.id))
-        .where(eq(statusOverrides.labelId, id))
-        .orderBy(desc(statusOverrides.createdAt)),
-      db
-        .select({
-          id: humanReviews.id,
-          fieldName: validationItems.fieldName,
-          originalStatus: humanReviews.originalStatus,
-          resolvedStatus: humanReviews.resolvedStatus,
-          reviewerNotes: humanReviews.reviewerNotes,
-          reviewedAt: humanReviews.reviewedAt,
-          specialistName: users.name,
-        })
-        .from(humanReviews)
-        .innerJoin(users, eq(humanReviews.specialistId, users.id))
-        .leftJoin(
-          validationItems,
-          eq(humanReviews.validationItemId, validationItems.id),
-        )
-        .where(eq(humanReviews.labelId, id))
-        .orderBy(humanReviews.reviewedAt),
-    ])
-
-  // Fetch validation items + superseded results (for analysis history)
-  const [items, supersededResults] = await Promise.all([
-    results
-      ? db
-          .select()
-          .from(validationItems)
-          .where(eq(validationItems.validationResultId, results.id))
-      : Promise.resolve([]),
-    results
-      ? db
-          .select({
-            id: validationResults.id,
-            createdAt: validationResults.createdAt,
-            modelUsed: validationResults.modelUsed,
-            processingTimeMs: validationResults.processingTimeMs,
-            totalTokens: validationResults.totalTokens,
-          })
-          .from(validationResults)
-          .where(
-            and(
-              eq(validationResults.labelId, id),
-              eq(validationResults.isCurrent, false),
-            ),
-          )
-          .orderBy(desc(validationResults.createdAt))
-      : Promise.resolve([]),
+async function LabelContentSection({
+  labelId,
+  label,
+  appData,
+  effectiveStatus,
+  isReviewable,
+}: {
+  labelId: string
+  label: Label
+  appData: ApplicationData | null
+  effectiveStatus: string
+  isReviewable: boolean
+}) {
+  // Fetch images + current results in parallel
+  const [images, results] = await Promise.all([
+    db
+      .select()
+      .from(labelImages)
+      .where(eq(labelImages.labelId, labelId))
+      .orderBy(labelImages.sortOrder),
+    db
+      .select()
+      .from(validationResults)
+      .where(
+        and(
+          eq(validationResults.labelId, labelId),
+          eq(validationResults.isCurrent, true),
+        ),
+      )
+      .limit(1)
+      .then((rows) => rows[0] ?? null),
   ])
 
-  const hasSupersededResults = supersededResults.length > 0
-
-  // Compute effective status with lazy deadline expiration
-  const effectiveStatus = getEffectiveStatus({
-    status: label.status,
-    correctionDeadline: label.correctionDeadline,
-    deadlineExpired: label.deadlineExpired,
-  })
-
-  const isReviewable = REVIEWABLE_STATUSES.has(effectiveStatus)
+  // Fetch items (depends on results.id)
+  const items = results
+    ? await db
+        .select()
+        .from(validationItems)
+        .where(eq(validationItems.validationResultId, results.id))
+    : []
 
   // Compute field counts
   const fieldCounts = items.reduce(
@@ -183,7 +130,6 @@ export default async function LabelDetailPage({
     { match: 0, mismatch: 0, notFound: 0, needsCorrection: 0 },
   )
 
-  const brandName = appData?.brandName ?? 'Untitled Label'
   const signedImages = images.map((img) => ({
     id: img.id,
     imageUrl: getSignedImageUrl(img.imageUrl),
@@ -209,6 +155,303 @@ export default async function LabelDetailPage({
     bboxAngle: item.bboxAngle,
     labelImageId: item.labelImageId,
   }))
+
+  return (
+    <ReanalysisGuard
+      labelId={label.id}
+      labelStatus={label.status}
+      processingContent={
+        <div className="space-y-5">
+          <AutoRefresh intervalMs={3_000} />
+          <ProcessingStatusBanner imageCount={images.length} />
+          {signedImages.length > 0 && (
+            <ProcessingDetailPanels
+              images={signedImages}
+              appData={appData as Record<string, unknown> | null}
+              beverageType={label.beverageType}
+              containerSizeMl={label.containerSizeMl}
+            />
+          )}
+        </div>
+      }
+      normalContent={
+        <div className="space-y-5">
+          {/* Summary bar + specialist guidance */}
+          <div className="space-y-3 rounded-lg border bg-muted/30 px-4 py-3">
+            <ValidationSummary
+              status={effectiveStatus}
+              confidence={confidence}
+              processingTimeMs={results?.processingTimeMs ?? null}
+              modelUsed={results?.modelUsed ?? null}
+              fieldCounts={fieldCounts}
+              aiProposedStatus={label.aiProposedStatus}
+              inputTokens={results?.inputTokens}
+              outputTokens={results?.outputTokens}
+              totalTokens={results?.totalTokens}
+            />
+
+            {/* Specialist guidance */}
+            {isReviewable && (
+              <>
+                <div className="h-px bg-border" />
+                <p className="text-[12px] leading-relaxed text-muted-foreground">
+                  <span className="font-medium text-foreground/80">
+                    Review guidance:
+                  </span>{' '}
+                  Submitted {timeAgo(label.createdAt)}.
+                  {confidence !== null && confidence >= 90
+                    ? ' High AI confidence — verify the field comparisons and approve if everything looks correct.'
+                    : confidence !== null && confidence >= 70
+                      ? ` Moderate AI confidence (${Math.round(confidence)}%) — pay close attention to flagged fields before deciding.`
+                      : ` Low AI confidence${confidence !== null ? ` (${Math.round(confidence)}%)` : ''} — carefully review all fields, especially mismatches and not-found items.`}
+                  {fieldCounts.mismatch > 0 &&
+                    ` ${fieldCounts.mismatch} mismatch${fieldCounts.mismatch > 1 ? 'es' : ''} detected.`}
+                  {fieldCounts.notFound > 0 &&
+                    ` ${fieldCounts.notFound} field${fieldCounts.notFound > 1 ? 's' : ''} not found on label.`}
+                </p>
+              </>
+            )}
+          </div>
+
+          {/* Two-panel layout: image + field list */}
+          {signedImages.length > 0 && items.length > 0 ? (
+            isReviewable ? (
+              <ReviewDetailPanels
+                labelId={label.id}
+                images={signedImages}
+                validationItems={mappedItems}
+                beverageType={label.beverageType}
+                applicantCorrections={
+                  (results?.aiRawResponse as Record<string, unknown>)
+                    ?.applicantCorrections as
+                    | Array<{
+                        fieldName: string
+                        aiExtractedValue: string
+                        applicantSubmittedValue: string
+                      }>
+                    | undefined
+                }
+              />
+            ) : (
+              <ValidationDetailPanels
+                images={signedImages}
+                validationItems={mappedItems}
+              />
+            )
+          ) : (
+            <div className="flex items-center justify-center rounded-lg border py-24 text-sm text-muted-foreground">
+              No validation data available for this label.
+            </div>
+          )}
+        </div>
+      }
+    />
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Async section: Correspondence timeline
+// ---------------------------------------------------------------------------
+
+async function LabelTimelineSection({
+  labelId,
+  label,
+  appData,
+  applicant,
+  effectiveStatus,
+}: {
+  labelId: string
+  label: Label
+  appData: ApplicationData | null
+  applicant: Applicant | null
+  effectiveStatus: string
+}) {
+  // Fetch results, reviews, overrides, superseded results ALL in parallel
+  const [results, reviews, overrides, supersededResults] = await Promise.all([
+    db
+      .select()
+      .from(validationResults)
+      .where(
+        and(
+          eq(validationResults.labelId, labelId),
+          eq(validationResults.isCurrent, true),
+        ),
+      )
+      .limit(1)
+      .then((rows) => rows[0] ?? null),
+    db
+      .select({
+        id: humanReviews.id,
+        fieldName: validationItems.fieldName,
+        originalStatus: humanReviews.originalStatus,
+        resolvedStatus: humanReviews.resolvedStatus,
+        reviewerNotes: humanReviews.reviewerNotes,
+        reviewedAt: humanReviews.reviewedAt,
+        specialistName: users.name,
+      })
+      .from(humanReviews)
+      .innerJoin(users, eq(humanReviews.specialistId, users.id))
+      .leftJoin(
+        validationItems,
+        eq(humanReviews.validationItemId, validationItems.id),
+      )
+      .where(eq(humanReviews.labelId, labelId))
+      .orderBy(humanReviews.reviewedAt),
+    db
+      .select({
+        id: statusOverrides.id,
+        previousStatus: statusOverrides.previousStatus,
+        newStatus: statusOverrides.newStatus,
+        justification: statusOverrides.justification,
+        reasonCode: statusOverrides.reasonCode,
+        createdAt: statusOverrides.createdAt,
+        specialistName: users.name,
+      })
+      .from(statusOverrides)
+      .innerJoin(users, eq(statusOverrides.specialistId, users.id))
+      .where(eq(statusOverrides.labelId, labelId))
+      .orderBy(desc(statusOverrides.createdAt)),
+    db
+      .select({
+        id: validationResults.id,
+        createdAt: validationResults.createdAt,
+        modelUsed: validationResults.modelUsed,
+        processingTimeMs: validationResults.processingTimeMs,
+        totalTokens: validationResults.totalTokens,
+      })
+      .from(validationResults)
+      .where(
+        and(
+          eq(validationResults.labelId, labelId),
+          eq(validationResults.isCurrent, false),
+        ),
+      )
+      .orderBy(desc(validationResults.createdAt)),
+  ])
+
+  // Fetch items (depends on results.id)
+  const items = results
+    ? await db
+        .select()
+        .from(validationItems)
+        .where(eq(validationItems.validationResultId, results.id))
+    : []
+
+  const hasSupersededResults = supersededResults.length > 0
+
+  return (
+    <CorrespondenceTimeline
+      events={buildTimeline({
+        label: {
+          id: label.id,
+          status: label.status,
+          correctionDeadline: label.correctionDeadline,
+          createdAt: label.createdAt,
+        },
+        effectiveStatus,
+        appData: appData
+          ? {
+              serialNumber: appData.serialNumber,
+              brandName: appData.brandName,
+            }
+          : null,
+        applicant,
+        validationResult: results
+          ? {
+              createdAt: results.createdAt,
+              processingTimeMs: results.processingTimeMs,
+            }
+          : null,
+        validationItems: items.map((item) => ({
+          fieldName: item.fieldName,
+          status: item.status,
+          expectedValue: item.expectedValue,
+          extractedValue: item.extractedValue,
+        })),
+        humanReviews: reviews.map((r) => ({
+          id: r.id,
+          fieldName: r.fieldName,
+          originalStatus: r.originalStatus,
+          resolvedStatus: r.resolvedStatus,
+          reviewerNotes: r.reviewerNotes,
+          reviewedAt: r.reviewedAt,
+          specialistName: r.specialistName,
+        })),
+        overrides: overrides.map((o) => ({
+          id: o.id,
+          previousStatus: o.previousStatus,
+          newStatus: o.newStatus,
+          justification: o.justification,
+          reasonCode: o.reasonCode,
+          createdAt: o.createdAt,
+          specialistName: o.specialistName,
+        })),
+        supersededResults: supersededResults.map((r) => ({
+          id: r.id,
+          createdAt: r.createdAt,
+          modelUsed: r.modelUsed,
+          processingTimeMs: r.processingTimeMs,
+          totalTokens: r.totalTokens,
+        })),
+        isReanalysis: hasSupersededResults,
+      })}
+    />
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Page component
+// ---------------------------------------------------------------------------
+
+interface LabelDetailPageProps {
+  params: Promise<{ id: string }>
+}
+
+export default async function LabelDetailPage({
+  params,
+}: LabelDetailPageProps) {
+  await requireSpecialist()
+
+  const { id } = await params
+
+  // Stage 1: Fetch label (needed for notFound check)
+  const [label] = await db
+    .select()
+    .from(labels)
+    .where(eq(labels.id, id))
+    .limit(1)
+
+  if (!label) {
+    notFound()
+  }
+
+  // Stage 2: Fetch appData + applicant in parallel (needed for header)
+  const [appData, applicant] = await Promise.all([
+    db
+      .select()
+      .from(applicationData)
+      .where(eq(applicationData.labelId, id))
+      .limit(1)
+      .then((rows) => rows[0] ?? null),
+    label.applicantId
+      ? db
+          .select()
+          .from(applicants)
+          .where(eq(applicants.id, label.applicantId))
+          .limit(1)
+          .then((rows) => rows[0] ?? null)
+      : null,
+  ])
+
+  // Compute effective status with lazy deadline expiration
+  const effectiveStatus = getEffectiveStatus({
+    status: label.status,
+    correctionDeadline: label.correctionDeadline,
+    deadlineExpired: label.deadlineExpired,
+  })
+
+  const isReviewable = REVIEWABLE_STATUSES.has(effectiveStatus)
+  const brandName = appData?.brandName ?? 'Untitled Label'
 
   return (
     <PageShell className="space-y-5">
@@ -278,154 +521,27 @@ export default async function LabelDetailPage({
         </div>
       </div>
 
-      {/* Content area — uses client guard to switch between processing and results */}
-      <ReanalysisGuard
-        labelId={label.id}
-        labelStatus={label.status}
-        processingContent={
-          <div className="space-y-5">
-            <AutoRefresh intervalMs={3_000} />
-            <ProcessingStatusBanner imageCount={images.length} />
-            {signedImages.length > 0 && (
-              <ProcessingDetailPanels
-                images={signedImages}
-                appData={appData as Record<string, unknown> | null}
-                beverageType={label.beverageType}
-                containerSizeMl={label.containerSizeMl}
-              />
-            )}
-          </div>
-        }
-        normalContent={
-          <div className="space-y-5">
-            {/* Summary bar + specialist guidance */}
-            <div className="space-y-3 rounded-lg border bg-muted/30 px-4 py-3">
-              <ValidationSummary
-                status={effectiveStatus}
-                confidence={confidence}
-                processingTimeMs={results?.processingTimeMs ?? null}
-                modelUsed={results?.modelUsed ?? null}
-                fieldCounts={fieldCounts}
-                aiProposedStatus={label.aiProposedStatus}
-                inputTokens={results?.inputTokens}
-                outputTokens={results?.outputTokens}
-                totalTokens={results?.totalTokens}
-              />
+      {/* Content area — streams independently */}
+      <Suspense fallback={<ContentSkeleton />}>
+        <LabelContentSection
+          labelId={label.id}
+          label={label}
+          appData={appData}
+          effectiveStatus={effectiveStatus}
+          isReviewable={isReviewable}
+        />
+      </Suspense>
 
-              {/* Specialist guidance */}
-              {isReviewable && (
-                <>
-                  <div className="h-px bg-border" />
-                  <p className="text-[12px] leading-relaxed text-muted-foreground">
-                    <span className="font-medium text-foreground/80">
-                      Review guidance:
-                    </span>{' '}
-                    Submitted {timeAgo(label.createdAt)}.
-                    {confidence !== null && confidence >= 90
-                      ? ' High AI confidence — verify the field comparisons and approve if everything looks correct.'
-                      : confidence !== null && confidence >= 70
-                        ? ` Moderate AI confidence (${Math.round(confidence)}%) — pay close attention to flagged fields before deciding.`
-                        : ` Low AI confidence${confidence !== null ? ` (${Math.round(confidence)}%)` : ''} — carefully review all fields, especially mismatches and not-found items.`}
-                    {fieldCounts.mismatch > 0 &&
-                      ` ${fieldCounts.mismatch} mismatch${fieldCounts.mismatch > 1 ? 'es' : ''} detected.`}
-                    {fieldCounts.notFound > 0 &&
-                      ` ${fieldCounts.notFound} field${fieldCounts.notFound > 1 ? 's' : ''} not found on label.`}
-                  </p>
-                </>
-              )}
-            </div>
-
-            {/* Two-panel layout: image + field list */}
-            {signedImages.length > 0 && items.length > 0 ? (
-              isReviewable ? (
-                <ReviewDetailPanels
-                  labelId={label.id}
-                  images={signedImages}
-                  validationItems={mappedItems}
-                  beverageType={label.beverageType}
-                  applicantCorrections={
-                    (results?.aiRawResponse as Record<string, unknown>)
-                      ?.applicantCorrections as
-                      | Array<{
-                          fieldName: string
-                          aiExtractedValue: string
-                          applicantSubmittedValue: string
-                        }>
-                      | undefined
-                  }
-                />
-              ) : (
-                <ValidationDetailPanels
-                  images={signedImages}
-                  validationItems={mappedItems}
-                />
-              )
-            ) : (
-              <div className="flex items-center justify-center rounded-lg border py-24 text-sm text-muted-foreground">
-                No validation data available for this label.
-              </div>
-            )}
-          </div>
-        }
-      />
-
-      {/* Correspondence timeline */}
-      <CorrespondenceTimeline
-        events={buildTimeline({
-          label: {
-            id: label.id,
-            status: label.status,
-            correctionDeadline: label.correctionDeadline,
-            createdAt: label.createdAt,
-          },
-          effectiveStatus,
-          appData: appData
-            ? {
-                serialNumber: appData.serialNumber,
-                brandName: appData.brandName,
-              }
-            : null,
-          applicant,
-          validationResult: results
-            ? {
-                createdAt: results.createdAt,
-                processingTimeMs: results.processingTimeMs,
-              }
-            : null,
-          validationItems: items.map((item) => ({
-            fieldName: item.fieldName,
-            status: item.status,
-            expectedValue: item.expectedValue,
-            extractedValue: item.extractedValue,
-          })),
-          humanReviews: reviews.map((r) => ({
-            id: r.id,
-            fieldName: r.fieldName,
-            originalStatus: r.originalStatus,
-            resolvedStatus: r.resolvedStatus,
-            reviewerNotes: r.reviewerNotes,
-            reviewedAt: r.reviewedAt,
-            specialistName: r.specialistName,
-          })),
-          overrides: overrides.map((o) => ({
-            id: o.id,
-            previousStatus: o.previousStatus,
-            newStatus: o.newStatus,
-            justification: o.justification,
-            reasonCode: o.reasonCode,
-            createdAt: o.createdAt,
-            specialistName: o.specialistName,
-          })),
-          supersededResults: supersededResults.map((r) => ({
-            id: r.id,
-            createdAt: r.createdAt,
-            modelUsed: r.modelUsed,
-            processingTimeMs: r.processingTimeMs,
-            totalTokens: r.totalTokens,
-          })),
-          isReanalysis: hasSupersededResults,
-        })}
-      />
+      {/* Correspondence timeline — streams independently */}
+      <Suspense fallback={<TimelineSkeleton />}>
+        <LabelTimelineSection
+          labelId={label.id}
+          label={label}
+          appData={appData}
+          applicant={applicant}
+          effectiveStatus={effectiveStatus}
+        />
+      </Suspense>
     </PageShell>
   )
 }

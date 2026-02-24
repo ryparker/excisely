@@ -4,8 +4,8 @@ import { z } from 'zod'
 
 import { getSession } from '@/lib/auth/get-session'
 import {
-  extractLabelFieldsForApplicant,
   extractLabelFieldsForApplicantWithType,
+  extractLabelFieldsWithAutoDetect,
 } from '@/lib/ai/extract-label'
 import { validateImageUrl } from '@/lib/validators/file-schema'
 
@@ -87,7 +87,7 @@ export async function extractFieldsFromImage(input: {
           parsed.data.imageUrls,
           parsed.data.beverageType,
         )
-      : await extractLabelFieldsForApplicant(parsed.data.imageUrls)
+      : await extractLabelFieldsWithAutoDetect(parsed.data.imageUrls)
 
     // Strip internal fields (confidence, reasoning, angle, rawResponse, metrics)
     const fields: ApplicantExtractedField[] = extraction.fields

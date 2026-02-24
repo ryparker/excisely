@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { RotateCcw } from 'lucide-react'
 
 import { HowItWorks } from '@/components/submit/how-it-works'
@@ -24,6 +24,14 @@ export function SubmitPageTabs() {
   const [resetKey, setResetKey] = useState(0)
   const [hasFiles, setHasFiles] = useState(false)
   const extraction = useExtractionStore()
+
+  // Reset extraction store on mount so returning after a submission starts clean
+  useEffect(() => {
+    if (extraction.status !== 'idle') {
+      extraction.reset()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on mount
+  }, [])
 
   const isLocked = hasFiles || extraction.status !== 'idle'
 
@@ -71,7 +79,7 @@ export function SubmitPageTabs() {
 
       <HowItWorks />
 
-      <SampleData />
+      {extraction.status === 'idle' && <SampleData />}
 
       <div className="mt-3">
         <LabelUploadForm

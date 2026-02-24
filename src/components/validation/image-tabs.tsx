@@ -30,7 +30,7 @@ export function ImageTabs({
   if (images.length <= 1) return null
 
   return (
-    <div className="mb-2 flex gap-1.5">
+    <div className="mb-1 flex gap-1.5">
       {images.map((img) => {
         const isActive = img.id === selectedImageId
         const failed = failedIds.has(img.id)

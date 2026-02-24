@@ -37,7 +37,7 @@ const FIELD_DESCRIPTIONS: Record<string, string> = {
   name_and_address:
     'The name and address of the bottler, distiller, importer, or producer (Form Item 8). Typically formatted as "Company Name, City, State" or "Company Name, City, State, Country". Do NOT include the qualifying phrase prefix here.',
   qualifying_phrase:
-    'The specific phrase that precedes the name and address. Single-function: "Bottled by", "Packed by", "Distilled by", "Blended by", "Produced by", "Prepared by", "Made by", "Manufactured by", "Imported by", "Brewed by". Compound (entity performs multiple functions): "Distilled and Bottled by", "Produced and Bottled by", "Cellared and Bottled by", "Vinted and Bottled by", "Prepared and Bottled by", "Brewed and Bottled by", "Imported and Bottled by". Contract: "Bottled for", "Distilled by and Bottled for". Wine: "Estate Bottled". Extract the EXACT phrase as it appears on the label, not the name/address that follows.',
+    'The specific phrase that precedes the name and address. Always extract the FULL phrase — if the label says "Produced & Bottled by", return "Produced and Bottled by" (normalize "&" to "and"). PREFER compound phrases over simple ones. Compound: "Distilled and Bottled by", "Produced and Bottled by", "Cellared and Bottled by", "Vinted and Bottled by", "Prepared and Bottled by", "Brewed and Bottled by", "Imported and Bottled by". Single: "Bottled by", "Packed by", "Distilled by", "Blended by", "Produced by", "Prepared by", "Made by", "Manufactured by", "Imported by", "Brewed by". Contract: "Bottled for", "Distilled by and Bottled for". Wine: "Estate Bottled". Return ONLY the phrase, not the company name that follows.',
   country_of_origin:
     'The country of origin statement for imported products (e.g., "Product of France", "Imported from Scotland", "Product of USA"). Only present on imported products.',
   grape_varietal:
@@ -112,7 +112,7 @@ ${fieldListText}
 
 **grape_varietal vs. fanciful_name**: For wine, the grape name (Albariño, Viognier, Cabernet Sauvignon, Malbec) is ALWAYS grape_varietal, NEVER fanciful_name.
 
-**name_and_address vs. qualifying_phrase**: The qualifying phrase is ONLY the prefix like "Bottled by" or "Produced by". The name_and_address is ONLY the company name and location that follows.
+**name_and_address vs. qualifying_phrase**: The qualifying phrase is ONLY the prefix like "Bottled by" or "Produced and Bottled by". Always use the FULL compound phrase when present (e.g., "Produced & Bottled by" → "Produced and Bottled by", not just "Bottled by"). Normalize "&" to "and". The name_and_address is ONLY the company name and location that follows.
 
 ## Important Rules
 
@@ -210,7 +210,7 @@ const FAST_FIELD_DESCRIPTIONS: Record<string, string> = {
   name_and_address:
     'Company name and location AFTER the qualifying phrase. Examples: "Beam Suntory, Clermont, KY", "Jackson Family Wines, Santa Rosa, CA". Do NOT include the qualifying phrase prefix.',
   qualifying_phrase:
-    'ONLY the prefix phrase before the company name. Common phrases: "Bottled by", "Packed by", "Distilled by", "Blended by", "Produced by", "Prepared by", "Made by", "Manufactured by", "Imported by". Compound phrases when one entity performs multiple functions: "Distilled and Bottled by", "Produced and Bottled by", "Cellared and Bottled by", "Vinted and Bottled by", "Prepared and Bottled by", "Brewed and Bottled by", "Imported and Bottled by". Contract bottling: "Bottled for", "Distilled by and Bottled for", "Brewed and Bottled for". Wine: "Estate Bottled". Extract the EXACT phrase as it appears on the label.',
+    'ONLY the prefix phrase before the company name. Always extract the FULL phrase — if the label says "Produced & Bottled by" or "PRODUCED AND BOTTLED BY", return "Produced and Bottled by" (normalize "&" to "and"). Compound phrases: "Distilled and Bottled by", "Produced and Bottled by", "Cellared and Bottled by", "Vinted and Bottled by", "Prepared and Bottled by", "Brewed and Bottled by", "Imported and Bottled by". Single: "Bottled by", "Distilled by", "Produced by", "Imported by", "Brewed by", "Made by". Contract: "Bottled for", "Distilled by and Bottled for". Wine: "Estate Bottled". PREFER compound phrases over simple ones when the label has both words.',
   country_of_origin:
     'Country of origin statement for imported products. Examples: "Product of France", "Imported from Scotland", "Product of USA". Omit if not found.',
   grape_varietal:
@@ -265,6 +265,7 @@ ${fieldListText}
 - ALWAYS extract class_type — this is the legal product category (e.g., "Kentucky Straight Bourbon Whiskey", "Vodka", "Table Wine", "Ale"). It is different from brand_name.
 - brand_name is the PRIMARY trademarked name (largest text). class_type is the LEGAL product category. Do NOT confuse them.
 - qualifying_phrase must be ONLY the prefix ("Bottled by", "Distilled by", etc.), NOT the company name.
+- IMPORTANT: Always extract the FULL qualifying phrase. If the label says "Produced & Bottled by" or "PRODUCED AND BOTTLED BY", the qualifying_phrase is "Produced and Bottled by" (the full compound phrase), NOT just "Bottled by". Treat "&" as equivalent to "and". Prefer compound forms over simple ones.
 - name_and_address is ONLY the company + location AFTER the qualifying phrase prefix.
 - Include units for alcohol_content and net_contents.
 - For wine: grape varietal is ALWAYS grape_varietal, NEVER fanciful_name.`
@@ -328,7 +329,7 @@ ${fieldListText}
 
 **grape_varietal vs. fanciful_name**: For wine, the grape name (Albariño, Viognier, Cabernet Sauvignon, Malbec) is ALWAYS grape_varietal, NEVER fanciful_name.
 
-**name_and_address vs. qualifying_phrase**: The qualifying phrase is ONLY the prefix like "Bottled by" or "Produced by". The name_and_address is ONLY the company name and location that follows.
+**name_and_address vs. qualifying_phrase**: The qualifying phrase is ONLY the prefix like "Bottled by" or "Produced and Bottled by". Always use the FULL compound phrase when present (e.g., "Produced & Bottled by" → "Produced and Bottled by", not just "Bottled by"). Normalize "&" to "and". The name_and_address is ONLY the company name and location that follows.
 
 ## Important Rules
 
@@ -412,7 +413,7 @@ ${fieldListText}
 
 **grape_varietal vs. fanciful_name**: For wine, the grape name is ALWAYS grape_varietal, NEVER fanciful_name.
 
-**name_and_address vs. qualifying_phrase**: The qualifying phrase is ONLY the prefix like "Bottled by". The name_and_address is ONLY the company name and location that follows.
+**name_and_address vs. qualifying_phrase**: The qualifying phrase is ONLY the prefix like "Bottled by" or "Produced and Bottled by". Always use the FULL compound phrase when present (e.g., "Produced & Bottled by" → "Produced and Bottled by", not just "Bottled by"). Normalize "&" to "and". The name_and_address is ONLY the company name and location that follows.
 
 ## Important Rules
 

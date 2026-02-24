@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { sql } from 'drizzle-orm'
 
 import { db } from '@/db'
@@ -16,80 +17,109 @@ import { AutoApprovalToggle } from '@/components/settings/auto-approval-toggle'
 import { ConfidenceThreshold } from '@/components/settings/confidence-threshold'
 import { FieldStrictness } from '@/components/settings/field-strictness'
 import { SLASettings } from '@/components/settings/sla-settings'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export const dynamic = 'force-dynamic'
 
-export default async function SettingsPage() {
-  await requireSpecialist()
+// ---------------------------------------------------------------------------
+// Skeleton
+// ---------------------------------------------------------------------------
 
-  const [
-    { confidenceThreshold, fieldStrictness },
-    slaTargets,
-    autoApprovalEnabled,
-    approvalThreshold,
-    avgAllResult,
-    avgNotAutoApprovedResult,
-    fieldMatchRateRows,
-    fieldOverrideRateRows,
-  ] = await Promise.all([
-    getSettings(),
-    getSLATargets(),
-    getAutoApprovalEnabled(),
-    getApprovalThreshold(),
-    // Average confidence across all analyzed labels
-    db
-      .select({
-        avg: sql<number>`round(avg(${labels.overallConfidence}::numeric))::int`,
-      })
-      .from(labels)
-      .where(sql`${labels.overallConfidence} IS NOT NULL`),
-    // Average confidence for labels that were NOT auto-approved
-    db
-      .select({
-        avg: sql<number>`round(avg(${labels.overallConfidence}::numeric))::int`,
-      })
-      .from(labels)
-      .where(
-        sql`${labels.overallConfidence} IS NOT NULL AND (
-          ${labels.status} IN ('pending_review', 'needs_correction', 'conditionally_approved', 'rejected')
-          OR (${labels.status} = 'approved' AND EXISTS (
-            SELECT 1 FROM human_reviews hr WHERE hr.label_id = ${labels.id}
-          ))
-        )`,
-      ),
-    // Per-field match rate: % of validation items that matched
-    db
-      .select({
-        fieldName: validationItems.fieldName,
-        matchRate: sql<number>`round(
-          count(CASE WHEN ${validationItems.status} = 'match' THEN 1 END)::numeric
-          / NULLIF(count(*), 0)::numeric * 100
-        )::int`,
-      })
-      .from(validationItems)
-      .groupBy(validationItems.fieldName),
-    // Per-field override rate: of flagged items, % that a specialist overrode to match
-    db
-      .select({
-        fieldName: validationItems.fieldName,
-        flaggedTotal: sql<number>`count(*)::int`,
-        overriddenCount: sql<number>`count(
-          CASE WHEN ${humanReviews.resolvedStatus} = 'match' THEN 1 END
-        )::int`,
-      })
-      .from(validationItems)
-      .leftJoin(
-        humanReviews,
-        sql`${humanReviews.validationItemId} = ${validationItems.id}`,
-      )
-      .where(sql`${validationItems.status} != 'match'`)
-      .groupBy(validationItems.fieldName),
-  ])
+function SettingsSkeleton({ height = 'h-[200px]' }: { height?: string }) {
+  return <Skeleton className={`${height} rounded-xl`} />
+}
 
-  const avgConfidence = avgAllResult[0]?.avg ?? null
-  const avgNotAutoApproved = avgNotAutoApprovedResult[0]?.avg ?? null
+// ---------------------------------------------------------------------------
+// Async section: Confidence Threshold
+// ---------------------------------------------------------------------------
 
-  // Build per-field stats maps
+async function ConfidenceSectionData() {
+  const [{ confidenceThreshold }, avgAllResult, avgNotAutoApprovedResult] =
+    await Promise.all([
+      getSettings(),
+      db
+        .select({
+          avg: sql<number>`round(avg(${labels.overallConfidence}::numeric))::int`,
+        })
+        .from(labels)
+        .where(sql`${labels.overallConfidence} IS NOT NULL`),
+      db
+        .select({
+          avg: sql<number>`round(avg(${labels.overallConfidence}::numeric))::int`,
+        })
+        .from(labels)
+        .where(
+          sql`${labels.overallConfidence} IS NOT NULL AND (
+            ${labels.status} IN ('pending_review', 'needs_correction', 'conditionally_approved', 'rejected')
+            OR (${labels.status} = 'approved' AND EXISTS (
+              SELECT 1 FROM human_reviews hr WHERE hr.label_id = ${labels.id}
+            ))
+          )`,
+        ),
+    ])
+
+  return (
+    <ConfidenceThreshold
+      defaultValue={confidenceThreshold}
+      avgConfidence={avgAllResult[0]?.avg ?? null}
+      avgNotAutoApproved={avgNotAutoApprovedResult[0]?.avg ?? null}
+    />
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Async section: Auto-Approval Toggle
+// ---------------------------------------------------------------------------
+
+async function AutoApprovalSectionData() {
+  const autoApprovalEnabled = await getAutoApprovalEnabled()
+  return <AutoApprovalToggle defaultValue={autoApprovalEnabled} />
+}
+
+// ---------------------------------------------------------------------------
+// Async section: Approval Threshold
+// ---------------------------------------------------------------------------
+
+async function ApprovalThresholdSectionData() {
+  const approvalThreshold = await getApprovalThreshold()
+  return <ApprovalThreshold defaultValue={approvalThreshold} />
+}
+
+// ---------------------------------------------------------------------------
+// Async section: Field Strictness
+// ---------------------------------------------------------------------------
+
+async function FieldStrictnessSectionData() {
+  const [{ fieldStrictness }, fieldMatchRateRows, fieldOverrideRateRows] =
+    await Promise.all([
+      getSettings(),
+      db
+        .select({
+          fieldName: validationItems.fieldName,
+          matchRate: sql<number>`round(
+            count(CASE WHEN ${validationItems.status} = 'match' THEN 1 END)::numeric
+            / NULLIF(count(*), 0)::numeric * 100
+          )::int`,
+        })
+        .from(validationItems)
+        .groupBy(validationItems.fieldName),
+      db
+        .select({
+          fieldName: validationItems.fieldName,
+          flaggedTotal: sql<number>`count(*)::int`,
+          overriddenCount: sql<number>`count(
+            CASE WHEN ${humanReviews.resolvedStatus} = 'match' THEN 1 END
+          )::int`,
+        })
+        .from(validationItems)
+        .leftJoin(
+          humanReviews,
+          sql`${humanReviews.validationItemId} = ${validationItems.id}`,
+        )
+        .where(sql`${validationItems.status} != 'match'`)
+        .groupBy(validationItems.fieldName),
+    ])
+
   const fieldMatchRates: Record<string, number> = {}
   for (const row of fieldMatchRateRows) {
     fieldMatchRates[row.fieldName] = row.matchRate
@@ -104,25 +134,52 @@ export default async function SettingsPage() {
   }
 
   return (
+    <FieldStrictness
+      defaults={fieldStrictness}
+      fieldMatchRates={fieldMatchRates}
+      fieldOverrideRates={fieldOverrideRates}
+    />
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Async section: SLA Settings
+// ---------------------------------------------------------------------------
+
+async function SLASectionData() {
+  const slaTargets = await getSLATargets()
+  return <SLASettings defaults={slaTargets} />
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
+export default async function SettingsPage() {
+  await requireSpecialist()
+
+  return (
     <PageShell className="space-y-6">
       <PageHeader
         title="Settings"
         description="Configure AI verification thresholds and field comparison rules."
       />
 
-      <ConfidenceThreshold
-        defaultValue={confidenceThreshold}
-        avgConfidence={avgConfidence}
-        avgNotAutoApproved={avgNotAutoApproved}
-      />
-      <AutoApprovalToggle defaultValue={autoApprovalEnabled} />
-      <ApprovalThreshold defaultValue={approvalThreshold} />
-      <FieldStrictness
-        defaults={fieldStrictness}
-        fieldMatchRates={fieldMatchRates}
-        fieldOverrideRates={fieldOverrideRates}
-      />
-      <SLASettings defaults={slaTargets} />
+      <Suspense fallback={<SettingsSkeleton />}>
+        <ConfidenceSectionData />
+      </Suspense>
+      <Suspense fallback={<SettingsSkeleton />}>
+        <AutoApprovalSectionData />
+      </Suspense>
+      <Suspense fallback={<SettingsSkeleton />}>
+        <ApprovalThresholdSectionData />
+      </Suspense>
+      <Suspense fallback={<SettingsSkeleton height="h-[400px]" />}>
+        <FieldStrictnessSectionData />
+      </Suspense>
+      <Suspense fallback={<SettingsSkeleton />}>
+        <SLASectionData />
+      </Suspense>
     </PageShell>
   )
 }

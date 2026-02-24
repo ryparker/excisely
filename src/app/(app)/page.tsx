@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { eq, count, and, desc, asc, sql, ilike, type SQL } from 'drizzle-orm'
 import { ShieldCheck } from 'lucide-react'
 
@@ -24,6 +25,7 @@ import { FilterBar } from '@/components/shared/filter-bar'
 import { ResetFiltersButton } from '@/components/shared/reset-filters-button'
 import { LabelsTable } from '@/components/labels/labels-table'
 import { Card } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export const dynamic = 'force-dynamic'
 
@@ -69,35 +71,168 @@ const STATUS_FILTERS = [
   },
 ] as const
 
-interface HomePageProps {
-  searchParams: Promise<{
-    page?: string
-    search?: string
-    status?: string
-    queue?: string
-    sort?: string
-    order?: string
-    beverageType?: string
-  }>
+// ---------------------------------------------------------------------------
+// Skeletons
+// ---------------------------------------------------------------------------
+
+function SLACardsSkeleton() {
+  return (
+    <>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="space-y-3 rounded-xl border bg-card p-5 shadow-sm"
+          >
+            <div className="flex items-center gap-2">
+              <Skeleton className="size-3.5 rounded" />
+              <Skeleton className="h-3.5 w-32" />
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              <Skeleton className="h-7 w-14" />
+              <Skeleton className="h-3 w-10" />
+            </div>
+            <Skeleton className="h-1.5 w-full rounded-full" />
+            <div className="flex items-center gap-1.5">
+              <Skeleton className="size-1.5 rounded-full" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Skeleton className="h-[100px] rounded-xl" />
+      </div>
+    </>
+  )
 }
 
-export default async function HomePage({ searchParams }: HomePageProps) {
-  const session = await requireSpecialist()
+function TableSkeleton() {
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-1.5">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Skeleton key={i} className="h-6 w-20 rounded-full" />
+        ))}
+      </div>
+      <Skeleton className="h-96 rounded-xl" />
+    </div>
+  )
+}
 
-  const params = await searchParams
-  const { user } = session
+// ---------------------------------------------------------------------------
+// Async section: SLA cards + token usage
+// ---------------------------------------------------------------------------
 
-  const currentPage = Math.max(1, Number(params.page) || 1)
+async function DashboardSLACards() {
+  const [slaMetrics, slaTargets, tokenUsageMetrics] = await Promise.all([
+    fetchSLAMetrics(),
+    getSLATargets(),
+    fetchTokenUsageMetrics(),
+  ])
+
+  const slaCards: SLAMetricCardData[] = [
+    {
+      icon: 'Clock',
+      label: 'Review Response Time',
+      description:
+        'Average time from label submission to first specialist review. Lower is better.',
+      value:
+        slaMetrics.avgReviewResponseHours !== null
+          ? Math.round(slaMetrics.avgReviewResponseHours)
+          : null,
+      target: slaTargets.reviewResponseHours,
+      unit: 'h',
+      status:
+        slaMetrics.avgReviewResponseHours !== null
+          ? getSLAStatus(
+              slaMetrics.avgReviewResponseHours,
+              slaTargets.reviewResponseHours,
+            )
+          : 'green',
+    },
+    {
+      icon: 'Gauge',
+      label: 'Total Turnaround',
+      description:
+        'Average time from submission to final decision (approved, rejected, or needs correction). Lower is better.',
+      value:
+        slaMetrics.avgTotalTurnaroundHours !== null
+          ? Math.round(slaMetrics.avgTotalTurnaroundHours)
+          : null,
+      target: slaTargets.totalTurnaroundHours,
+      unit: 'h',
+      status:
+        slaMetrics.avgTotalTurnaroundHours !== null
+          ? getSLAStatus(
+              slaMetrics.avgTotalTurnaroundHours,
+              slaTargets.totalTurnaroundHours,
+            )
+          : 'green',
+    },
+    {
+      icon: 'Zap',
+      label: 'Auto-Approval Rate',
+      description:
+        'Percentage of labels approved automatically by AI without specialist review. Higher is better.',
+      value: slaMetrics.autoApprovalRate,
+      target: slaTargets.autoApprovalRateTarget,
+      unit: '%',
+      status:
+        slaMetrics.autoApprovalRate !== null
+          ? getSLAStatus(
+              slaMetrics.autoApprovalRate,
+              slaTargets.autoApprovalRateTarget,
+              false,
+            )
+          : 'green',
+    },
+    {
+      icon: 'Inbox',
+      label: 'Queue Depth',
+      description:
+        'Number of labels waiting for specialist review. Lower means the team is keeping up with incoming submissions.',
+      value: slaMetrics.queueDepth,
+      target: slaTargets.maxQueueDepth,
+      unit: '',
+      status: getSLAStatus(slaMetrics.queueDepth, slaTargets.maxQueueDepth),
+    },
+  ]
+
+  return (
+    <>
+      <SLAMetricCards metrics={slaCards} />
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <TokenUsageSummary metrics={tokenUsageMetrics} />
+      </div>
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Async section: Labels table (filters + table/empty state)
+// ---------------------------------------------------------------------------
+
+async function DashboardLabelsTable({
+  searchTerm,
+  statusFilter,
+  queueFilter,
+  beverageTypeFilter,
+  sortKey,
+  sortOrder,
+  currentPage,
+  userRole,
+}: {
+  searchTerm: string
+  statusFilter: string
+  queueFilter: string
+  beverageTypeFilter: string
+  sortKey: string
+  sortOrder: 'asc' | 'desc'
+  currentPage: number
+  userRole: string
+}) {
   const offset = (currentPage - 1) * PAGE_SIZE
-  const searchTerm = params.search?.trim() ?? ''
-  // Default to "Pending Review" so specialists see actionable items first.
-  // "all" means no status filter; absence of param means use default.
-  const statusParam = params.status ?? 'pending_review'
-  const statusFilter = statusParam === 'all' ? '' : statusParam
-  const queueFilter = params.queue ?? ''
-  const sortKey = params.sort ?? ''
-  const sortOrder = params.order === 'asc' ? 'asc' : 'desc'
-  const beverageTypeFilter = params.beverageType ?? ''
 
   // Build where conditions for the table query
   const tableConditions: SQL[] = []
@@ -194,17 +329,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     orderByClause = [desc(labels.isPriority), desc(labels.createdAt)]
   }
 
-  const [
-    slaMetrics,
-    slaTargets,
-    tokenUsageMetrics,
-    tableCountResult,
-    statusCountRows,
-    rows,
-  ] = await Promise.all([
-    fetchSLAMetrics(),
-    getSLATargets(),
-    fetchTokenUsageMetrics(),
+  const [tableCountResult, statusCountRows, rows] = await Promise.all([
     // Table: filtered count
     db
       .select({ total: count() })
@@ -267,75 +392,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   }
   statusCounts['all'] = totalLabels // "All" filter
 
-  // Build SLA card data
-  const slaCards: SLAMetricCardData[] = [
-    {
-      icon: 'Clock',
-      label: 'Review Response Time',
-      description:
-        'Average time from label submission to first specialist review. Lower is better.',
-      value:
-        slaMetrics.avgReviewResponseHours !== null
-          ? Math.round(slaMetrics.avgReviewResponseHours)
-          : null,
-      target: slaTargets.reviewResponseHours,
-      unit: 'h',
-      status:
-        slaMetrics.avgReviewResponseHours !== null
-          ? getSLAStatus(
-              slaMetrics.avgReviewResponseHours,
-              slaTargets.reviewResponseHours,
-            )
-          : 'green',
-    },
-    {
-      icon: 'Gauge',
-      label: 'Total Turnaround',
-      description:
-        'Average time from submission to final decision (approved, rejected, or needs correction). Lower is better.',
-      value:
-        slaMetrics.avgTotalTurnaroundHours !== null
-          ? Math.round(slaMetrics.avgTotalTurnaroundHours)
-          : null,
-      target: slaTargets.totalTurnaroundHours,
-      unit: 'h',
-      status:
-        slaMetrics.avgTotalTurnaroundHours !== null
-          ? getSLAStatus(
-              slaMetrics.avgTotalTurnaroundHours,
-              slaTargets.totalTurnaroundHours,
-            )
-          : 'green',
-    },
-    {
-      icon: 'Zap',
-      label: 'Auto-Approval Rate',
-      description:
-        'Percentage of labels approved automatically by AI without specialist review. Higher is better.',
-      value: slaMetrics.autoApprovalRate,
-      target: slaTargets.autoApprovalRateTarget,
-      unit: '%',
-      status:
-        slaMetrics.autoApprovalRate !== null
-          ? getSLAStatus(
-              slaMetrics.autoApprovalRate,
-              slaTargets.autoApprovalRateTarget,
-              false,
-            )
-          : 'green',
-    },
-    {
-      icon: 'Inbox',
-      label: 'Queue Depth',
-      description:
-        'Number of labels waiting for specialist review. Lower means the team is keeping up with incoming submissions.',
-      value: slaMetrics.queueDepth,
-      target: slaTargets.maxQueueDepth,
-      unit: '',
-      status: getSLAStatus(slaMetrics.queueDepth, slaTargets.maxQueueDepth),
-    },
-  ]
-
   const labelsWithStatus = rows.map((row) => ({
     ...row,
     thumbnailUrl: row.thumbnailUrl ? getSignedImageUrl(row.thumbnailUrl) : null,
@@ -347,6 +403,90 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   }))
 
   return (
+    <>
+      <FilterBar
+        paramKey="status"
+        defaultValue="pending_review"
+        options={STATUS_FILTERS.map((f) => ({
+          label: f.label,
+          value: f.value,
+          count: statusCounts[f.value] ?? 0,
+          attention:
+            'attention' in f && f.attention && (statusCounts[f.value] ?? 0) > 0,
+          description: f.description,
+        }))}
+      />
+      {labelsWithStatus.length === 0 ? (
+        <Card>
+          <div className="flex flex-col items-center justify-center py-16">
+            <ShieldCheck className="mb-3 size-10 text-muted-foreground/30" />
+            <p className="text-sm font-medium text-muted-foreground">
+              {searchTerm || statusFilter
+                ? 'No labels match your filters.'
+                : 'No labels validated yet.'}
+            </p>
+            {!searchTerm && !statusFilter && (
+              <p className="mt-1 text-xs text-muted-foreground/60">
+                Labels will appear here once applicants submit them.
+              </p>
+            )}
+          </div>
+        </Card>
+      ) : (
+        <LabelsTable
+          labels={labelsWithStatus}
+          userRole={userRole}
+          totalPages={totalPages}
+          tableTotal={tableTotal}
+          pageSize={PAGE_SIZE}
+          queueMode={
+            queueFilter === 'ready'
+              ? 'ready'
+              : queueFilter === 'review'
+                ? 'review'
+                : undefined
+          }
+          searchTerm={searchTerm}
+        />
+      )}
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
+interface HomePageProps {
+  searchParams: Promise<{
+    page?: string
+    search?: string
+    status?: string
+    queue?: string
+    sort?: string
+    order?: string
+    beverageType?: string
+  }>
+}
+
+export default async function HomePage({ searchParams }: HomePageProps) {
+  const session = await requireSpecialist()
+
+  const params = await searchParams
+  const { user } = session
+
+  const currentPage = Math.max(1, Number(params.page) || 1)
+  const searchTerm = params.search?.trim() ?? ''
+  // Default to "Pending Review" so specialists see actionable items first.
+  // "all" means no status filter; absence of param means use default.
+  const statusParam = params.status ?? 'pending_review'
+  const statusFilter = statusParam === 'all' ? '' : statusParam
+  const queueFilter = params.queue ?? ''
+  const sortKey = params.sort ?? ''
+  const sortOrder = params.order === 'asc' ? 'asc' : 'desc'
+  const beverageTypeFilter = params.beverageType ?? ''
+
+  return (
     <DashboardAnimatedShell
       header={
         <PageHeader
@@ -355,75 +495,33 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         />
       }
       stats={
-        <>
-          <SLAMetricCards metrics={slaCards} />
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <TokenUsageSummary metrics={tokenUsageMetrics} />
-          </div>
-        </>
+        <Suspense fallback={<SLACardsSkeleton />}>
+          <DashboardSLACards />
+        </Suspense>
       }
       filters={
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <SearchInput
-              paramKey="search"
-              placeholder="Search by brand name..."
-              className="flex-1"
-            />
-            <ResetFiltersButton
-              paramKeys={['status', 'beverageType', 'queue']}
-            />
-          </div>
-          <FilterBar
-            paramKey="status"
-            defaultValue="pending_review"
-            options={STATUS_FILTERS.map((f) => ({
-              label: f.label,
-              value: f.value,
-              count: statusCounts[f.value] ?? 0,
-              attention:
-                'attention' in f &&
-                f.attention &&
-                (statusCounts[f.value] ?? 0) > 0,
-              description: f.description,
-            }))}
+        <div className="flex items-center gap-2">
+          <SearchInput
+            paramKey="search"
+            placeholder="Search by brand name..."
+            className="flex-1"
           />
+          <ResetFiltersButton paramKeys={['status', 'beverageType', 'queue']} />
         </div>
       }
       table={
-        labelsWithStatus.length === 0 ? (
-          <Card>
-            <div className="flex flex-col items-center justify-center py-16">
-              <ShieldCheck className="mb-3 size-10 text-muted-foreground/30" />
-              <p className="text-sm font-medium text-muted-foreground">
-                {searchTerm || statusFilter
-                  ? 'No labels match your filters.'
-                  : 'No labels validated yet.'}
-              </p>
-              {!searchTerm && !statusFilter && (
-                <p className="mt-1 text-xs text-muted-foreground/60">
-                  Labels will appear here once applicants submit them.
-                </p>
-              )}
-            </div>
-          </Card>
-        ) : (
-          <LabelsTable
-            labels={labelsWithStatus}
-            userRole={user.role}
-            totalPages={totalPages}
-            tableTotal={tableTotal}
-            pageSize={PAGE_SIZE}
-            queueMode={
-              queueFilter === 'ready'
-                ? 'ready'
-                : queueFilter === 'review'
-                  ? 'review'
-                  : undefined
-            }
+        <Suspense fallback={<TableSkeleton />}>
+          <DashboardLabelsTable
             searchTerm={searchTerm}
+            statusFilter={statusFilter}
+            queueFilter={queueFilter}
+            beverageTypeFilter={beverageTypeFilter}
+            sortKey={sortKey}
+            sortOrder={sortOrder}
+            currentPage={currentPage}
+            userRole={user.role}
           />
-        )
+        </Suspense>
       }
     />
   )

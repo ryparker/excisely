@@ -1,7 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Copy, Check, FlaskConical, X, Download, ImageIcon } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import {
+  Copy,
+  Check,
+  FlaskConical,
+  X,
+  Download,
+  ImageIcon,
+  GripVertical,
+} from 'lucide-react'
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react'
 import Image from 'next/image'
 
@@ -42,7 +50,7 @@ const SAMPLE_LABELS: SampleLabel[] = [
       },
     ],
     fields: [
-      { label: 'Serial Number', value: '26002001' },
+      { label: 'Serial Number', value: '26009001' },
       { label: 'Brand Name', value: 'Cooper Ridge' },
       { label: 'Fanciful Name', value: 'Fox Hollow Vineyard' },
       { label: 'Class/Type', value: 'Malbec' },
@@ -67,7 +75,7 @@ const SAMPLE_LABELS: SampleLabel[] = [
       },
     ],
     fields: [
-      { label: 'Serial Number', value: '26001001' },
+      { label: 'Serial Number', value: '26009002' },
       { label: 'Brand Name', value: 'Backbone Bourbon' },
       { label: 'Fanciful Name', value: 'Estate' },
       { label: 'Class/Type', value: 'Straight Bourbon Whiskey' },
@@ -87,7 +95,7 @@ const SAMPLE_LABELS: SampleLabel[] = [
       },
     ],
     fields: [
-      { label: 'Serial Number', value: '26003001' },
+      { label: 'Serial Number', value: '26009003' },
       { label: 'Brand Name', value: 'Sierra Nevada' },
       { label: 'Fanciful Name', value: 'Trip Thru the Woods' },
       { label: 'Class/Type', value: 'Stout' },
@@ -154,12 +162,57 @@ function DownloadableImage({ image }: { image: SampleImage }) {
   )
 }
 
+function HintCallout({ onDismiss }: { onDismiss: () => void }) {
+  const prefersReducedMotion = useReducedMotion()
+
+  // Auto-dismiss after 6s
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 6000)
+    return () => clearTimeout(t)
+  }, [onDismiss])
+
+  return (
+    <motion.div
+      initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 4 }}
+      animate={
+        prefersReducedMotion
+          ? { opacity: 1 }
+          : {
+              opacity: 1,
+              y: [4, -2, 4],
+              transition: {
+                opacity: { duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] },
+                y: {
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                },
+              },
+            }
+      }
+      exit={{ opacity: 0, transition: { duration: 0.12 } }}
+      className="pointer-events-none absolute -top-11 right-0 whitespace-nowrap"
+    >
+      <div className="rounded-lg bg-foreground px-2.5 py-1.5 text-[11px] font-medium text-background shadow-md">
+        Need test data? Click here
+      </div>
+      {/* Caret */}
+      <div className="absolute right-5 -bottom-1 size-2.5 rotate-45 bg-foreground" />
+    </motion.div>
+  )
+}
+
 export function SampleData() {
   const [isOpen, setIsOpen] = useState(false)
   const [activeTab, setActiveTab] = useState(0)
+  const [showHint, setShowHint] = useState(true)
   const prefersReducedMotion = useReducedMotion()
+  const constraintsRef = useRef<HTMLDivElement>(null)
+  const didDragRef = useRef(false)
 
   const activeLabel = SAMPLE_LABELS[activeTab]
+
+  const dismissHint = useCallback(() => setShowHint(false), [])
 
   // Close on Escape
   useEffect(() => {
@@ -172,27 +225,39 @@ export function SampleData() {
   }, [isOpen])
 
   return (
-    <div className="fixed right-5 bottom-5 z-50">
+    <>
+      {/* Drag constraints — inset from viewport edges */}
+      <div
+        ref={constraintsRef}
+        className="pointer-events-none fixed inset-4 z-50"
+      />
+
       <AnimatePresence mode="wait">
         {isOpen ? (
           <motion.div
             key="panel"
+            drag
+            dragMomentum={false}
+            dragConstraints={constraintsRef}
+            dragElastic={0.1}
             initial={
               prefersReducedMotion
                 ? { opacity: 0 }
-                : { opacity: 0, y: 8, scale: 0.96 }
+                : { opacity: 0, scale: 0.96 }
             }
-            animate={{ opacity: 1, y: 0, scale: 1 }}
+            animate={{ opacity: 1, scale: 1 }}
             exit={
               prefersReducedMotion
                 ? { opacity: 0 }
-                : { opacity: 0, y: 8, scale: 0.96 }
+                : { opacity: 0, scale: 0.96 }
             }
             transition={{ duration: 0.15, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className="w-[400px] origin-bottom-right rounded-xl border bg-popover shadow-xl"
+            style={{ right: 24, bottom: 80 }}
+            className="fixed z-50 w-[400px] rounded-xl border bg-popover shadow-xl"
           >
-            {/* Header */}
-            <div className="flex items-center gap-2 border-b px-3 py-2">
+            {/* Drag handle + header */}
+            <div className="flex cursor-grab items-center gap-2 border-b px-3 py-2 active:cursor-grabbing">
+              <GripVertical className="size-3.5 text-muted-foreground/40" />
               <FlaskConical className="size-3.5 text-muted-foreground" />
               <span className="text-xs font-semibold">
                 Sample labels for testing
@@ -200,6 +265,7 @@ export function SampleData() {
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
+                onPointerDown={(e) => e.stopPropagation()}
                 className="ml-auto rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
                 aria-label="Close sample data"
               >
@@ -207,8 +273,11 @@ export function SampleData() {
               </button>
             </div>
 
-            {/* Beverage type tabs */}
-            <div className="flex gap-1 border-b px-3 py-1.5">
+            {/* Beverage type tabs — stop drag propagation so clicks work */}
+            <div
+              className="flex gap-1 border-b px-3 py-1.5"
+              onPointerDown={(e) => e.stopPropagation()}
+            >
               {SAMPLE_LABELS.map((label, i) => (
                 <button
                   key={label.name}
@@ -226,8 +295,11 @@ export function SampleData() {
               ))}
             </div>
 
-            {/* Content */}
-            <div className="max-h-[70vh] space-y-3 overflow-y-auto px-3 py-3">
+            {/* Content — stop drag propagation so scrolling/clicking works */}
+            <div
+              className="max-h-[70vh] space-y-3 overflow-y-auto px-3 py-3"
+              onPointerDown={(e) => e.stopPropagation()}
+            >
               <p className="text-[11px] font-semibold text-foreground">
                 {activeLabel.name}
               </p>
@@ -281,21 +353,47 @@ export function SampleData() {
             </div>
           </motion.div>
         ) : (
-          <motion.button
+          <motion.div
             key="trigger"
-            type="button"
-            onClick={() => setIsOpen(true)}
+            drag
+            dragMomentum={false}
+            dragConstraints={constraintsRef}
+            dragElastic={0.1}
+            onDragStart={() => {
+              didDragRef.current = true
+              dismissHint()
+            }}
             initial={prefersReducedMotion ? false : { scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
             transition={{ duration: 0.12 }}
-            className="flex items-center gap-1.5 rounded-full border bg-popover px-3 py-2 text-xs font-medium text-muted-foreground shadow-lg transition-colors hover:text-foreground"
+            whileDrag={{ scale: 1.05 }}
+            style={{ right: 24, bottom: 80 }}
+            className="fixed z-50 cursor-grab active:cursor-grabbing"
           >
-            <FlaskConical className="size-3.5" />
-            Sample Data
-          </motion.button>
+            {/* Hint callout */}
+            <AnimatePresence>
+              {showHint && !isOpen && <HintCallout onDismiss={dismissHint} />}
+            </AnimatePresence>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (didDragRef.current) {
+                  didDragRef.current = false
+                  return
+                }
+                dismissHint()
+                setIsOpen(true)
+              }}
+              className="flex items-center gap-1.5 rounded-full border bg-popover px-3 py-2 text-xs font-medium text-muted-foreground shadow-lg transition-colors hover:text-foreground"
+            >
+              <FlaskConical className="size-3.5" />
+              Sample Data
+            </button>
+          </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </>
   )
 }

@@ -16,6 +16,7 @@ export type ProcessingStage =
   | 'classifying'
   | 'comparing'
   | 'finalizing'
+  | 'slow'
   | 'complete'
   | 'timeout'
   | 'error'
@@ -44,8 +45,8 @@ export const STAGES: StageConfig[] = [
         ? `Sending ${n} label images to secure storage`
         : 'Sending label image to secure storage',
     icon: ImageUp,
-    baseEstimatedMs: 1200,
-    perImageMs: 600,
+    baseEstimatedMs: 2000,
+    perImageMs: 1000,
   },
   {
     id: 'ocr',
@@ -55,8 +56,8 @@ export const STAGES: StageConfig[] = [
         ? `Extracting text from ${n} label images`
         : 'Extracting text from your label',
     icon: ScanText,
-    baseEstimatedMs: 1200,
-    perImageMs: 200,
+    baseEstimatedMs: 3000,
+    perImageMs: 1500,
   },
   {
     id: 'classifying',
@@ -66,15 +67,15 @@ export const STAGES: StageConfig[] = [
         ? `Identifying regulatory fields across ${n} images`
         : 'Identifying regulatory fields from extracted text',
     icon: Sparkles,
-    baseEstimatedMs: 2000,
-    perImageMs: 400,
+    baseEstimatedMs: 10000,
+    perImageMs: 2000,
   },
   {
     id: 'comparing',
     label: 'Comparing against application',
     description: () => 'Matching extracted fields to Form 5100.31 data',
     icon: TextSearch,
-    baseEstimatedMs: 600,
+    baseEstimatedMs: 3000,
     perImageMs: 0,
   },
   {
@@ -82,7 +83,7 @@ export const STAGES: StageConfig[] = [
     label: 'Generating report',
     description: () => 'Building validation results and status determination',
     icon: FileSearch,
-    baseEstimatedMs: 400,
+    baseEstimatedMs: 2000,
     perImageMs: 0,
   },
 ]
