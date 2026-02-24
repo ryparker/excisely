@@ -16,6 +16,7 @@ import { REASON_CODE_LABELS } from '@/config/override-reasons'
 import { BEVERAGE_OPTIONS } from '@/config/beverage-display'
 import { DeadlineDisplay } from '@/components/shared/DeadlineDisplay'
 import { confidenceColor, formatConfidence, formatDate } from '@/lib/utils'
+import { pluralize } from '@/lib/pluralize'
 import { ColumnHeader } from '@/components/shared/ColumnHeader'
 import { LabelThumbnail } from '@/components/shared/LabelThumbnail'
 import { TablePagination } from '@/components/shared/TablePagination'
@@ -494,8 +495,7 @@ export function LabelsTable({
           >
             <div className="mx-auto flex max-w-screen-xl items-center justify-between px-6 py-3">
               <p className="text-sm font-medium">
-                {selectedIds.size} label{selectedIds.size !== 1 ? 's' : ''}{' '}
-                selected
+                {pluralize(selectedIds.size, 'label')} selected
               </p>
               <div className="flex items-center gap-3">
                 <button
@@ -568,13 +568,12 @@ export function LabelsTable({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Re-Analyze {selectedIds.size} Label
-              {selectedIds.size !== 1 ? 's' : ''}
+              Re-Analyze {pluralize(selectedIds.size, 'Label')}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {bulkTotal === 0
                 ? `This will re-run the AI pipeline on each selected label. Processing 3 at a time.`
-                : `Completed ${bulkCompleted} of ${bulkTotal}${bulkErrors > 0 ? ` \u2014 ${bulkErrors} error${bulkErrors !== 1 ? 's' : ''}` : ''}`}
+                : `Completed ${bulkCompleted} of ${bulkTotal}${bulkErrors > 0 ? ` \u2014 ${pluralize(bulkErrors, 'error')}` : ''}`}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -598,8 +597,7 @@ export function LabelsTable({
               <>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={handleBulkReanalyze}>
-                  Re-Analyze {selectedIds.size} Label
-                  {selectedIds.size !== 1 ? 's' : ''}
+                  Re-Analyze {pluralize(selectedIds.size, 'Label')}
                 </AlertDialogAction>
               </>
             )}
@@ -617,12 +615,11 @@ export function LabelsTable({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Approve {selectedIds.size} Label
-              {selectedIds.size !== 1 ? 's' : ''}
+              Approve {pluralize(selectedIds.size, 'Label')}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {batchApproveResult
-                ? `Approved ${batchApproveResult.approvedCount} label${batchApproveResult.approvedCount !== 1 ? 's' : ''}${batchApproveResult.failedIds.length > 0 ? ` — ${batchApproveResult.failedIds.length} failed` : ''}`
+                ? `${pluralize(batchApproveResult.approvedCount, 'label')} approved${batchApproveResult.failedIds.length > 0 ? ` — ${batchApproveResult.failedIds.length} failed` : ''}`
                 : `All selected labels have been verified by AI with high confidence and all fields match. This will approve them in bulk with an audit trail.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -642,8 +639,7 @@ export function LabelsTable({
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={handleBatchApprove}>
                   <Check className="size-4" />
-                  Approve {selectedIds.size} Label
-                  {selectedIds.size !== 1 ? 's' : ''}
+                  Approve {pluralize(selectedIds.size, 'Label')}
                 </AlertDialogAction>
               </>
             )}

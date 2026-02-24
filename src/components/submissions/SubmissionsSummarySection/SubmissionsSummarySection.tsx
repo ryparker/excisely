@@ -1,6 +1,7 @@
 import { getStatusCounts, getNearestDeadline } from '@/db/queries/labels'
 import { SubmissionsSummaryCards } from '@/components/submissions/SubmissionsSummaryCards'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { pluralize } from '@/lib/pluralize'
 
 function formatDeadlineText(deadline: Date): string {
   const days = Math.ceil(
@@ -8,7 +9,7 @@ function formatDeadlineText(deadline: Date): string {
   )
   return days <= 0
     ? 'Deadline expired'
-    : `Next deadline in ${days} day${days !== 1 ? 's' : ''}`
+    : `Next deadline in ${pluralize(days, 'day')}`
 }
 
 export function SummaryCardsSkeleton() {

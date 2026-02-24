@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
+import { pluralize } from '@/lib/pluralize'
 
 interface TablePaginationProps {
   currentPage: number
@@ -25,7 +26,6 @@ export function TablePagination({
   className,
 }: TablePaginationProps) {
   const offset = (currentPage - 1) * pageSize
-  const plural = tableTotal !== 1 ? 's' : ''
 
   return (
     <div
@@ -36,8 +36,8 @@ export function TablePagination({
     >
       <p className="text-xs text-muted-foreground tabular-nums">
         {totalPages > 1
-          ? `Showing ${offset + 1}\u2013${Math.min(offset + pageSize, tableTotal)} of ${tableTotal} ${entityName}${plural}`
-          : `${tableTotal} ${entityName}${plural}`}
+          ? `Showing ${offset + 1}\u2013${Math.min(offset + pageSize, tableTotal)} of ${pluralize(tableTotal, entityName)}`
+          : pluralize(tableTotal, entityName)}
       </p>
       {totalPages > 1 &&
         (alwaysShowButtons ? (

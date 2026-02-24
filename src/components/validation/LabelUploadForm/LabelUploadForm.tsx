@@ -23,6 +23,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { QRCodeSVG } from 'qrcode.react'
 import { toast } from 'sonner'
 
+import { pluralize } from '@/lib/pluralize'
 import { routes } from '@/config/routes'
 import { extractFieldsFromImage } from '@/app/actions/extract-fields-from-image'
 import { submitApplication } from '@/app/actions/submit-application'
@@ -1448,7 +1449,7 @@ export function LabelUploadForm({
                     ))}
                   </div>
                   <span className="shrink-0 text-xs text-muted-foreground">
-                    {files.length} image{files.length !== 1 ? 's' : ''}
+                    {pluralize(files.length, 'image')}
                   </span>
                 </div>
 
@@ -1590,8 +1591,8 @@ export function LabelUploadForm({
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>
-                {files.length - imageCountAtLastScan} new photo
-                {files.length - imageCountAtLastScan !== 1 ? 's' : ''} added
+                {pluralize(files.length - imageCountAtLastScan, 'new photo')}{' '}
+                added
               </DialogTitle>
               <DialogDescription>
                 Re-scan to include the new images in your verification, or add
@@ -1670,8 +1671,7 @@ export function LabelUploadForm({
                 }}
               >
                 <ScanText className="size-3.5" />
-                Re-scan with {files.length} image
-                {files.length !== 1 ? 's' : ''}
+                Re-scan with {pluralize(files.length, 'image')}
               </Button>
             </div>
           </DialogContent>

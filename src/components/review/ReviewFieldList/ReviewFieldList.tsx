@@ -26,6 +26,7 @@ import {
   HoverCardTrigger,
 } from '@/components/ui/HoverCard'
 import { cn } from '@/lib/utils'
+import { pluralize } from '@/lib/pluralize'
 import {
   determineOverallStatus,
   type ValidationItemStatus,
@@ -482,8 +483,7 @@ export function ReviewFieldList({
               )}
               {matchOverrideCount > 0 && (
                 <span className="text-xs tabular-nums opacity-70">
-                  (+{matchOverrideCount} AI correction
-                  {matchOverrideCount !== 1 ? 's' : ''})
+                  (+{pluralize(matchOverrideCount, 'AI correction')})
                 </span>
               )}
             </>
@@ -491,8 +491,8 @@ export function ReviewFieldList({
         </Button>
         {!allFlaggedResolved ? (
           <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            Resolve all {flaggedItems.length} flagged field
-            {flaggedItems.length !== 1 ? 's' : ''} to enable submission.
+            Resolve all {pluralize(flaggedItems.length, 'flagged field')} to
+            enable submission.
           </p>
         ) : projectedStatus?.deadlineDays ? (
           <p className="mt-2 text-center text-[11px] text-muted-foreground">

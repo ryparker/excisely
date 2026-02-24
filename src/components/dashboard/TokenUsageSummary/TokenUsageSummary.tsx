@@ -11,6 +11,7 @@ import {
 import type { TokenUsageMetrics } from '@/db/queries/sla'
 import { staggerInitial, staggerTransitionSafe } from '@/lib/motion-presets'
 import { formatNumber } from '@/lib/utils'
+import { pluralize } from '@/lib/pluralize'
 
 export function TokenUsageSummary({
   metrics,
@@ -86,10 +87,7 @@ export function TokenUsageSummary({
 
       {/* Footer stats */}
       <div className="mt-2.5 flex items-center gap-3 text-[11px] text-muted-foreground/60">
-        <span>
-          {metrics.validationCount} validation
-          {metrics.validationCount !== 1 ? 's' : ''}
-        </span>
+        <span>{pluralize(metrics.validationCount, 'validation')}</span>
         {metrics.avgTokensPerValidation !== null && (
           <>
             <span className="text-muted-foreground/20">|</span>

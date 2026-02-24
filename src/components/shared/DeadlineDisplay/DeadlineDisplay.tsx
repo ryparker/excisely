@@ -1,4 +1,5 @@
 import { getDeadlineInfo } from '@/lib/labels/effective-status'
+import { pluralize } from '@/lib/pluralize'
 
 const SPECIALIST_URGENCY_COLORS: Record<string, string> = {
   green: 'text-green-600 dark:text-green-400',
@@ -38,7 +39,7 @@ export function DeadlineDisplay({
   const suffix =
     variant === 'applicant'
       ? 'd remaining'
-      : ` day${info.daysRemaining !== 1 ? 's' : ''}`
+      : ` ${pluralize(info.daysRemaining, 'day', { omitCount: true })}`
 
   return (
     <span className={colors[info.urgency]}>

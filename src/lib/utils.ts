@@ -1,6 +1,8 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
+import { pluralize } from '@/lib/pluralize'
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
@@ -19,20 +21,20 @@ export function timeAgo(date: Date): string {
 
   const minutes = Math.floor(absDiffMs / 60_000)
   if (minutes < 60) {
-    const label = minutes === 1 ? 'minute' : 'minutes'
-    return isFuture ? `in ${minutes} ${label}` : `${minutes} ${label} ago`
+    const label = pluralize(minutes, 'minute')
+    return isFuture ? `in ${label}` : `${label} ago`
   }
 
   const hours = Math.floor(minutes / 60)
   if (hours < 24) {
-    const label = hours === 1 ? 'hour' : 'hours'
-    return isFuture ? `in ${hours} ${label}` : `${hours} ${label} ago`
+    const label = pluralize(hours, 'hour')
+    return isFuture ? `in ${label}` : `${label} ago`
   }
 
   const days = Math.floor(hours / 24)
   if (days < 30) {
-    const label = days === 1 ? 'day' : 'days'
-    return isFuture ? `in ${days} ${label}` : `${days} ${label} ago`
+    const label = pluralize(days, 'day')
+    return isFuture ? `in ${label}` : `${label} ago`
   }
 
   return date.toLocaleDateString('en-US', {
