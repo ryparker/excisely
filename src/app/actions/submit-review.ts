@@ -12,11 +12,9 @@ import {
 } from '@/db/schema'
 import { guardSpecialist } from '@/lib/auth/action-guards'
 import { formatZodError } from '@/lib/actions/parse-zod-error'
-import { type BeverageType } from '@/config/beverage-types'
 import {
   determineOverallStatus,
   addDays,
-  type ValidationItemStatus,
 } from '@/lib/labels/validation-helpers'
 
 // ---------------------------------------------------------------------------
@@ -184,8 +182,8 @@ export async function submitReview(
 
     // 6. Determine new overall label status (no containerSizeMl — reviews don't re-validate size)
     const { status: newStatus, deadlineDays } = determineOverallStatus(
-      finalItems as Array<{ fieldName: string; status: ValidationItemStatus }>,
-      label.beverageType as BeverageType,
+      finalItems,
+      label.beverageType,
     )
 
     const correctionDeadline = deadlineDays

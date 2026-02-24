@@ -21,9 +21,13 @@ import {
   HoverCardTrigger,
 } from '@/components/ui/hover-card'
 import { updateFieldStrictness } from '@/app/actions/update-settings'
+import type { StrictnessLevel } from '@/lib/settings/get-settings'
 
-const STRICTNESS_LEVELS = ['strict', 'moderate', 'lenient'] as const
-type StrictnessLevel = (typeof STRICTNESS_LEVELS)[number]
+const STRICTNESS_LEVELS: readonly StrictnessLevel[] = [
+  'strict',
+  'moderate',
+  'lenient',
+]
 
 const STRICTNESS_TOOLTIPS: Record<
   StrictnessLevel,
@@ -50,7 +54,7 @@ const STRICTNESS_TOOLTIPS: Record<
 }
 
 interface FieldStrictnessProps {
-  defaults: Record<string, string>
+  defaults: Record<string, StrictnessLevel>
   fieldMatchRates?: Record<string, number>
   fieldOverrideRates?: Record<string, number>
 }
@@ -60,11 +64,12 @@ export function FieldStrictness({
   fieldMatchRates = {},
   fieldOverrideRates = {},
 }: FieldStrictnessProps) {
-  const [values, setValues] = useState<Record<string, string>>(defaults)
+  const [values, setValues] =
+    useState<Record<string, StrictnessLevel>>(defaults)
   const { isPending, saved, error, save } = useSettingsSave()
 
   const handleChange = useCallback(
-    (fieldName: string, level: string) => {
+    (fieldName: string, level: StrictnessLevel) => {
       const newValues = { ...values, [fieldName]: level }
       setValues(newValues)
       save(() => updateFieldStrictness(newValues))
@@ -152,7 +157,7 @@ export function FieldStrictness({
 
           {/* Rows */}
           {fieldNames.map((fieldName, index) => {
-            const current = (values[fieldName] ?? 'moderate') as StrictnessLevel
+            const current = values[fieldName] ?? 'moderate'
             const fieldTipData = FIELD_TOOLTIPS[fieldName]
             const matchRate = fieldMatchRates[fieldName] ?? null
             const overrideRate = fieldOverrideRates[fieldName] ?? null

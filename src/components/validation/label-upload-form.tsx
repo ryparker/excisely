@@ -379,11 +379,11 @@ export function LabelUploadForm({
       const merged = { ...currentValues }
       for (const [key, value] of current) {
         if (key === 'sulfiteDeclaration') {
-          ;(merged as Record<string, unknown>).sulfiteDeclaration = true
+          merged.sulfiteDeclaration = true
         } else if (key === 'containerSizeMl') {
-          ;(merged as Record<string, unknown>).containerSizeMl = Number(value)
+          merged.containerSizeMl = Number(value)
         } else {
-          ;(merged as Record<string, unknown>)[key] = value
+          Object.assign(merged, { [key]: value })
         }
       }
       reset(merged, { keepDirty: true, keepErrors: true })
@@ -664,9 +664,7 @@ export function LabelUploadForm({
       if (
         detectedBeverageType &&
         !getValues('beverageType') &&
-        ['distilled_spirits', 'wine', 'malt_beverage'].includes(
-          detectedBeverageType,
-        )
+        detectedBeverageType in BEVERAGE_TYPES
       ) {
         setValue('beverageType', detectedBeverageType as BeverageType, {
           shouldValidate: true,
@@ -802,11 +800,11 @@ export function LabelUploadForm({
       const merged = { ...currentValues }
       for (const [key, value] of prefillMap) {
         if (key === 'sulfiteDeclaration') {
-          ;(merged as Record<string, unknown>).sulfiteDeclaration = true
+          merged.sulfiteDeclaration = true
         } else if (key === 'containerSizeMl') {
-          ;(merged as Record<string, unknown>).containerSizeMl = Number(value)
+          merged.containerSizeMl = Number(value)
         } else {
-          ;(merged as Record<string, unknown>)[key] = value
+          Object.assign(merged, { [key]: value })
         }
       }
       reset(merged, { keepDirty: true, keepErrors: true })

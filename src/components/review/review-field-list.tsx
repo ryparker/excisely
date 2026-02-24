@@ -43,7 +43,7 @@ interface ValidationItemData {
   fieldName: string
   expectedValue: string
   extractedValue: string
-  status: string
+  status: ValidationItemStatus
   confidence: string
   matchReasoning: string | null
   bboxX: string | null
@@ -77,7 +77,7 @@ interface ReviewFieldListProps {
     string,
     { x: number; y: number; width: number; height: number }
   >
-  beverageType: string
+  beverageType: BeverageType
 }
 
 // ---------------------------------------------------------------------------
@@ -225,12 +225,13 @@ export function ReviewFieldList({
       const isFlaggedMatch = flaggedMatchIds.has(item.id)
       return {
         fieldName: item.fieldName,
-        status: (isFlaggedMatch && override?.resolvedStatus
-          ? override.resolvedStatus
-          : (override?.resolvedStatus ?? item.status)) as ValidationItemStatus,
+        status:
+          isFlaggedMatch && override?.resolvedStatus
+            ? override.resolvedStatus
+            : (override?.resolvedStatus ?? item.status),
       }
     })
-    return determineOverallStatus(finalStatuses, beverageType as BeverageType)
+    return determineOverallStatus(finalStatuses, beverageType)
   })()
 
   const handleOverrideStatus = (itemId: string, status: ResolvedStatus) => {

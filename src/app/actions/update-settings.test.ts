@@ -1,4 +1,5 @@
 import { createSession } from '@/test/factories'
+import type { StrictnessLevel } from '@/lib/settings/get-settings'
 
 // ---------------------------------------------------------------------------
 // Hoisted mock refs
@@ -142,7 +143,10 @@ describe('updateFieldStrictness', () => {
 
   it('returns error for invalid strictness value', async () => {
     mocks.getSession.mockResolvedValue(createSession())
-    const result = await updateFieldStrictness({ brand_name: 'invalid_value' })
+    // Intentionally passing invalid value to test runtime validation
+    const result = await updateFieldStrictness({
+      brand_name: 'invalid_value' as StrictnessLevel,
+    })
     expect(result.success).toBe(false)
     expect((result as { error: string }).error).toContain(
       'strict, moderate, or lenient',

@@ -136,10 +136,7 @@ export async function validateLabel(
       .returning({ id: labelImages.id })
 
     // 7. Build expected fields from application data (needed for AI pipeline + comparison)
-    const expectedFields = buildExpectedFields(
-      input as Record<string, unknown>,
-      input.beverageType,
-    )
+    const expectedFields = buildExpectedFields(input, input.beverageType)
 
     // 8. Run AI pipeline with application data for disambiguation
     const appDataForAI = Object.fromEntries(expectedFields)

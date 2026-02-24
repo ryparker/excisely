@@ -24,6 +24,10 @@ export const MAGIC_BYTES: Record<AllowedMimeType, Uint8Array[]> = {
 
 const WEBP_SIGNATURE = new Uint8Array([0x57, 0x45, 0x42, 0x50])
 
+function isAllowedMimeType(type: string): type is AllowedMimeType {
+  return (ALLOWED_MIME_TYPES as readonly string[]).includes(type)
+}
+
 /**
  * Validates a file by checking MIME type, size, and magic bytes.
  * Returns `{ valid: true }` on success, or `{ valid: false, error }` on failure.
@@ -32,7 +36,7 @@ export async function validateFile(
   file: File,
 ): Promise<{ valid: boolean; error?: string }> {
   // Check MIME type
-  if (!(ALLOWED_MIME_TYPES as readonly string[]).includes(file.type)) {
+  if (!isAllowedMimeType(file.type)) {
     return {
       valid: false,
       error: `Invalid file type "${file.type}". Allowed: ${ALLOWED_MIME_TYPES.join(', ')}`,
@@ -52,8 +56,8 @@ export async function validateFile(
     }
   }
 
-  // Check magic bytes
-  const mimeType = file.type as AllowedMimeType
+  // Check magic bytes — file.type is narrowed to AllowedMimeType by the guard above
+  const mimeType = file.type
   const signatures = MAGIC_BYTES[mimeType]
   const headerSize = mimeType === 'image/webp' ? 12 : 4
   const buffer = await file.slice(0, headerSize).arrayBuffer()

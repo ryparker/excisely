@@ -8,7 +8,6 @@ import {
   CORRECTION_DEADLINE_DAYS,
 } from '@/lib/labels/validation-helpers'
 import { HEALTH_WARNING_FULL } from '@/config/health-warning'
-import type { BeverageType } from '@/config/beverage-types'
 
 // ---------------------------------------------------------------------------
 // addDays
@@ -99,8 +98,9 @@ describe('buildExpectedFields', () => {
   })
 
   it('ignores non-string values other than sulfiteDeclaration', () => {
+    // Intentionally passing invalid types to test runtime type checking
     const fields = buildExpectedFields(
-      { brandName: 42, classType: null },
+      { brandName: 42 as unknown as string, classType: null },
       'distilled_spirits',
     )
     expect(fields.has('brand_name')).toBe(false)

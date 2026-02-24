@@ -8,6 +8,7 @@ import { routes } from '@/config/routes'
 import { db } from '@/db'
 import { settings } from '@/db/schema'
 import { guardSpecialist } from '@/lib/auth/action-guards'
+import type { StrictnessLevel } from '@/lib/settings/get-settings'
 
 const updateAutoApprovalSchema = z.object({
   enabled: z.boolean(),
@@ -122,7 +123,7 @@ export async function updateApprovalThreshold(
 }
 
 export async function updateFieldStrictness(
-  fieldStrictness: Record<string, string>,
+  fieldStrictness: Record<string, StrictnessLevel>,
 ): Promise<UpdateSettingsResult> {
   const guard = await guardSpecialist()
   if (!guard.success) return guard

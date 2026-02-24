@@ -2,6 +2,7 @@ import { generateText, Output } from 'ai'
 import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
 
+import type { BeverageType } from '@/config/beverage-types'
 import {
   buildClassificationPrompt,
   buildExtractionPrompt,
@@ -65,7 +66,7 @@ export interface ClassificationResponse {
  */
 export async function classifyFields(
   ocrText: string,
-  beverageType: string,
+  beverageType: BeverageType,
   wordList: Array<{ index: number; text: string }>,
   applicationData?: Record<string, string>,
   imageBuffers?: Buffer[],
@@ -141,7 +142,7 @@ const fastExtractionResultSchema = z.object({
  */
 export async function classifyFieldsForExtraction(
   ocrText: string,
-  beverageType: string,
+  beverageType: BeverageType,
 ): Promise<ClassificationResponse> {
   const { system, user } = buildFastExtractionMessages(ocrText, beverageType)
 
@@ -217,7 +218,7 @@ const submissionResultSchema = z.object({
  */
 export async function classifyFieldsForSubmission(
   ocrText: string,
-  beverageType: string,
+  beverageType: BeverageType,
   applicationData?: Record<string, string>,
 ): Promise<ClassificationResponse> {
   const { system, user } = buildSubmissionClassificationPrompt(

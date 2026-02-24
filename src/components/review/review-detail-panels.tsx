@@ -9,13 +9,15 @@ import {
 } from '@/components/validation/annotated-image'
 import { ImageTabs } from '@/components/validation/image-tabs'
 import { ReviewFieldList } from '@/components/review/review-field-list'
+import type { BeverageType } from '@/config/beverage-types'
+import type { ValidationItemStatus } from '@/lib/labels/validation-helpers'
 
 interface ValidationItemData {
   id: string
   fieldName: string
   expectedValue: string
   extractedValue: string
-  status: string
+  status: ValidationItemStatus
   confidence: string
   matchReasoning: string | null
   bboxX: string | null
@@ -44,7 +46,7 @@ interface ReviewDetailPanelsProps {
   images: LabelImageData[]
   validationItems: ValidationItemData[]
   applicantCorrections?: ApplicantCorrection[]
-  beverageType: string
+  beverageType: BeverageType
 }
 
 export function ReviewDetailPanels({

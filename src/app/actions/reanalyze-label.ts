@@ -93,10 +93,7 @@ export async function reanalyzeLabel(
     const imageUrls = images.map((img) => img.imageUrl)
 
     // 6. Build expected fields
-    const expectedFields = buildExpectedFields(
-      appData as unknown as Record<string, unknown>,
-      label.beverageType,
-    )
+    const expectedFields = buildExpectedFields(appData, label.beverageType)
 
     // 7. Run AI pipeline (outside transaction — external API call)
     const appDataForAI = Object.fromEntries(expectedFields)

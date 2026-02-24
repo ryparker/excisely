@@ -1,3 +1,4 @@
+import type { BeverageType } from '@/config/beverage-types'
 import { buildClassificationPrompt } from '@/lib/ai/prompts'
 
 describe('buildClassificationPrompt', () => {
@@ -95,7 +96,12 @@ describe('buildClassificationPrompt', () => {
 
   it('throws for unknown beverage type', () => {
     expect(() =>
-      buildClassificationPrompt('test text', 'unknown_type', baseWordList),
+      // Intentionally passing invalid type to test runtime error handling
+      buildClassificationPrompt(
+        'test text',
+        'unknown_type' as BeverageType,
+        baseWordList,
+      ),
     ).toThrow('Unknown beverage type: unknown_type')
   })
 

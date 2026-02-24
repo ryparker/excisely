@@ -8,7 +8,7 @@ type LabelStatus =
   | 'rejected'
 
 interface LabelForStatus {
-  status: string
+  status: LabelStatus
   correctionDeadline: Date | null
   deadlineExpired: boolean
 }
@@ -24,7 +24,7 @@ interface LabelForStatus {
  * - All other statuses pass through unchanged
  */
 export function getEffectiveStatus(label: LabelForStatus): LabelStatus {
-  const status = label.status as LabelStatus
+  const status = label.status
   const now = new Date()
 
   if (!label.correctionDeadline) {

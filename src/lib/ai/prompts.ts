@@ -66,11 +66,11 @@ const FIELD_DESCRIPTIONS: Record<string, string> = {
  */
 export function buildClassificationPrompt(
   ocrText: string,
-  beverageType: string,
+  beverageType: BeverageType,
   wordList: Array<{ index: number; text: string }>,
   applicationData?: Record<string, string>,
 ): string {
-  const config = BEVERAGE_TYPES[beverageType as BeverageType]
+  const config = BEVERAGE_TYPES[beverageType]
   if (!config) {
     throw new Error(`Unknown beverage type: ${beverageType}`)
   }
@@ -234,9 +234,9 @@ const FAST_FIELD_DESCRIPTIONS: Record<string, string> = {
  */
 export function buildFastExtractionMessages(
   ocrText: string,
-  beverageType: string,
+  beverageType: BeverageType,
 ): { system: string; user: string } {
-  const config = BEVERAGE_TYPES[beverageType as BeverageType]
+  const config = BEVERAGE_TYPES[beverageType]
   if (!config) {
     throw new Error(`Unknown beverage type: ${beverageType}`)
   }
@@ -289,10 +289,10 @@ ${fieldListText}
  */
 export function buildSubmissionClassificationPrompt(
   ocrText: string,
-  beverageType: string,
+  beverageType: BeverageType,
   applicationData?: Record<string, string>,
 ): { system: string; user: string } {
-  const config = BEVERAGE_TYPES[beverageType as BeverageType]
+  const config = BEVERAGE_TYPES[beverageType]
   if (!config) {
     throw new Error(`Unknown beverage type: ${beverageType}`)
   }

@@ -59,12 +59,37 @@ export function addDays(date: Date, days: number): Date {
 }
 
 /**
+ * Shape accepted by buildExpectedFields — covers both ValidateLabelInput
+ * (Zod-inferred, optional strings) and Drizzle applicationData rows
+ * (nullable strings).  The index signature lets the function access keys
+ * dynamically while remaining structurally compatible with both sources.
+ */
+export interface ApplicationFieldsInput {
+  brandName?: string | null
+  fancifulName?: string | null
+  classType?: string | null
+  alcoholContent?: string | null
+  netContents?: string | null
+  healthWarning?: string | null
+  nameAndAddress?: string | null
+  qualifyingPhrase?: string | null
+  countryOfOrigin?: string | null
+  grapeVarietal?: string | null
+  appellationOfOrigin?: string | null
+  vintageYear?: string | null
+  ageStatement?: string | null
+  stateOfDistillation?: string | null
+  sulfiteDeclaration?: boolean | null
+  [key: string]: unknown
+}
+
+/**
  * Maps application data fields to the field names used by the AI pipeline
  * and comparison engine, returning key-value pairs for every field that
  * was provided in the application.
  */
 export function buildExpectedFields(
-  data: Record<string, unknown>,
+  data: ApplicationFieldsInput,
   beverageType: BeverageType,
 ): Map<string, string> {
   const fields = new Map<string, string>()

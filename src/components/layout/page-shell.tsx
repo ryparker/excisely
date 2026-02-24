@@ -1,6 +1,12 @@
 'use client'
 
-import { Children, type ReactNode, useEffect, useState } from 'react'
+import {
+  Children,
+  isValidElement,
+  type ReactNode,
+  useEffect,
+  useState,
+} from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 
 interface PageShellProps {
@@ -34,7 +40,7 @@ export function PageShell({
     <div className={className}>
       {items.map((child, index) => (
         <motion.div
-          key={(child as React.ReactElement).key ?? index}
+          key={isValidElement(child) ? child.key : index}
           initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
           animate={isExiting ? { opacity: 0, y: -8 } : { opacity: 1, y: 0 }}
           transition={

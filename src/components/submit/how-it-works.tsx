@@ -129,7 +129,7 @@ function getStepState(
   stepIndex: number,
   currentStep: SubmissionStep,
 ): StepState {
-  const stepNumber = (stepIndex + 1) as SubmissionStep
+  const stepNumber = stepIndex + 1
   if (stepNumber < currentStep) return 'completed'
   if (stepNumber === currentStep) return 'active'
   return 'upcoming'

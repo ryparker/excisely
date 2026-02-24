@@ -148,10 +148,7 @@ export async function submitApplication(
       .returning({ id: labelImages.id })
 
     // 8. Build expected fields from application data (needed for AI pipeline + comparison)
-    const expectedFields = buildExpectedFields(
-      input as Record<string, unknown>,
-      input.beverageType,
-    )
+    const expectedFields = buildExpectedFields(input, input.beverageType)
 
     // 9. Run AI pipeline with application data for disambiguation
     const appDataForAI = Object.fromEntries(expectedFields)

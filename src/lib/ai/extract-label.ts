@@ -421,7 +421,7 @@ function mergeFieldsWithBoundingBoxes(
  */
 export async function extractLabelFields(
   imageUrls: string[],
-  beverageType: string,
+  beverageType: BeverageType,
   applicationData?: Record<string, string>,
 ): Promise<ExtractionResult> {
   const startTime = performance.now()
@@ -446,7 +446,7 @@ export async function extractLabelFields(
  */
 export async function extractLabelFieldsFromBuffers(
   imageBuffers: Buffer[],
-  beverageType: string,
+  beverageType: BeverageType,
   startTime = performance.now(),
   fetchTimeMs = 0,
   applicationData?: Record<string, string>,
@@ -531,7 +531,7 @@ export async function extractLabelFieldsFromBuffers(
  */
 export async function extractLabelFieldsForSubmission(
   imageUrls: string[],
-  beverageType: string,
+  beverageType: BeverageType,
   applicationData?: Record<string, string>,
 ): Promise<ExtractionResult> {
   const startTime = performance.now()
@@ -699,7 +699,7 @@ export async function extractLabelFieldsForApplicant(
  */
 export async function extractLabelFieldsForApplicantWithType(
   imageUrls: string[],
-  beverageType: string,
+  beverageType: BeverageType,
 ): Promise<ExtractionResult> {
   const startTime = performance.now()
 
@@ -1032,16 +1032,17 @@ export function detectBeverageTypeFromText(
     malt_beverage: 0,
   }
 
-  for (const [type, keywords] of Object.entries(BEVERAGE_TYPE_KEYWORDS)) {
-    for (const keyword of keywords) {
+  const beverageTypes = Object.keys(BEVERAGE_TYPE_KEYWORDS) as BeverageType[]
+  for (const type of beverageTypes) {
+    for (const keyword of BEVERAGE_TYPE_KEYWORDS[type]) {
       if (lowerText.includes(keyword)) {
-        scores[type as BeverageType]++
+        scores[type]++
       }
     }
   }
 
   // Find the winner
-  const entries = Object.entries(scores) as [BeverageType, number][]
+  const entries = beverageTypes.map((t) => [t, scores[t]] as const)
   entries.sort((a, b) => b[1] - a[1])
 
   const [winner, winnerScore] = entries[0]

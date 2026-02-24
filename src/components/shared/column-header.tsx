@@ -57,7 +57,7 @@ export function ColumnHeader({
   const sort = params.sort
   const order = params.order
   const filterValue = filterKey
-    ? ((params as Record<string, string | null>)[filterKey] ?? '')
+    ? (Object.entries(params).find(([k]) => k === filterKey)?.[1] ?? '')
     : ''
 
   // This column is the active sort either explicitly (URL param) or implicitly (default when no sort in URL)

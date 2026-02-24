@@ -5,7 +5,9 @@ import { settings } from '@/db/schema'
 
 const DEFAULT_CONFIDENCE_THRESHOLD = 80
 
-const DEFAULT_FIELD_STRICTNESS: Record<string, string> = {
+export type StrictnessLevel = 'strict' | 'moderate' | 'lenient'
+
+const DEFAULT_FIELD_STRICTNESS: Record<string, StrictnessLevel> = {
   brand_name: 'strict',
   fanciful_name: 'lenient',
   class_type: 'strict',
@@ -51,7 +53,7 @@ async function getSettingValue<T>(key: string): Promise<T | null> {
 
 export async function getSettings(): Promise<{
   confidenceThreshold: number
-  fieldStrictness: Record<string, string>
+  fieldStrictness: Record<string, StrictnessLevel>
 }> {
   const [threshold, strictness] = await Promise.all([
     getConfidenceThreshold(),
@@ -69,9 +71,11 @@ export async function getConfidenceThreshold(): Promise<number> {
   return value ?? DEFAULT_CONFIDENCE_THRESHOLD
 }
 
-export async function getFieldStrictness(): Promise<Record<string, string>> {
+export async function getFieldStrictness(): Promise<
+  Record<string, StrictnessLevel>
+> {
   const value =
-    await getSettingValue<Record<string, string>>('field_strictness')
+    await getSettingValue<Record<string, StrictnessLevel>>('field_strictness')
   return value ?? { ...DEFAULT_FIELD_STRICTNESS }
 }
 
