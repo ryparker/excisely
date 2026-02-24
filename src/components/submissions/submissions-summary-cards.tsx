@@ -9,7 +9,9 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { motion, useReducedMotion } from 'motion/react'
-import { useQueryStates, parseAsString } from 'nuqs'
+import { useQueryStates } from 'nuqs'
+
+import { searchParamParsers } from '@/lib/search-params'
 
 import { useCountUp } from '@/hooks/use-count-up'
 import { cn } from '@/lib/utils'
@@ -52,8 +54,8 @@ export function SubmissionsSummaryCards({
   const [isPending, startTransition] = useTransition()
   const [params, setParams] = useQueryStates(
     {
-      status: parseAsString.withDefault(''),
-      page: parseAsString,
+      status: searchParamParsers.status,
+      page: searchParamParsers.page,
     },
     { shallow: false, startTransition },
   )

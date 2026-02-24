@@ -12,6 +12,7 @@ import {
 
 import { routes } from '@/config/routes'
 
+import { searchParamsCache } from '@/lib/search-params-cache'
 import { ScrollToSection } from './scroll-to-section'
 import { AnimatedCollapse } from '@/components/shared/animated-collapse'
 import { FilterBar } from '@/components/shared/filter-bar'
@@ -60,20 +61,19 @@ export const metadata: Metadata = {
 }
 
 interface RegulationsPageProps {
-  searchParams: Promise<{
-    search?: string
-    part?: string
-    field?: string
-  }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
 export default async function RegulationsPage({
   searchParams,
 }: RegulationsPageProps) {
-  const { search, part, field } = await searchParams
+  await searchParamsCache.parse(searchParams)
+  const search = searchParamsCache.get('search')
+  const part = searchParamsCache.get('part')
+  const field = searchParamsCache.get('field')
 
   const activePart = part ? Number(part) : null
-  const activeField = field ?? null
+  const activeField = field || null
   const searchQuery = search?.toLowerCase().trim() ?? ''
 
   // Determine whether we're in a filtered view (search, part filter, or field filter)

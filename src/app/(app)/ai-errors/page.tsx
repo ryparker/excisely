@@ -6,7 +6,7 @@ import { Flag, AlertTriangle, ShieldAlert, Activity } from 'lucide-react'
 import { db } from '@/db'
 import { humanReviews, validationItems, users } from '@/db/schema'
 import { requireSpecialist } from '@/lib/auth/require-role'
-import { parsePageSearchParams } from '@/lib/search-params'
+import { searchParamsCache } from '@/lib/search-params-cache'
 import { fetchTokenUsageMetrics } from '@/lib/sla/queries'
 import { FIELD_DISPLAY_NAMES } from '@/config/field-display-names'
 import { PageHeader } from '@/components/layout/page-header'
@@ -333,14 +333,7 @@ async function AIErrorTableSection({
 // ---------------------------------------------------------------------------
 
 interface AIErrorsPageProps {
-  searchParams: Promise<{
-    field?: string
-    type?: string
-    page?: string
-    search?: string
-    sort?: string
-    order?: string
-  }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
 export default async function AIErrorsPage({
@@ -348,11 +341,13 @@ export default async function AIErrorsPage({
 }: AIErrorsPageProps) {
   await requireSpecialist()
 
-  const params = await searchParams
-  const { currentPage, searchTerm, sortKey, sortOrder } =
-    parsePageSearchParams(params)
-  const fieldFilter = params.field ?? ''
-  const typeFilter = params.type ?? ''
+  await searchParamsCache.parse(searchParams)
+  const currentPage = Math.max(1, searchParamsCache.get('page'))
+  const searchTerm = searchParamsCache.get('search')
+  const sortKey = searchParamsCache.get('sort')
+  const sortOrder = searchParamsCache.get('order') === 'asc' ? 'asc' : 'desc'
+  const fieldFilter = searchParamsCache.get('field')
+  const typeFilter = searchParamsCache.get('type')
 
   return (
     <PageShell className="space-y-8">

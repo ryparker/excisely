@@ -3,7 +3,9 @@
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowRight } from 'lucide-react'
-import { useQueryState, parseAsInteger } from 'nuqs'
+import { useQueryState } from 'nuqs'
+
+import { searchParamParsers } from '@/lib/search-params'
 
 import { FIELD_DISPLAY_NAMES } from '@/config/field-display-names'
 import { routes } from '@/config/routes'
@@ -120,9 +122,7 @@ export function AIErrorsTable({
   const [, startTransition] = useTransition()
   const [currentPage, setCurrentPage] = useQueryState(
     'page',
-    parseAsInteger
-      .withDefault(1)
-      .withOptions({ shallow: false, startTransition }),
+    searchParamParsers.page.withOptions({ shallow: false, startTransition }),
   )
   const router = useRouter()
 

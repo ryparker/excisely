@@ -2,7 +2,9 @@
 
 import { useTransition } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
-import { useQueryState, parseAsString } from 'nuqs'
+import { useQueryStates, parseAsString } from 'nuqs'
+
+import { searchParamParsers } from '@/lib/search-params'
 
 import {
   HoverCard,
@@ -38,17 +40,17 @@ export function FilterBar({
 }: FilterBarProps) {
   const shouldReduceMotion = useReducedMotion()
   const [, startTransition] = useTransition()
-  const [, setPage] = useQueryState('page', parseAsString)
-  const [activeValue, setActiveValue] = useQueryState(
-    paramKey,
-    parseAsString
-      .withDefault(defaultValue)
-      .withOptions({ shallow: false, startTransition }),
+  const [params, setParams] = useQueryStates(
+    {
+      page: searchParamParsers.page,
+      [paramKey]: parseAsString.withDefault(defaultValue),
+    },
+    { shallow: false, startTransition },
   )
+  const activeValue = String(params[paramKey] ?? defaultValue)
 
   function handleSelect(value: string) {
-    void setPage(null) // Reset pagination on filter change
-    void setActiveValue(value || null)
+    void setParams({ page: null, [paramKey]: value || null })
   }
 
   return (

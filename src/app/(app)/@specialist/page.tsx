@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { Suspense } from 'react'
 
 import { requireSpecialist } from '@/lib/auth/require-role'
-import { parsePageSearchParams } from '@/lib/search-params'
+import { searchParamsCache } from '@/lib/search-params-cache'
 import { DashboardAnimatedShell } from '@/components/dashboard/dashboard-animated-shell'
 import {
   DashboardSLACards,
@@ -23,29 +23,23 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic'
 
 interface SpecialistDashboardProps {
-  searchParams: Promise<{
-    page?: string
-    search?: string
-    status?: string
-    queue?: string
-    sort?: string
-    order?: string
-    beverageType?: string
-  }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
 export default async function SpecialistDashboard({
   searchParams,
 }: SpecialistDashboardProps) {
   const session = await requireSpecialist()
-
-  const params = await searchParams
   const { user } = session
 
-  const { currentPage, searchTerm, sortKey, sortOrder } =
-    parsePageSearchParams(params)
+  await searchParamsCache.parse(searchParams)
+  const currentPage = Math.max(1, searchParamsCache.get('page'))
+  const searchTerm = searchParamsCache.get('search')
+  const sortKey = searchParamsCache.get('sort')
+  const sortOrder = searchParamsCache.get('order') === 'asc' ? 'asc' : 'desc'
+
   // Default to "Pending Review" so specialists see actionable items first.
-  const statusParam = params.status ?? 'pending_review'
+  const statusParam = searchParamsCache.get('status') || 'pending_review'
 
   // "ready_to_approve" is a virtual status that maps to queue=ready
   let statusFilter = ''
@@ -56,11 +50,12 @@ export default async function SpecialistDashboard({
     statusFilter = statusParam
   }
   // Legacy: support ?queue= param directly
-  if (!queueFilter && params.queue) {
-    queueFilter = params.queue
+  if (!queueFilter) {
+    const queueParam = searchParamsCache.get('queue')
+    if (queueParam) queueFilter = queueParam
   }
 
-  const beverageTypeFilter = params.beverageType ?? ''
+  const beverageTypeFilter = searchParamsCache.get('beverageType')
 
   return (
     <DashboardAnimatedShell

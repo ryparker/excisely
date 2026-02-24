@@ -5,7 +5,7 @@ import { Building2 } from 'lucide-react'
 import { db } from '@/db'
 import { applicants, labels } from '@/db/schema'
 import { requireSpecialist } from '@/lib/auth/require-role'
-import { parsePageSearchParams } from '@/lib/search-params'
+import { searchParamsCache } from '@/lib/search-params-cache'
 import { REASON_CODE_LABELS } from '@/config/override-reasons'
 import { PageHeader } from '@/components/layout/page-header'
 import { PageShell } from '@/components/layout/page-shell'
@@ -38,13 +38,7 @@ function getRiskLevel(approvalRate: number | null): string {
 // ---------------------------------------------------------------------------
 
 interface ApplicantsPageProps {
-  searchParams: Promise<{
-    page?: string
-    search?: string
-    sort?: string
-    order?: string
-    risk?: string
-  }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
 export default async function ApplicantsPage({
@@ -52,14 +46,12 @@ export default async function ApplicantsPage({
 }: ApplicantsPageProps) {
   await requireSpecialist()
 
-  const params = await searchParams
-  const {
-    currentPage: page,
-    searchTerm,
-    sortKey,
-    sortOrder,
-  } = parsePageSearchParams(params)
-  const riskFilter = params.risk ?? ''
+  await searchParamsCache.parse(searchParams)
+  const page = Math.max(1, searchParamsCache.get('page'))
+  const searchTerm = searchParamsCache.get('search')
+  const sortKey = searchParamsCache.get('sort')
+  const sortOrder = searchParamsCache.get('order') === 'asc' ? 'asc' : 'desc'
+  const riskFilter = searchParamsCache.get('risk')
 
   // Computed columns for sorting
   // Approval rate only considers reviewed labels (terminal statuses),

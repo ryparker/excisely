@@ -20,6 +20,7 @@ import {
 } from '@/db/schema'
 import { REASON_CODE_LABELS } from '@/config/override-reasons'
 import { requireSpecialist } from '@/lib/auth/require-role'
+import { searchParamsCache } from '@/lib/search-params-cache'
 import { getEffectiveStatus } from '@/lib/labels/effective-status'
 import { formatDate } from '@/lib/utils'
 import { STATUS_LABELS } from '@/config/status-config'
@@ -55,12 +56,7 @@ export const dynamic = 'force-dynamic'
 
 interface ApplicantDetailPageProps {
   params: Promise<{ id: string }>
-  searchParams: Promise<{
-    status?: string
-    sort?: string
-    order?: string
-    beverageType?: string
-  }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
 export default async function ApplicantDetailPage({
@@ -70,11 +66,11 @@ export default async function ApplicantDetailPage({
   await requireSpecialist()
 
   const { id } = await params
-  const sp = await searchParams
-  const statusFilter = sp.status
-  const sortKey = sp.sort ?? ''
-  const sortOrder = sp.order === 'asc' ? 'asc' : 'desc'
-  const beverageTypeFilter = sp.beverageType ?? ''
+  await searchParamsCache.parse(searchParams)
+  const statusFilter = searchParamsCache.get('status') || undefined
+  const sortKey = searchParamsCache.get('sort')
+  const sortOrder = searchParamsCache.get('order') === 'asc' ? 'asc' : 'desc'
+  const beverageTypeFilter = searchParamsCache.get('beverageType')
 
   // Fetch the applicant
   const [applicant] = await db

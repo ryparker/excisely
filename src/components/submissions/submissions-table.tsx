@@ -2,7 +2,9 @@
 
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { useQueryState, parseAsInteger } from 'nuqs'
+import { useQueryState } from 'nuqs'
+
+import { searchParamParsers } from '@/lib/search-params'
 
 import { AnimatedTableRow } from '@/components/shared/animated-table-row'
 import { ColumnHeader } from '@/components/shared/column-header'
@@ -110,9 +112,7 @@ export function SubmissionsTable({
   const [, startTransition] = useTransition()
   const [currentPage, setCurrentPage] = useQueryState(
     'page',
-    parseAsInteger
-      .withDefault(1)
-      .withOptions({ shallow: false, startTransition }),
+    searchParamParsers.page.withOptions({ shallow: false, startTransition }),
   )
 
   return (

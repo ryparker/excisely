@@ -2,7 +2,9 @@
 
 import { useRef, useState, useTransition } from 'react'
 import { Loader2, Search, X } from 'lucide-react'
-import { useQueryState, parseAsString } from 'nuqs'
+import { useQueryStates, parseAsString } from 'nuqs'
+
+import { searchParamParsers } from '@/lib/search-params'
 
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -28,13 +30,14 @@ export function SearchInput({
   className,
 }: SearchInputProps) {
   const [, startTransition] = useTransition()
-  const [, setPage] = useQueryState('page', parseAsString)
-  const [search, setSearch] = useQueryState(
-    paramKey,
-    parseAsString
-      .withDefault('')
-      .withOptions({ shallow: false, startTransition }),
+  const [params, setParams] = useQueryStates(
+    {
+      page: searchParamParsers.page,
+      [paramKey]: parseAsString.withDefault(''),
+    },
+    { shallow: false, startTransition },
   )
+  const search = String(params[paramKey] ?? '')
 
   const inputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -46,8 +49,7 @@ export function SearchInput({
 
   function navigate(term: string) {
     const trimmed = term.trim()
-    void setPage(null) // Reset pagination on search change
-    void setSearch(trimmed || null)
+    void setParams({ page: null, [paramKey]: trimmed || null })
   }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {

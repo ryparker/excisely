@@ -9,7 +9,7 @@ import { routes } from '@/config/routes'
 import { db } from '@/db'
 import { labels, applicants } from '@/db/schema'
 import { requireApplicant } from '@/lib/auth/require-role'
-import { parsePageSearchParams } from '@/lib/search-params'
+import { searchParamsCache } from '@/lib/search-params-cache'
 import { AutoRefresh } from '@/components/shared/auto-refresh'
 import { PageHeader } from '@/components/layout/page-header'
 import { PageShell } from '@/components/layout/page-shell'
@@ -31,14 +31,7 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic'
 
 interface ApplicantDashboardProps {
-  searchParams: Promise<{
-    page?: string
-    search?: string
-    status?: string
-    beverageType?: string
-    sort?: string
-    order?: string
-  }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
 export default async function ApplicantDashboard({
@@ -46,11 +39,13 @@ export default async function ApplicantDashboard({
 }: ApplicantDashboardProps) {
   const session = await requireApplicant()
 
-  const params = await searchParams
-  const { currentPage, searchTerm, sortKey, sortOrder } =
-    parsePageSearchParams(params)
-  const statusFilter = params.status ?? ''
-  const beverageTypeFilter = params.beverageType ?? ''
+  await searchParamsCache.parse(searchParams)
+  const currentPage = Math.max(1, searchParamsCache.get('page'))
+  const searchTerm = searchParamsCache.get('search')
+  const sortKey = searchParamsCache.get('sort')
+  const sortOrder = searchParamsCache.get('order') === 'asc' ? 'asc' : 'desc'
+  const statusFilter = searchParamsCache.get('status')
+  const beverageTypeFilter = searchParamsCache.get('beverageType')
 
   // Find applicant record by email
   const [applicantRecord] = await db

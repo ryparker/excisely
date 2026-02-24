@@ -4,7 +4,9 @@ import React, { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, Loader2, RefreshCw, ShieldCheck } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { useQueryState, parseAsInteger } from 'nuqs'
+import { useQueryState } from 'nuqs'
+
+import { searchParamParsers } from '@/lib/search-params'
 import pLimit from 'p-limit'
 
 import { reanalyzeLabel } from '@/app/actions/reanalyze-label'
@@ -130,9 +132,7 @@ export function LabelsTable({
   const [, startTransition] = useTransition()
   const [currentPage, setCurrentPage] = useQueryState(
     'page',
-    parseAsInteger
-      .withDefault(1)
-      .withOptions({ shallow: false, startTransition }),
+    searchParamParsers.page.withOptions({ shallow: false, startTransition }),
   )
   const router = useRouter()
   const isApplicant = userRole === 'applicant'

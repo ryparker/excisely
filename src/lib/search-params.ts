@@ -1,20 +1,19 @@
-interface PageSearchParams {
-  currentPage: number
-  searchTerm: string
-  sortKey: string
-  sortOrder: 'asc' | 'desc'
-}
+import { parseAsString, parseAsInteger } from 'nuqs/server'
 
-export function parsePageSearchParams(params: {
-  page?: string
-  search?: string
-  sort?: string
-  order?: string
-}): PageSearchParams {
-  return {
-    currentPage: Math.max(1, Number(params.page) || 1),
-    searchTerm: params.search?.trim() ?? '',
-    sortKey: params.sort ?? '',
-    sortOrder: params.order === 'asc' ? 'asc' : 'desc',
-  }
+/**
+ * Single source of truth for all URL search param parsers.
+ * Used by: createSearchParamsCache (server), useQueryState/useQueryStates (client)
+ */
+export const searchParamParsers = {
+  page: parseAsInteger.withDefault(1),
+  search: parseAsString.withDefault(''),
+  sort: parseAsString.withDefault(''),
+  order: parseAsString.withDefault('desc'),
+  status: parseAsString.withDefault(''),
+  beverageType: parseAsString.withDefault(''),
+  queue: parseAsString.withDefault(''),
+  risk: parseAsString.withDefault(''),
+  field: parseAsString.withDefault(''),
+  type: parseAsString.withDefault(''),
+  part: parseAsString.withDefault(''),
 }
