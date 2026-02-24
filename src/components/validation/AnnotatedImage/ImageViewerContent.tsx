@@ -27,7 +27,7 @@ import {
 import type {
   SpecialistAnnotation,
   ValidationItemBox,
-} from '@/components/validation/AnnotatedImage/AnnotatedImage'
+} from '@/components/validation/AnnotatedImage/AnnotatedImageTypes'
 
 export interface ImageViewerContentProps {
   imageUrl: string
