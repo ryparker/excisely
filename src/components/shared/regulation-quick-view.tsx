@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { FIELD_DISPLAY_NAMES } from '@/config/field-display-names'
+import { formatFieldName } from '@/config/field-display-names'
 
 const PART_LABEL: Record<number, string> = {
   4: 'Wine',
@@ -108,7 +108,7 @@ export function RegulationQuickView({
                 variant="outline"
                 className="px-1.5 py-0 text-[10px] font-normal"
               >
-                {FIELD_DISPLAY_NAMES[field] ?? field.replace(/_/g, ' ')}
+                {formatFieldName(field)}
               </Badge>
             ))}
           </div>
@@ -211,7 +211,7 @@ export function RegulationInlineLink({
                 variant="outline"
                 className="px-1.5 py-0 text-[10px] font-normal"
               >
-                {FIELD_DISPLAY_NAMES[field] ?? field.replace(/_/g, ' ')}
+                {formatFieldName(field)}
               </Badge>
             ))}
           </div>
@@ -244,8 +244,7 @@ export function RegulationInlineLink({
 
 function getFooterLink(contextPart?: number, contextField?: string) {
   if (contextField) {
-    const fieldName =
-      FIELD_DISPLAY_NAMES[contextField] ?? contextField.replace(/_/g, ' ')
+    const fieldName = formatFieldName(contextField)
     return {
       href: `/regulations?field=${contextField}`,
       label: `All ${fieldName} regulations`,

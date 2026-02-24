@@ -93,3 +93,14 @@ export function formatNumber(n: number): string {
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
   return n.toLocaleString()
 }
+
+/** Format a review date: "Jan 1" (same year) or "Jan 1, 2025" (different year). */
+export function formatReviewDate(date: Date): string {
+  const now = new Date()
+  const sameYear = date.getFullYear() === now.getFullYear()
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  }).format(date)
+}

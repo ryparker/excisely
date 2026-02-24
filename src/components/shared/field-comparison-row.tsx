@@ -2,65 +2,24 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { diffChars } from 'diff'
-import {
-  CheckCircle2,
-  XCircle,
-  AlertTriangle,
-  SearchX,
-  ChevronDown,
-  ChevronRight,
-} from 'lucide-react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { FieldLabel } from '@/components/shared/field-label'
-import { FIELD_DISPLAY_NAMES } from '@/config/field-display-names'
+import { formatFieldName } from '@/config/field-display-names'
+import {
+  VALIDATION_ACTIVE_BG,
+  VALIDATION_ACTIVE_RING,
+  VALIDATION_BADGE_LABEL,
+  VALIDATION_BADGE_STYLE,
+  VALIDATION_BORDER,
+  VALIDATION_RESTING_BG,
+  VALIDATION_STATUS_ICON,
+} from '@/config/validation-item-config'
 import { RegulationInlineLink } from '@/components/shared/regulation-quick-view'
 import { FIELD_TOOLTIPS } from '@/config/field-tooltips'
 import { getSection } from '@/lib/regulations/lookup'
 import { cn } from '@/lib/utils'
-
-const STATUS_ICON: Record<string, React.ReactNode> = {
-  match: <CheckCircle2 className="size-4 text-green-600 dark:text-green-400" />,
-  mismatch: <XCircle className="size-4 text-red-600 dark:text-red-400" />,
-  needs_correction: (
-    <AlertTriangle className="size-4 text-amber-600 dark:text-amber-400" />
-  ),
-  not_found: <SearchX className="size-4 text-muted-foreground" />,
-}
-
-const STATUS_BADGE_STYLE: Record<string, string> = {
-  match: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  mismatch: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  needs_correction:
-    'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  not_found: 'bg-secondary text-muted-foreground',
-}
-
-const STATUS_BORDER: Record<string, string> = {
-  match: 'border-green-200 dark:border-green-900/40',
-  mismatch: 'border-red-200 dark:border-red-900/40',
-  needs_correction: 'border-amber-200 dark:border-amber-900/40',
-  not_found: 'border-border',
-}
-
-const RESTING_BG: Record<string, string> = {
-  mismatch: 'bg-red-50/30 dark:bg-red-950/10',
-  needs_correction: 'bg-amber-50/30 dark:bg-amber-950/10',
-}
-
-const ACTIVE_BG: Record<string, string> = {
-  match: 'bg-green-50/50 dark:bg-green-950/20',
-  mismatch: 'bg-red-50/50 dark:bg-red-950/20',
-  needs_correction: 'bg-amber-50/50 dark:bg-amber-950/20',
-  not_found: 'bg-muted/50',
-}
-
-const ACTIVE_RING: Record<string, string> = {
-  match: 'ring-green-500/50',
-  mismatch: 'ring-red-500/50',
-  needs_correction: 'ring-amber-500/50',
-  not_found: 'ring-border',
-}
 
 interface FieldComparisonRowProps {
   fieldName: string
@@ -129,14 +88,13 @@ export function FieldComparisonRow({
     }
   }, [isActive])
 
-  const displayName =
-    FIELD_DISPLAY_NAMES[fieldName] ?? fieldName.replace(/_/g, ' ')
+  const displayName = formatFieldName(fieldName)
   const confidencePercent = Math.round(confidence)
-  const borderStyle = STATUS_BORDER[status] ?? 'border-border'
-  const badgeStyle = STATUS_BADGE_STYLE[status] ?? ''
-  const restingBg = RESTING_BG[status] ?? ''
-  const activeBg = ACTIVE_BG[status] ?? ''
-  const activeRing = ACTIVE_RING[status] ?? 'ring-primary'
+  const borderStyle = VALIDATION_BORDER[status] ?? 'border-border'
+  const badgeStyle = VALIDATION_BADGE_STYLE[status] ?? ''
+  const restingBg = VALIDATION_RESTING_BG[status] ?? ''
+  const activeBg = VALIDATION_ACTIVE_BG[status] ?? ''
+  const activeRing = VALIDATION_ACTIVE_RING[status] ?? 'ring-primary'
 
   return (
     <div
@@ -161,7 +119,7 @@ export function FieldComparisonRow({
       {/* Row header */}
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          {STATUS_ICON[status]}
+          {VALIDATION_STATUS_ICON[status]}
           <FieldLabel fieldName={fieldName} className="text-sm font-semibold">
             {displayName}
           </FieldLabel>
@@ -174,11 +132,8 @@ export function FieldComparisonRow({
             </span>
           )}
           <Badge variant="secondary" className={cn('text-[11px]', badgeStyle)}>
-            {status === 'needs_correction'
-              ? 'Needs Correction'
-              : status === 'not_found'
-                ? 'Not Found'
-                : status.charAt(0).toUpperCase() + status.slice(1)}
+            {VALIDATION_BADGE_LABEL[status] ??
+              status.charAt(0).toUpperCase() + status.slice(1)}
           </Badge>
         </div>
       </div>

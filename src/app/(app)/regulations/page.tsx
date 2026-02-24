@@ -26,7 +26,7 @@ import {
   BEVERAGE_ICON,
   BEVERAGE_LABEL,
 } from '@/config/beverage-display'
-import { FIELD_DISPLAY_NAMES } from '@/config/field-display-names'
+import { formatFieldName } from '@/config/field-display-names'
 import {
   ALL_SECTIONS,
   REGULATION_PARTS,
@@ -99,9 +99,7 @@ export default async function RegulationsPage({
         s.summary,
         s.subpart,
         ...s.keyRequirements,
-        ...s.relatedFields.map(
-          (f) => FIELD_DISPLAY_NAMES[f] ?? f.replace(/_/g, ' '),
-        ),
+        ...s.relatedFields.map((f) => formatFieldName(f)),
         ...s.appliesTo.map((t) => BEVERAGE_LABEL[t] ?? t),
       ]
         .join(' ')
@@ -116,9 +114,7 @@ export default async function RegulationsPage({
     sections: sections.filter((s) => s.part === p.part),
   })).filter((p) => p.sections.length > 0)
 
-  const fieldDisplayName = activeField
-    ? (FIELD_DISPLAY_NAMES[activeField] ?? activeField.replace(/_/g, ' '))
-    : null
+  const fieldDisplayName = activeField ? formatFieldName(activeField) : null
 
   return (
     <PageShell className="space-y-6">
@@ -378,7 +374,7 @@ function SectionCard({
               className="rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
             >
               <Highlight
-                text={FIELD_DISPLAY_NAMES[field] ?? field.replace(/_/g, ' ')}
+                text={formatFieldName(field)}
                 query={query}
               />
             </span>

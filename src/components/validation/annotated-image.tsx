@@ -20,131 +20,28 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { FIELD_DISPLAY_NAMES } from '@/config/field-display-names'
+import { formatFieldName } from '@/config/field-display-names'
 import { FIELD_TOOLTIPS } from '@/config/field-tooltips'
+import {
+  VALIDATION_BADGE_LABEL,
+  VALIDATION_BADGE_STYLE,
+  VALIDATION_BOX_ACTIVE_COLORS,
+  VALIDATION_BOX_COLORS,
+} from '@/config/validation-item-config'
 import { cn } from '@/lib/utils'
+import { screenToNormalizedCoords } from '@/lib/image-coordinates'
 import { ImageTabs } from '@/components/validation/image-tabs'
+import {
+  HANDLE_CURSORS,
+  HANDLE_POSITIONS,
+  MAX_ZOOM,
+  MIN_ZOOM,
+  NEUTRAL_ACTIVE_COLORS,
+  NEUTRAL_COLORS,
+  type ResizeHandle,
+  ZOOM_STEP,
+} from '@/components/validation/image-viewer-constants'
 import { ScanAnimation } from '@/components/validation/scan-animation'
-
-const MIN_ZOOM = 0.5
-const MAX_ZOOM = 4
-const ZOOM_STEP = 0.1
-
-const STATUS_COLORS: Record<
-  string,
-  { border: string; bg: string; hoverBorder: string; hoverBg: string }
-> = {
-  match: {
-    border: 'border-green-500/50',
-    bg: '',
-    hoverBorder: 'group-hover/box:border-green-500',
-    hoverBg: 'group-hover/box:bg-green-500/10',
-  },
-  mismatch: {
-    border: 'border-red-500/50',
-    bg: '',
-    hoverBorder: 'group-hover/box:border-red-500',
-    hoverBg: 'group-hover/box:bg-red-500/10',
-  },
-  needs_correction: {
-    border: 'border-amber-500/50',
-    bg: '',
-    hoverBorder: 'group-hover/box:border-amber-500',
-    hoverBg: 'group-hover/box:bg-amber-500/10',
-  },
-}
-
-const ACTIVE_COLORS: Record<
-  string,
-  { border: string; bg: string; shadow: string }
-> = {
-  match: {
-    border: 'border-green-500',
-    bg: 'bg-green-500/20',
-    shadow: '0 0 12px 2px rgba(34,197,94,0.5)',
-  },
-  mismatch: {
-    border: 'border-red-500',
-    bg: 'bg-red-500/20',
-    shadow: '0 0 12px 2px rgba(239,68,68,0.5)',
-  },
-  needs_correction: {
-    border: 'border-amber-500',
-    bg: 'bg-amber-500/20',
-    shadow: '0 0 12px 2px rgba(245,158,11,0.5)',
-  },
-}
-
-const STATUS_BADGE_STYLE: Record<string, string> = {
-  match: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  mismatch: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  needs_correction:
-    'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  not_found: 'bg-secondary text-muted-foreground',
-  neutral:
-    'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
-}
-
-const NEUTRAL_COLORS = {
-  border: 'border-indigo-400/50',
-  bg: '',
-  hoverBorder: 'group-hover/box:border-indigo-500',
-  hoverBg: 'group-hover/box:bg-indigo-500/10',
-}
-
-const NEUTRAL_ACTIVE_COLORS = {
-  border: 'border-indigo-500',
-  bg: 'bg-indigo-500/20',
-  shadow: '0 0 12px 2px rgba(99,102,241,0.5)',
-}
-
-type ResizeHandle = 'nw' | 'n' | 'ne' | 'w' | 'e' | 'sw' | 's' | 'se'
-
-const HANDLE_CURSORS: Record<ResizeHandle, string> = {
-  nw: 'nwse-resize',
-  n: 'ns-resize',
-  ne: 'nesw-resize',
-  w: 'ew-resize',
-  e: 'ew-resize',
-  sw: 'nesw-resize',
-  s: 'ns-resize',
-  se: 'nwse-resize',
-}
-
-const HANDLE_POSITIONS: { handle: ResizeHandle; x: number; y: number }[] = [
-  { handle: 'nw', x: 0, y: 0 },
-  { handle: 'n', x: 0.5, y: 0 },
-  { handle: 'ne', x: 1, y: 0 },
-  { handle: 'w', x: 0, y: 0.5 },
-  { handle: 'e', x: 1, y: 0.5 },
-  { handle: 'sw', x: 0, y: 1 },
-  { handle: 's', x: 0.5, y: 1 },
-  { handle: 'se', x: 1, y: 1 },
-]
-
-/**
- * Convert screen (clientX/Y) to normalized 0-1 image coordinates.
- * Uses getBoundingClientRect() on the <img> element so it automatically
- * accounts for any CSS transforms (scale, translate, origin-center) without
- * needing to manually invert the transform matrix.
- */
-function screenToNormalizedCoords(
-  clientX: number,
-  clientY: number,
-  container: HTMLDivElement | null,
-): { x: number; y: number } | null {
-  if (!container) return null
-  const imageEl = container.querySelector('img')
-  if (!imageEl) return null
-
-  const imageRect = imageEl.getBoundingClientRect()
-  if (imageRect.width === 0 || imageRect.height === 0) return null
-
-  return {
-    x: Math.max(0, Math.min(1, (clientX - imageRect.left) / imageRect.width)),
-    y: Math.max(0, Math.min(1, (clientY - imageRect.top) / imageRect.height)),
-  }
-}
 
 export interface ValidationItemBox {
   fieldName: string
@@ -402,24 +299,19 @@ function ImageViewerContent({
               const isNeutral = colorMode === 'neutral'
               const isActive = activeField === item.fieldName
               const statusKey =
-                item.status in STATUS_COLORS ? item.status : 'match'
+                item.status in VALIDATION_BOX_COLORS ? item.status : 'match'
               const colors = isNeutral
                 ? NEUTRAL_COLORS
-                : STATUS_COLORS[statusKey]
+                : VALIDATION_BOX_COLORS[statusKey]
               const activeColors = isNeutral
                 ? NEUTRAL_ACTIVE_COLORS
-                : ACTIVE_COLORS[statusKey]
-              const label =
-                FIELD_DISPLAY_NAMES[item.fieldName] ??
-                item.fieldName.replace(/_/g, ' ')
+                : VALIDATION_BOX_ACTIVE_COLORS[statusKey]
+              const label = formatFieldName(item.fieldName)
               const confidencePercent = Math.round(item.confidence)
               const statusLabel = isNeutral
                 ? 'Detected'
-                : item.status === 'needs_correction'
-                  ? 'Needs Correction'
-                  : item.status === 'not_found'
-                    ? 'Not Found'
-                    : item.status.charAt(0).toUpperCase() + item.status.slice(1)
+                : (VALIDATION_BADGE_LABEL[item.status] ??
+                  item.status.charAt(0).toUpperCase() + item.status.slice(1))
 
               return (
                 <Tooltip key={item.fieldName}>
@@ -474,7 +366,7 @@ function ImageViewerContent({
                             variant="secondary"
                             className={cn(
                               'px-1.5 py-0 text-[10px]',
-                              STATUS_BADGE_STYLE[item.status] ?? '',
+                              VALIDATION_BADGE_STYLE[item.status] ?? '',
                             )}
                           >
                             {statusLabel}
@@ -1303,8 +1195,7 @@ export function AnnotatedImage({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <strong className="cursor-help border-b border-dashed border-white/40">
-                        {FIELD_DISPLAY_NAMES[drawingFieldName] ??
-                          drawingFieldName.replace(/_/g, ' ')}
+                        {formatFieldName(drawingFieldName)}
                       </strong>
                     </TooltipTrigger>
                     {FIELD_TOOLTIPS[drawingFieldName] && (
@@ -1581,8 +1472,7 @@ export function AnnotatedImage({
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <strong className="cursor-help border-b border-dashed border-white/40">
-                              {FIELD_DISPLAY_NAMES[drawingFieldName] ??
-                                drawingFieldName.replace(/_/g, ' ')}
+                              {formatFieldName(drawingFieldName)}
                             </strong>
                           </TooltipTrigger>
                           {FIELD_TOOLTIPS[drawingFieldName] && (

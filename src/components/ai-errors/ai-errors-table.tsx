@@ -1,15 +1,20 @@
 'use client'
 
-import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowRight } from 'lucide-react'
-import { useQueryState } from 'nuqs'
 
-import { searchParamParsers } from '@/lib/search-params'
+import { usePaginationState } from '@/hooks/use-pagination-state'
 
-import { FIELD_DISPLAY_NAMES } from '@/config/field-display-names'
+import {
+  FIELD_FILTER_OPTIONS,
+  formatFieldName,
+} from '@/config/field-display-names'
+import {
+  VALIDATION_BADGE_LABEL,
+  VALIDATION_BADGE_STYLE,
+} from '@/config/validation-item-config'
 import { routes } from '@/config/routes'
-import { confidenceColor } from '@/lib/utils'
+import { confidenceColor, formatReviewDate } from '@/lib/utils'
 import { ColumnHeader } from '@/components/shared/column-header'
 import { TablePagination } from '@/components/shared/table-pagination'
 import { Highlight } from '@/components/shared/highlight'
@@ -59,54 +64,11 @@ interface AIErrorsTableProps {
 // Constants
 // ---------------------------------------------------------------------------
 
-const STATUS_BADGE: Record<string, { label: string; className: string }> = {
-  match: {
-    label: 'Match',
-    className:
-      'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  },
-  mismatch: {
-    label: 'Mismatch',
-    className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  },
-  not_found: {
-    label: 'Not Found',
-    className: 'bg-secondary text-muted-foreground',
-  },
-  needs_correction: {
-    label: 'Needs Correction',
-    className:
-      'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  },
-}
-
-const FIELD_FILTER_OPTIONS = [
-  { label: 'All Fields', value: '' },
-  ...Object.entries(FIELD_DISPLAY_NAMES).map(([value, label]) => ({
-    label,
-    value,
-  })),
-]
-
 const ERROR_TYPE_OPTIONS = [
   { label: 'All Types', value: '' },
   { label: 'Missed Errors', value: 'missed' },
   { label: 'Over-Flagged', value: 'over_flagged' },
 ]
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function formatReviewDate(date: Date): string {
-  const now = new Date()
-  const sameYear = date.getFullYear() === now.getFullYear()
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    ...(sameYear ? {} : { year: 'numeric' }),
-  }).format(date)
-}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -119,11 +81,7 @@ export function AIErrorsTable({
   pageSize,
   searchTerm = '',
 }: AIErrorsTableProps) {
-  const [, startTransition] = useTransition()
-  const [currentPage, setCurrentPage] = useQueryState(
-    'page',
-    searchParamParsers.page.withOptions({ shallow: false, startTransition }),
-  )
+  const { currentPage, onPrevious, onNext } = usePaginationState()
   const router = useRouter()
 
   return (
@@ -161,13 +119,13 @@ export function AIErrorsTable({
         </TableHeader>
         <TableBody>
           {rows.map((row) => {
-            const aiStatus = STATUS_BADGE[row.originalStatus] ?? {
-              label: row.originalStatus,
-              className: 'bg-secondary text-muted-foreground',
+            const aiStatus = {
+              label: VALIDATION_BADGE_LABEL[row.originalStatus] ?? row.originalStatus,
+              className: VALIDATION_BADGE_STYLE[row.originalStatus] ?? 'bg-secondary text-muted-foreground',
             }
-            const specStatus = STATUS_BADGE[row.resolvedStatus] ?? {
-              label: row.resolvedStatus,
-              className: 'bg-secondary text-muted-foreground',
+            const specStatus = {
+              label: VALIDATION_BADGE_LABEL[row.resolvedStatus] ?? row.resolvedStatus,
+              className: VALIDATION_BADGE_STYLE[row.resolvedStatus] ?? 'bg-secondary text-muted-foreground',
             }
 
             return (
@@ -186,7 +144,7 @@ export function AIErrorsTable({
                   />
                 </TableCell>
                 <TableCell className="text-sm whitespace-nowrap text-muted-foreground">
-                  {FIELD_DISPLAY_NAMES[row.fieldName] ?? row.fieldName}
+                  {formatFieldName(row.fieldName)}
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2 whitespace-nowrap">
@@ -250,10 +208,8 @@ export function AIErrorsTable({
         tableTotal={tableTotal}
         pageSize={pageSize}
         entityName="error"
-        onPrevious={() =>
-          setCurrentPage(currentPage - 1 > 1 ? currentPage - 1 : null)
-        }
-        onNext={() => setCurrentPage(currentPage + 1)}
+        onPrevious={onPrevious}
+        onNext={onNext}
         alwaysShowButtons
         className="bg-muted/20"
       />

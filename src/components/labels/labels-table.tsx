@@ -1,12 +1,11 @@
 'use client'
 
-import React, { useOptimistic, useState, useTransition } from 'react'
+import React, { useOptimistic, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, Loader2, RefreshCw, ShieldCheck } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { useQueryState } from 'nuqs'
 
-import { searchParamParsers } from '@/lib/search-params'
+import { usePaginationState } from '@/hooks/use-pagination-state'
 import pLimit from 'p-limit'
 
 import { reanalyzeLabel } from '@/app/actions/reanalyze-label'
@@ -14,17 +13,14 @@ import { batchApprove } from '@/app/actions/batch-approve'
 import { useReanalysisStore } from '@/stores/reanalysis-store'
 import { routes } from '@/config/routes'
 import { REASON_CODE_LABELS } from '@/config/override-reasons'
-import {
-  BEVERAGE_ICON,
-  BEVERAGE_LABEL_FULL,
-  BEVERAGE_OPTIONS,
-} from '@/config/beverage-display'
-import { getDeadlineInfo } from '@/lib/labels/effective-status'
+import { BEVERAGE_OPTIONS } from '@/config/beverage-display'
+import { DeadlineDisplay } from '@/components/shared/deadline-display'
 import { confidenceColor, formatConfidence, formatDate } from '@/lib/utils'
 import { ColumnHeader } from '@/components/shared/column-header'
 import { LabelThumbnail } from '@/components/shared/label-thumbnail'
 import { TablePagination } from '@/components/shared/table-pagination'
 import { Highlight } from '@/components/shared/highlight'
+import { BeverageTypeCell } from '@/components/shared/beverage-type-cell'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -90,32 +86,6 @@ type BulkItemStatus = 'pending' | 'processing' | 'success' | 'error'
 
 const NON_REANALYZABLE_STATUSES = new Set(['pending', 'processing'])
 
-const URGENCY_COLORS: Record<string, string> = {
-  green: 'text-green-600 dark:text-green-400',
-  amber: 'text-amber-600 dark:text-amber-400',
-  red: 'text-red-600 dark:text-red-400',
-  expired: 'text-destructive',
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function getDeadlineDisplay(deadline: Date | null): React.ReactNode {
-  const info = getDeadlineInfo(deadline)
-  if (!info) return '--'
-
-  if (info.urgency === 'expired') {
-    return <span className={URGENCY_COLORS.expired}>Expired</span>
-  }
-
-  return (
-    <span className={URGENCY_COLORS[info.urgency]}>
-      {info.daysRemaining} day{info.daysRemaining !== 1 ? 's' : ''}
-    </span>
-  )
-}
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -129,11 +99,7 @@ export function LabelsTable({
   queueMode,
   searchTerm = '',
 }: LabelsTableProps) {
-  const [, startTransition] = useTransition()
-  const [currentPage, setCurrentPage] = useQueryState(
-    'page',
-    searchParamParsers.page.withOptions({ shallow: false, startTransition }),
-  )
+  const { currentPage, onPrevious, onNext } = usePaginationState()
   const router = useRouter()
   const isApplicant = userRole === 'applicant'
   const isReadyQueue = queueMode === 'ready'
@@ -463,21 +429,7 @@ export function LabelsTable({
                       />
                     </TableCell>
                     <TableCell>
-                      {(() => {
-                        const BevIcon = BEVERAGE_ICON[label.beverageType]
-                        return BevIcon ? (
-                          <span className="inline-flex items-center gap-1.5 text-sm">
-                            <BevIcon className="size-3.5 text-muted-foreground" />
-                            <span className="text-xs">
-                              {BEVERAGE_LABEL_FULL[label.beverageType] ??
-                                label.beverageType}
-                            </span>
-                          </span>
-                        ) : (
-                          (BEVERAGE_LABEL_FULL[label.beverageType] ??
-                            label.beverageType)
-                        )
-                      })()}
+                      <BeverageTypeCell beverageType={label.beverageType} />
                     </TableCell>
                     {!isApplicant && (
                       <TableCell className="text-right font-mono tabular-nums">
@@ -493,7 +445,7 @@ export function LabelsTable({
                     )}
                     {!isApplicant && (
                       <TableCell className="text-right">
-                        {getDeadlineDisplay(label.correctionDeadline)}
+                        <DeadlineDisplay deadline={label.correctionDeadline} />
                       </TableCell>
                     )}
                     <TableCell className="text-right text-muted-foreground tabular-nums">
@@ -523,10 +475,8 @@ export function LabelsTable({
           tableTotal={tableTotal}
           pageSize={pageSize}
           entityName="label"
-          onPrevious={() =>
-            setCurrentPage(currentPage - 1 > 1 ? currentPage - 1 : null)
-          }
-          onNext={() => setCurrentPage(currentPage + 1)}
+          onPrevious={onPrevious}
+          onNext={onNext}
           alwaysShowButtons
           className="bg-muted/20"
         />

@@ -1,4 +1,4 @@
-import { FIELD_DISPLAY_NAMES } from '@/config/field-display-names'
+import { formatFieldName } from '@/config/field-display-names'
 import { BEVERAGE_LABEL_FULL } from '@/config/beverage-display'
 
 const APP_DATA_FIELDS = [
@@ -70,8 +70,7 @@ export function ApplicationDataPanel({
             const value = appData[key]
             if (!value) return null
             const snakeKey = CAMEL_TO_SNAKE[key] ?? key
-            const displayName =
-              FIELD_DISPLAY_NAMES[snakeKey] ?? snakeKey.replace(/_/g, ' ')
+            const displayName = formatFieldName(snakeKey)
             return (
               <div key={key} className="flex items-start gap-4 px-4 py-2.5">
                 <span className="w-36 shrink-0 text-xs font-medium text-muted-foreground">

@@ -1,12 +1,11 @@
 'use client'
 
-import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { useQueryState } from 'nuqs'
 
-import { searchParamParsers } from '@/lib/search-params'
+import { usePaginationState } from '@/hooks/use-pagination-state'
 
 import { AnimatedTableRow } from '@/components/shared/animated-table-row'
+import { BeverageTypeCell } from '@/components/shared/beverage-type-cell'
 import { ColumnHeader } from '@/components/shared/column-header'
 import { LabelThumbnail } from '@/components/shared/label-thumbnail'
 import { TablePagination } from '@/components/shared/table-pagination'
@@ -22,13 +21,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  BEVERAGE_ICON,
-  BEVERAGE_LABEL_FULL,
-  BEVERAGE_OPTIONS,
-} from '@/config/beverage-display'
+import { BEVERAGE_OPTIONS } from '@/config/beverage-display'
 import { routes } from '@/config/routes'
-import { getDeadlineInfo } from '@/lib/labels/effective-status'
+import { DeadlineDisplay } from '@/components/shared/deadline-display'
 import { cn, formatDate } from '@/lib/utils'
 
 // ---------------------------------------------------------------------------
@@ -72,32 +67,6 @@ interface SubmissionsTableProps {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const URGENCY_COLORS: Record<string, string> = {
-  green: 'text-muted-foreground',
-  amber: 'text-amber-600 dark:text-amber-400',
-  red: 'text-red-600 dark:text-red-400',
-  expired: 'text-destructive',
-}
-
-function getDeadlineText(deadline: Date | null): React.ReactNode {
-  const info = getDeadlineInfo(deadline)
-  if (!info) return null
-
-  if (info.urgency === 'expired') {
-    return <span className={URGENCY_COLORS.expired}>Expired</span>
-  }
-
-  return (
-    <span className={URGENCY_COLORS[info.urgency]}>
-      {info.daysRemaining}d remaining
-    </span>
-  )
-}
-
-// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -109,11 +78,7 @@ export function SubmissionsTable({
   searchTerm,
 }: SubmissionsTableProps) {
   const router = useRouter()
-  const [, startTransition] = useTransition()
-  const [currentPage, setCurrentPage] = useQueryState(
-    'page',
-    searchParamParsers.page.withOptions({ shallow: false, startTransition }),
-  )
+  const { currentPage, onPrevious, onNext } = usePaginationState()
 
   return (
     <Card className="overflow-clip py-0">
@@ -150,13 +115,10 @@ export function SubmissionsTable({
         </TableHeader>
         <TableBody>
           {rows.map((row, i) => {
-            const BevIcon = BEVERAGE_ICON[row.beverageType]
-            const deadlineText =
+            const showDeadline =
               (row.effectiveStatus === 'needs_correction' ||
                 row.effectiveStatus === 'conditionally_approved') &&
               row.correctionDeadline
-                ? getDeadlineText(row.correctionDeadline)
-                : null
 
             return (
               <AnimatedTableRow
@@ -194,20 +156,17 @@ export function SubmissionsTable({
                 </TableCell>
                 <TableCell>
                   <StatusBadge status={row.effectiveStatus} />
-                  {deadlineText && (
-                    <p className="mt-0.5 text-[11px]">{deadlineText}</p>
+                  {showDeadline && (
+                    <p className="mt-0.5 text-[11px]">
+                      <DeadlineDisplay
+                        deadline={row.correctionDeadline}
+                        variant="applicant"
+                      />
+                    </p>
                   )}
                 </TableCell>
                 <TableCell>
-                  {BevIcon && (
-                    <span className="inline-flex items-center gap-1.5 text-sm">
-                      <BevIcon className="size-3.5 text-muted-foreground" />
-                      <span className="text-xs">
-                        {BEVERAGE_LABEL_FULL[row.beverageType] ??
-                          row.beverageType}
-                      </span>
-                    </span>
-                  )}
+                  <BeverageTypeCell beverageType={row.beverageType} />
                 </TableCell>
                 <TableCell
                   className={cn(
@@ -234,10 +193,8 @@ export function SubmissionsTable({
         tableTotal={tableTotal}
         pageSize={pageSize}
         entityName="label"
-        onPrevious={() =>
-          setCurrentPage(currentPage - 1 > 1 ? currentPage - 1 : null)
-        }
-        onNext={() => setCurrentPage(currentPage + 1)}
+        onPrevious={onPrevious}
+        onNext={onNext}
       />
     </Card>
   )

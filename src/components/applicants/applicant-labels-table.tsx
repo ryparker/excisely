@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 
 import { AnimatedTableRow } from '@/components/shared/animated-table-row'
+import { BeverageTypeCell } from '@/components/shared/beverage-type-cell'
 import { ColumnHeader } from '@/components/shared/column-header'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Card } from '@/components/ui/card'
@@ -14,11 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  BEVERAGE_ICON,
-  BEVERAGE_LABEL_FULL,
-  BEVERAGE_OPTIONS,
-} from '@/config/beverage-display'
+import { BEVERAGE_OPTIONS } from '@/config/beverage-display'
 import { routes } from '@/config/routes'
 import { cn, confidenceColor, formatConfidence, formatDate } from '@/lib/utils'
 
@@ -76,8 +73,6 @@ export function ApplicantLabelsTable({ labels }: ApplicantLabelsTableProps) {
         </TableHeader>
         <TableBody>
           {labels.map((label, i) => {
-            const BevIcon = BEVERAGE_ICON[label.beverageType]
-
             return (
               <AnimatedTableRow
                 key={label.id}
@@ -95,18 +90,7 @@ export function ApplicantLabelsTable({ labels }: ApplicantLabelsTableProps) {
                   />
                 </TableCell>
                 <TableCell>
-                  {BevIcon ? (
-                    <span className="inline-flex items-center gap-1.5 text-sm">
-                      <BevIcon className="size-3.5 text-muted-foreground" />
-                      <span className="text-xs">
-                        {BEVERAGE_LABEL_FULL[label.beverageType] ??
-                          label.beverageType}
-                      </span>
-                    </span>
-                  ) : (
-                    (BEVERAGE_LABEL_FULL[label.beverageType] ??
-                    label.beverageType)
-                  )}
+                  <BeverageTypeCell beverageType={label.beverageType} />
                 </TableCell>
                 <TableCell
                   className={cn(

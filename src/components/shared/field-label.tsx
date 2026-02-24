@@ -9,7 +9,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { RegulationQuickView } from '@/components/shared/regulation-quick-view'
-import { FIELD_DISPLAY_NAMES } from '@/config/field-display-names'
+import { formatFieldName } from '@/config/field-display-names'
 import { FIELD_TOOLTIPS } from '@/config/field-tooltips'
 import { getSection } from '@/lib/regulations/lookup'
 
@@ -56,7 +56,7 @@ function FieldInfoPopover({ fieldName, tooltip }: FieldInfoPopoverProps) {
   const hoverTimeout = useRef<ReturnType<typeof setTimeout>>(null)
   const closeTimeout = useRef<ReturnType<typeof setTimeout>>(null)
 
-  const title = FIELD_DISPLAY_NAMES[fieldName] ?? fieldName.replace(/_/g, ' ')
+  const title = formatFieldName(fieldName)
 
   const cfrSections = tooltip.cfr
     ?.map((id) => {

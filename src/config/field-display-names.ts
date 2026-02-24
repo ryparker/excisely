@@ -16,3 +16,17 @@ export const FIELD_DISPLAY_NAMES: Record<string, string> = {
   state_of_distillation: 'State of Distillation',
   standards_of_fill: 'Standards of Fill',
 }
+
+/** Look up the human-readable display name for a field key, falling back to title-cased snake_case. */
+export function formatFieldName(name: string): string {
+  return FIELD_DISPLAY_NAMES[name] ?? name.replace(/_/g, ' ')
+}
+
+/** Pre-built filter options derived from FIELD_DISPLAY_NAMES, with an "All Fields" entry. */
+export const FIELD_FILTER_OPTIONS = [
+  { label: 'All Fields', value: '' },
+  ...Object.entries(FIELD_DISPLAY_NAMES).map(([value, label]) => ({
+    label,
+    value,
+  })),
+]

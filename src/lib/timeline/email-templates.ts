@@ -1,10 +1,6 @@
 import type { TimelineEmail } from './types'
-import { FIELD_DISPLAY_NAMES } from '@/config/field-display-names'
+import { formatFieldName } from '@/config/field-display-names'
 import { formatDateLong } from '@/lib/utils'
-
-function fieldName(name: string): string {
-  return FIELD_DISPLAY_NAMES[name] ?? name.replace(/_/g, ' ')
-}
 
 // ---------------------------------------------------------------------------
 // Status label map
@@ -75,7 +71,7 @@ export function generateStatusEmail(
       i.status === 'needs_correction',
   )
   const fieldIssues = issues.map((i) => ({
-    displayName: fieldName(i.fieldName),
+    displayName: formatFieldName(i.fieldName),
     expected: i.expectedValue,
     found: i.status === 'not_found' ? 'Not found on label' : i.extractedValue,
     status: i.status,
@@ -120,7 +116,7 @@ export function generateStatusEmail(
               '',
               ...issues.map(
                 (i) =>
-                  `  \u2022 ${fieldName(i.fieldName)}: Expected "${i.expectedValue}", found "${i.status === 'not_found' ? 'not present on label' : i.extractedValue}"`,
+                  `  \u2022 ${formatFieldName(i.fieldName)}: Expected "${i.expectedValue}", found "${i.status === 'not_found' ? 'not present on label' : i.extractedValue}"`,
               ),
               '',
             ]
@@ -152,9 +148,9 @@ export function generateStatusEmail(
               '',
               ...issues.map((i) => {
                 if (i.status === 'not_found') {
-                  return `  \u2022 ${fieldName(i.fieldName)}: MISSING \u2014 Required field "${i.expectedValue}" was not found on the label`
+                  return `  \u2022 ${formatFieldName(i.fieldName)}: MISSING \u2014 Required field "${i.expectedValue}" was not found on the label`
                 }
-                return `  \u2022 ${fieldName(i.fieldName)}: Expected "${i.expectedValue}", found "${i.extractedValue}"`
+                return `  \u2022 ${formatFieldName(i.fieldName)}: Expected "${i.expectedValue}", found "${i.extractedValue}"`
               }),
               '',
             ]
@@ -184,9 +180,9 @@ export function generateStatusEmail(
               '',
               ...issues.map((i) => {
                 if (i.status === 'not_found') {
-                  return `  \u2022 ${fieldName(i.fieldName)}: MISSING \u2014 Required field "${i.expectedValue}" not found on label`
+                  return `  \u2022 ${formatFieldName(i.fieldName)}: MISSING \u2014 Required field "${i.expectedValue}" not found on label`
                 }
-                return `  \u2022 ${fieldName(i.fieldName)}: Expected "${i.expectedValue}", found "${i.extractedValue}"`
+                return `  \u2022 ${formatFieldName(i.fieldName)}: Expected "${i.expectedValue}", found "${i.extractedValue}"`
               }),
               '',
             ]

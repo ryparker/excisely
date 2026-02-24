@@ -1,10 +1,8 @@
 'use client'
 
-import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { useQueryState } from 'nuqs'
 
-import { searchParamParsers } from '@/lib/search-params'
+import { usePaginationState } from '@/hooks/use-pagination-state'
 
 import { AnimatedTableRow } from '@/components/shared/animated-table-row'
 import { ColumnHeader } from '@/components/shared/column-header'
@@ -68,11 +66,7 @@ export function ApplicantsTable({
   searchTerm,
 }: ApplicantsTableProps) {
   const router = useRouter()
-  const [, startTransition] = useTransition()
-  const [currentPage, setCurrentPage] = useQueryState(
-    'page',
-    searchParamParsers.page.withOptions({ shallow: false, startTransition }),
-  )
+  const { currentPage, onPrevious, onNext } = usePaginationState()
 
   return (
     <Card className="overflow-clip py-0">
@@ -154,10 +148,8 @@ export function ApplicantsTable({
         tableTotal={tableTotal}
         pageSize={pageSize}
         entityName="applicant"
-        onPrevious={() =>
-          setCurrentPage(currentPage - 1 > 1 ? currentPage - 1 : null)
-        }
-        onNext={() => setCurrentPage(currentPage + 1)}
+        onPrevious={onPrevious}
+        onNext={onNext}
       />
     </Card>
   )
