@@ -7,15 +7,10 @@ import { motion, useReducedMotion } from 'motion/react'
 import {
   ChevronsLeft,
   ChevronsRight,
-  FileText,
-  Flag,
   Monitor,
   Moon,
   Plus,
-  Scale,
-  Settings,
   Sun,
-  Users,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
@@ -34,6 +29,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { APP_NAME, APP_TAGLINE } from '@/config/constants'
+import { getNavItems, type NavItem } from '@/config/navigation'
 import {
   STATUS_DOT_COLORS,
   STATUS_LABELS,
@@ -63,13 +59,6 @@ function getSidebarSnapshot() {
 
 function getSidebarServerSnapshot() {
   return false // Always expanded on server
-}
-
-interface NavItem {
-  label: string
-  href: string
-  icon: React.ComponentType<{ className?: string }>
-  badge?: number
 }
 
 interface AppSidebarProps {
@@ -116,19 +105,7 @@ export function AppSidebar({
   }, [])
 
   const isApplicant = userRole === 'applicant'
-
-  const staffItems: NavItem[] = [
-    { label: 'Labels', href: '/', icon: FileText, badge: reviewCount },
-    { label: 'Applicants', href: '/applicants', icon: Users },
-    { label: 'AI Errors', href: '/ai-errors', icon: Flag },
-    { label: 'Regulations', href: '/regulations', icon: Scale },
-    { label: 'Settings', href: '/settings', icon: Settings },
-  ]
-
-  const applicantItems: NavItem[] = [
-    { label: 'My Submissions', href: '/submissions', icon: FileText },
-    { label: 'Regulations', href: '/regulations', icon: Scale },
-  ]
+  const navItems = getNavItems(userRole, reviewCount)
 
   // ease-out-quad for user-initiated interaction, 200ms for drawer-size element
   const collapseTransition = shouldReduceMotion
@@ -202,7 +179,7 @@ export function AppSidebar({
   return (
     <TooltipProvider delayDuration={0}>
       <motion.aside
-        className="sticky top-0 flex h-screen shrink-0 flex-col overflow-clip border-r border-sidebar-border bg-sidebar text-sidebar-foreground"
+        className="sticky top-0 hidden h-screen shrink-0 flex-col overflow-clip border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex"
         initial={shouldReduceMotion ? false : { x: -32, opacity: 0 }}
         animate={
           isExiting
@@ -348,9 +325,7 @@ export function AppSidebar({
             collapsed ? 'px-2' : 'px-3',
           )}
         >
-          {isApplicant
-            ? applicantItems.map(renderItem)
-            : staffItems.map(renderItem)}
+          {navItems.map(renderItem)}
         </nav>
 
         {/* CTA button — applicants only (specialists review, they don't submit) */}

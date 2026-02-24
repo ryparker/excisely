@@ -79,7 +79,9 @@ export function SubmitPageTabs() {
 
       <HowItWorks />
 
-      {extraction.status === 'idle' && <SampleData />}
+      <div className="hidden md:block">
+        {extraction.status === 'idle' && <SampleData />}
+      </div>
 
       <div className="mt-3">
         <LabelUploadForm

@@ -1,7 +1,10 @@
 'use client'
 
+import { useRef, useState, useEffect, useCallback } from 'react'
 import {
   Check,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Cpu,
   Mail,
@@ -71,12 +74,52 @@ function formatShortTime(date: Date): string {
   })
 }
 
+// Scroll by ~3 steps worth of pixels
+const SCROLL_AMOUNT = 360
+
 interface HorizontalTimelineProps {
   events: TimelineEvent[]
 }
 
 export function HorizontalTimeline({ events }: HorizontalTimelineProps) {
   const shouldReduceMotion = useReducedMotion()
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
+
+  const updateScrollState = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    setCanScrollLeft(el.scrollLeft > 2)
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2)
+  }, [])
+
+  // Auto-scroll to the most recent (rightmost) event on mount
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+
+    // Instant scroll to end — no animation on mount
+    el.scrollLeft = el.scrollWidth
+    // Defer state update so layout is settled
+    requestAnimationFrame(updateScrollState)
+
+    const observer = new ResizeObserver(updateScrollState)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [updateScrollState])
+
+  const scroll = useCallback(
+    (direction: 'left' | 'right') => {
+      const el = scrollRef.current
+      if (!el) return
+      el.scrollBy({
+        left: direction === 'left' ? -SCROLL_AMOUNT : SCROLL_AMOUNT,
+        behavior: shouldReduceMotion ? 'instant' : 'smooth',
+      })
+    },
+    [shouldReduceMotion],
+  )
 
   if (events.length === 0) return null
 
@@ -84,68 +127,111 @@ export function HorizontalTimeline({ events }: HorizontalTimelineProps) {
   const chronological = [...events].reverse()
 
   return (
-    <div className="flex items-start gap-0 overflow-x-auto">
-      {chronological.map((event, index) => {
-        const Icon = ICON_MAP[event.type] ?? Check
-        const isFuture = event.timestamp > new Date()
-        const isLast = index === chronological.length - 1
+    <div className="relative isolate">
+      {/* Left arrow — 44px tap target, visually compact */}
+      <button
+        onClick={() => scroll('left')}
+        className={cn(
+          'absolute top-1/2 -left-1 z-10 flex size-7 -translate-y-1/2 items-center justify-center rounded-full border border-border/50 bg-background/90 text-muted-foreground shadow-sm backdrop-blur-sm',
+          'transition-opacity duration-150',
+          'before:absolute before:inset-[-8px] before:content-[""]',
+          'hover:text-foreground',
+          canScrollLeft
+            ? 'pointer-events-auto opacity-100'
+            : 'pointer-events-none opacity-0',
+        )}
+        aria-label="Scroll timeline left"
+        tabIndex={canScrollLeft ? 0 : -1}
+      >
+        <ChevronLeft className="size-4" />
+      </button>
 
-        return (
-          <div key={event.id} className="flex items-start">
-            {/* Step */}
-            <motion.div
-              className={cn(
-                'flex shrink-0 flex-col items-center',
-                isFuture && 'opacity-50',
-              )}
-              initial={shouldReduceMotion ? false : { opacity: 0, y: 6 }}
-              animate={{ opacity: isFuture ? 0.5 : 1, y: 0 }}
-              transition={{
-                delay: shouldReduceMotion ? 0 : index * 0.06,
-                duration: 0.25,
-              }}
-            >
+      {/* Right arrow */}
+      <button
+        onClick={() => scroll('right')}
+        className={cn(
+          'absolute top-1/2 -right-1 z-10 flex size-7 -translate-y-1/2 items-center justify-center rounded-full border border-border/50 bg-background/90 text-muted-foreground shadow-sm backdrop-blur-sm',
+          'transition-opacity duration-150',
+          'before:absolute before:inset-[-8px] before:content-[""]',
+          'hover:text-foreground',
+          canScrollRight
+            ? 'pointer-events-auto opacity-100'
+            : 'pointer-events-none opacity-0',
+        )}
+        aria-label="Scroll timeline right"
+        tabIndex={canScrollRight ? 0 : -1}
+      >
+        <ChevronRight className="size-4" />
+      </button>
+
+      {/* Scroll container — hidden scrollbar, native touch/trackpad support */}
+      <div
+        ref={scrollRef}
+        onScroll={updateScrollState}
+        className="flex items-start gap-0 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {chronological.map((event, index) => {
+          const Icon = ICON_MAP[event.type] ?? Check
+          const isFuture = event.timestamp > new Date()
+          const isLast = index === chronological.length - 1
+
+          return (
+            <div key={event.id} className="flex items-start">
+              {/* Step */}
               <motion.div
                 className={cn(
-                  'flex size-7 items-center justify-center rounded-full',
-                  getIconColor(event),
-                  isFuture && 'ring-dashed ring-2 ring-muted-foreground/20',
+                  'flex shrink-0 flex-col items-center',
+                  isFuture && 'opacity-50',
                 )}
-                initial={shouldReduceMotion ? false : { scale: 0 }}
-                animate={{ scale: 1 }}
+                initial={shouldReduceMotion ? false : { opacity: 0, y: 6 }}
+                animate={{ opacity: isFuture ? 0.5 : 1, y: 0 }}
                 transition={{
-                  type: 'spring',
-                  stiffness: 500,
-                  damping: 25,
                   delay: shouldReduceMotion ? 0 : index * 0.06,
+                  duration: 0.25,
                 }}
               >
-                <Icon className="size-3.5" />
-              </motion.div>
-              <p className="mt-1.5 max-w-[120px] text-center text-xs leading-tight font-medium">
-                {event.title}
-              </p>
-              <p className="mt-0.5 text-center text-[10px] text-muted-foreground">
-                {formatShortTime(event.timestamp)}
-              </p>
-            </motion.div>
-
-            {/* Connector line */}
-            {!isLast && (
-              <div className="mt-3 flex items-center px-1">
-                <div
+                <motion.div
                   className={cn(
-                    'h-px w-8 sm:w-12',
-                    isFuture
-                      ? 'border-t border-dashed border-muted-foreground/25'
-                      : 'bg-border',
+                    'flex size-7 items-center justify-center rounded-full',
+                    getIconColor(event),
+                    isFuture && 'ring-dashed ring-2 ring-muted-foreground/20',
                   )}
-                />
-              </div>
-            )}
-          </div>
-        )
-      })}
+                  initial={shouldReduceMotion ? false : { scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{
+                    type: 'spring',
+                    stiffness: 500,
+                    damping: 25,
+                    delay: shouldReduceMotion ? 0 : index * 0.06,
+                  }}
+                >
+                  <Icon className="size-3.5" />
+                </motion.div>
+                <p className="mt-1.5 max-w-[120px] text-center text-xs leading-tight font-medium">
+                  {event.title}
+                </p>
+                <p className="mt-0.5 text-center text-[10px] text-muted-foreground">
+                  {formatShortTime(event.timestamp)}
+                </p>
+              </motion.div>
+
+              {/* Connector line */}
+              {!isLast && (
+                <div className="mt-3 flex items-center px-1">
+                  <div
+                    className={cn(
+                      'h-px w-8 sm:w-12',
+                      isFuture
+                        ? 'border-t border-dashed border-muted-foreground/25'
+                        : 'bg-border',
+                    )}
+                  />
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

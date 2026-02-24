@@ -33,10 +33,9 @@ import { ReviewDetailPanels } from '@/components/review/review-detail-panels'
 import { ProcessingStatusBanner } from '@/components/validation/processing-status-banner'
 import { ProcessingDetailPanels } from '@/components/validation/processing-detail-panels'
 import { AutoRefresh } from '@/components/shared/auto-refresh'
-import { CorrespondenceTimeline } from '@/components/timeline/correspondence-timeline'
+import { HorizontalTimeline } from '@/components/timeline/horizontal-timeline'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { timeAgo } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -70,7 +69,7 @@ function ContentSkeleton() {
 }
 
 function TimelineSkeleton() {
-  return <Skeleton className="h-48 rounded-xl" />
+  return <Skeleton className="h-16 rounded-lg" />
 }
 
 // ---------------------------------------------------------------------------
@@ -176,42 +175,18 @@ async function LabelContentSection({
       }
       normalContent={
         <div className="space-y-5">
-          {/* Summary bar + specialist guidance */}
-          <div className="space-y-3 rounded-lg border bg-muted/30 px-4 py-3">
-            <ValidationSummary
-              status={effectiveStatus}
-              confidence={confidence}
-              processingTimeMs={results?.processingTimeMs ?? null}
-              modelUsed={results?.modelUsed ?? null}
-              fieldCounts={fieldCounts}
-              aiProposedStatus={label.aiProposedStatus}
-              inputTokens={results?.inputTokens}
-              outputTokens={results?.outputTokens}
-              totalTokens={results?.totalTokens}
-            />
-
-            {/* Specialist guidance */}
-            {isReviewable && (
-              <>
-                <div className="h-px bg-border" />
-                <p className="text-[12px] leading-relaxed text-muted-foreground">
-                  <span className="font-medium text-foreground/80">
-                    Review guidance:
-                  </span>{' '}
-                  Submitted {timeAgo(label.createdAt)}.
-                  {confidence !== null && confidence >= 90
-                    ? ' High AI confidence — verify the field comparisons and approve if everything looks correct.'
-                    : confidence !== null && confidence >= 70
-                      ? ` Moderate AI confidence (${Math.round(confidence)}%) — pay close attention to flagged fields before deciding.`
-                      : ` Low AI confidence${confidence !== null ? ` (${Math.round(confidence)}%)` : ''} — carefully review all fields, especially mismatches and not-found items.`}
-                  {fieldCounts.mismatch > 0 &&
-                    ` ${fieldCounts.mismatch} mismatch${fieldCounts.mismatch > 1 ? 'es' : ''} detected.`}
-                  {fieldCounts.notFound > 0 &&
-                    ` ${fieldCounts.notFound} field${fieldCounts.notFound > 1 ? 's' : ''} not found on label.`}
-                </p>
-              </>
-            )}
-          </div>
+          {/* Compact summary strip — no box */}
+          <ValidationSummary
+            status={effectiveStatus}
+            confidence={confidence}
+            processingTimeMs={results?.processingTimeMs ?? null}
+            modelUsed={results?.modelUsed ?? null}
+            fieldCounts={fieldCounts}
+            aiProposedStatus={label.aiProposedStatus}
+            inputTokens={results?.inputTokens}
+            outputTokens={results?.outputTokens}
+            totalTokens={results?.totalTokens}
+          />
 
           {/* Two-panel layout: image + field list */}
           {signedImages.length > 0 && items.length > 0 ? (
@@ -340,7 +315,7 @@ async function LabelTimelineSection({
   const hasSupersededResults = supersededResults.length > 0
 
   return (
-    <CorrespondenceTimeline
+    <HorizontalTimeline
       events={buildTimeline({
         label: {
           id: label.id,
@@ -401,6 +376,7 @@ async function LabelTimelineSection({
 
 // ---------------------------------------------------------------------------
 // Page component
+
 // ---------------------------------------------------------------------------
 
 interface LabelDetailPageProps {
@@ -521,17 +497,6 @@ export default async function LabelDetailPage({
         </div>
       </div>
 
-      {/* Content area — streams independently */}
-      <Suspense fallback={<ContentSkeleton />}>
-        <LabelContentSection
-          labelId={label.id}
-          label={label}
-          appData={appData}
-          effectiveStatus={effectiveStatus}
-          isReviewable={isReviewable}
-        />
-      </Suspense>
-
       {/* Correspondence timeline — streams independently */}
       <Suspense fallback={<TimelineSkeleton />}>
         <LabelTimelineSection
@@ -540,6 +505,17 @@ export default async function LabelDetailPage({
           appData={appData}
           applicant={applicant}
           effectiveStatus={effectiveStatus}
+        />
+      </Suspense>
+
+      {/* Content area — streams independently */}
+      <Suspense fallback={<ContentSkeleton />}>
+        <LabelContentSection
+          labelId={label.id}
+          label={label}
+          appData={appData}
+          effectiveStatus={effectiveStatus}
+          isReviewable={isReviewable}
         />
       </Suspense>
     </PageShell>

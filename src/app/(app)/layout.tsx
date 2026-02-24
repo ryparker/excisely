@@ -7,6 +7,7 @@ import { getSession } from '@/lib/auth/get-session'
 import { getSLATargets } from '@/lib/settings/get-settings'
 import { getSLAStatus, worstSLAStatus, type SLAStatus } from '@/lib/sla/status'
 import { AppSidebar } from '@/components/layout/app-sidebar'
+import { MobileHeader } from '@/components/layout/mobile-header'
 
 export default async function AppLayout({
   children,
@@ -48,7 +49,16 @@ export default async function AppLayout({
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen flex-col md:flex-row">
+      <MobileHeader
+        userRole={userRole}
+        reviewCount={reviewCount}
+        user={{
+          name: user.name,
+          email: user.email,
+          role: userRole,
+        }}
+      />
       <AppSidebar
         userRole={userRole}
         reviewCount={reviewCount}
@@ -59,7 +69,9 @@ export default async function AppLayout({
           role: userRole,
         }}
       />
-      <main className="min-w-0 flex-1 px-8 py-6">{children}</main>
+      <main className="min-w-0 flex-1 px-4 py-4 md:px-8 md:py-6">
+        {children}
+      </main>
     </div>
   )
 }

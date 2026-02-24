@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import {
   eq,
@@ -18,6 +19,8 @@ import { labels, applicationData, applicants } from '@/db/schema'
 import { requireApplicant } from '@/lib/auth/require-role'
 import { getEffectiveStatus } from '@/lib/labels/effective-status'
 import { getSignedImageUrl } from '@/lib/storage/blob'
+import { Plus } from 'lucide-react'
+
 import { AutoRefresh } from '@/components/shared/auto-refresh'
 import { PageHeader } from '@/components/layout/page-header'
 import { PageShell } from '@/components/layout/page-shell'
@@ -417,6 +420,14 @@ export default async function SubmissionsPage({
           currentPage={currentPage}
         />
       </Suspense>
+      {/* Mobile FAB — quick access to new submission */}
+      <Link
+        href="/submit"
+        className="fixed right-6 bottom-6 z-40 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95 md:hidden"
+        aria-label="New submission"
+      >
+        <Plus className="size-6" />
+      </Link>
     </PageShell>
   )
 }

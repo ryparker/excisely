@@ -1,4 +1,5 @@
 import vision from '@google-cloud/vision'
+import sharp from 'sharp'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -44,6 +45,35 @@ function createClient(): InstanceType<typeof vision.ImageAnnotatorClient> {
 }
 
 // ---------------------------------------------------------------------------
+// EXIF auto-orientation
+// ---------------------------------------------------------------------------
+
+/**
+ * Normalizes image orientation by applying EXIF rotation to the actual pixel
+ * data and stripping the EXIF orientation tag. This ensures Google Cloud Vision
+ * returns bounding box coordinates in the same coordinate space that browsers
+ * use to display the image.
+ *
+ * Without this, phone photos (which store landscape pixels + EXIF rotation
+ * metadata) produce bounding boxes in the raw sensor space, while browsers
+ * display the rotated image — causing overlays to be completely misaligned.
+ */
+async function normalizeOrientation(imageBytes: Buffer): Promise<Buffer> {
+  try {
+    const metadata = await sharp(imageBytes).metadata()
+    // orientation 1 = normal, undefined = no tag (already correct)
+    if (metadata.orientation && metadata.orientation !== 1) {
+      return await sharp(imageBytes).rotate().toBuffer()
+    }
+    return imageBytes
+  } catch {
+    // If sharp can't process the image (e.g., unsupported format),
+    // fall through with original bytes — GCV may still handle it
+    return imageBytes
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Core OCR
 // ---------------------------------------------------------------------------
 
@@ -51,12 +81,18 @@ function createClient(): InstanceType<typeof vision.ImageAnnotatorClient> {
  * Runs Google Cloud Vision document text detection on image bytes.
  * Uses documentTextDetection (not textDetection) to get accurate page
  * dimensions along with word-level bounding polygons.
+ *
+ * Images are auto-oriented (EXIF rotation applied to pixels) before
+ * sending to GCV so bounding box coordinates match the displayed image.
  */
 export async function extractText(imageBytes: Buffer): Promise<OcrResult> {
   const client = createClient()
 
+  // Normalize EXIF orientation so GCV coordinates match displayed image
+  const orientedBytes = await normalizeOrientation(imageBytes)
+
   const [result] = await client.documentTextDetection({
-    image: { content: imageBytes },
+    image: { content: orientedBytes },
   })
 
   // Get actual image dimensions from the page-level annotation

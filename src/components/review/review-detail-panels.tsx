@@ -9,7 +9,6 @@ import {
 } from '@/components/validation/annotated-image'
 import { ImageTabs } from '@/components/validation/image-tabs'
 import { ReviewFieldList } from '@/components/review/review-field-list'
-import { ScrollArea } from '@/components/ui/scroll-area'
 
 interface ValidationItemData {
   id: string
@@ -159,57 +158,52 @@ export function ReviewDetailPanels({
   }))
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - 310px)' }}>
-      <ImageTabs
-        images={images}
-        selectedImageId={selectedImageId}
-        onSelect={(id) => {
-          setSelectedImageId(id)
-          setActiveField(null)
-        }}
-      />
-
-      <div className="flex min-h-0 flex-1 gap-4">
-        {/* Left panel — annotated image (55%) */}
-        <div className="flex w-[55%] shrink-0 flex-col">
-          <div className="min-h-0 flex-1 overflow-hidden rounded-xl border bg-neutral-950/[0.03] dark:bg-neutral-950/30">
-            {selectedImage && (
-              <AnnotatedImage
-                imageUrl={selectedImage.imageUrl}
-                validationItems={annotationItems}
-                activeField={activeField}
-                onFieldClick={handleFieldClick}
-                drawingFieldName={drawingFieldName}
-                onDrawingComplete={handleDrawingComplete}
-                onDrawingCancel={handleDrawingCancel}
-                annotations={specialistAnnotations}
-                images={images}
-                selectedImageId={selectedImageId}
-                onImageSelect={(id) => {
-                  setSelectedImageId(id)
-                  setActiveField(null)
-                }}
-              />
-            )}
-          </div>
-        </div>
-
-        {/* Right panel — review field list (45%) */}
-        <ScrollArea className="flex-1">
-          <div className="pr-4 pb-1 pl-1">
-            <ReviewFieldList
-              labelId={labelId}
-              validationItems={validationItems}
-              applicantCorrections={applicantCorrections}
+    <div className="grid grid-cols-[55%_1fr] gap-4">
+      {/* Left column — sticky image + tabs */}
+      <div className="sticky top-6 flex h-[calc(100vh-3rem)] flex-col">
+        <ImageTabs
+          images={images}
+          selectedImageId={selectedImageId}
+          onSelect={(id) => {
+            setSelectedImageId(id)
+            setActiveField(null)
+          }}
+        />
+        <div className="min-h-0 flex-1 overflow-hidden rounded-xl border bg-neutral-950/[0.03] dark:bg-neutral-950/30">
+          {selectedImage && (
+            <AnnotatedImage
+              imageUrl={selectedImage.imageUrl}
+              validationItems={annotationItems}
               activeField={activeField}
               onFieldClick={handleFieldClick}
-              onMarkLocation={handleMarkLocation}
-              onClearAnnotation={handleClearAnnotation}
-              annotations={annotationsMap}
-              beverageType={beverageType}
+              drawingFieldName={drawingFieldName}
+              onDrawingComplete={handleDrawingComplete}
+              onDrawingCancel={handleDrawingCancel}
+              annotations={specialistAnnotations}
+              images={images}
+              selectedImageId={selectedImageId}
+              onImageSelect={(id) => {
+                setSelectedImageId(id)
+                setActiveField(null)
+              }}
             />
-          </div>
-        </ScrollArea>
+          )}
+        </div>
+      </div>
+
+      {/* Right column — review field list, scrolls with page */}
+      <div className="pb-6">
+        <ReviewFieldList
+          labelId={labelId}
+          validationItems={validationItems}
+          applicantCorrections={applicantCorrections}
+          activeField={activeField}
+          onFieldClick={handleFieldClick}
+          onMarkLocation={handleMarkLocation}
+          onClearAnnotation={handleClearAnnotation}
+          annotations={annotationsMap}
+          beverageType={beverageType}
+        />
       </div>
     </div>
   )

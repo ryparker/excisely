@@ -208,12 +208,13 @@ function buildCombinedWordList(ocrResults: OcrResult[]): IndexedWord[] {
 
 /** Normalize text for fuzzy matching (lowercase, strip punctuation, collapse whitespace).
  *  Preserves decimal points between digits (e.g. "12.5%" stays "12.5%", not "125%")
- *  so numeric fields like alcohol content match correctly when OCR splits tokens. */
+ *  so numeric fields like alcohol content match correctly when OCR splits tokens.
+ *  Replaces "/" with space so "ALC/VOL" matches OCR tokens "ALC" + "/" + "VOL". */
 function norm(s: string): string {
   return s
     .toLowerCase()
     .replace(/(?<!\d)\.|\.(?!\d)/g, '') // strip periods except decimal points
-    .replace(/[,;:!?'"()\-]/g, '')
+    .replace(/[,;:!?'"()\-\/]/g, ' ') // replace punctuation + "/" with space
     .replace(/\s+/g, ' ')
     .trim()
 }
@@ -321,8 +322,13 @@ function matchFieldsToBoundingBoxes(
       }
     }
 
-    // Compute bounding box from matched words on the primary image
-    const wordsOnImage = matched.filter((w) => w.imageIndex === imageIndex)
+    // Compute bounding box from matched words on the primary image.
+    // Filter out punctuation-only tokens (e.g. "/", "(", ")") that normalize
+    // to empty — their OCR coordinates can be far from the actual text on
+    // curved surfaces, inflating the bounding box.
+    const wordsOnImage = matched.filter(
+      (w) => w.imageIndex === imageIndex && norm(w.text),
+    )
     const ocrResult = ocrResults[imageIndex]
     const boundingBox = ocrResult
       ? computeNormalizedBoundingBox(

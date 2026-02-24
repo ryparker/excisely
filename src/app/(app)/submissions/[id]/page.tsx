@@ -66,13 +66,11 @@ async function SubmissionContentSection({
   labelId,
   label,
   appData,
-  effectiveStatus,
   isProcessing,
 }: {
   labelId: string
   label: Label
   appData: ApplicationData | null
-  effectiveStatus: string
   isProcessing: boolean
 }) {
   // Fetch images + current results in parallel
@@ -143,34 +141,19 @@ async function SubmissionContentSection({
     )
   }
 
-  return (
-    <div className="space-y-2">
-      {/* Guidance text */}
-      <p className="text-sm text-muted-foreground">
-        {effectiveStatus === 'pending_review' &&
-          'A labeling specialist will review the AI analysis and your application. You should hear back within 3 business days.'}
-        {effectiveStatus === 'approved' &&
-          'Your label is approved. You may proceed with printing and distribution.'}
-        {effectiveStatus === 'conditionally_approved' &&
-          'Your label has been conditionally approved. Please review the flagged fields below and submit corrections within 7 days.'}
-        {effectiveStatus === 'needs_correction' &&
-          'Some fields on your label need attention. Review the flagged items below and resubmit corrections within 30 days.'}
-        {effectiveStatus === 'rejected' &&
-          'Please review the notes below. You may submit a revised application.'}
-      </p>
+  if (signedImages.length > 0 && items.length > 0) {
+    return (
+      <ValidationDetailPanels
+        images={signedImages}
+        validationItems={mappedItems}
+        hideInternals
+      />
+    )
+  }
 
-      {/* Two-panel layout: image + field list with hideInternals */}
-      {signedImages.length > 0 && items.length > 0 ? (
-        <ValidationDetailPanels
-          images={signedImages}
-          validationItems={mappedItems}
-          hideInternals
-        />
-      ) : (
-        <div className="flex items-center justify-center rounded-lg border py-24 text-sm text-muted-foreground">
-          No verification data available for this submission.
-        </div>
-      )}
+  return (
+    <div className="flex items-center justify-center rounded-lg border py-24 text-sm text-muted-foreground">
+      No verification data available for this submission.
     </div>
   )
 }
@@ -218,6 +201,19 @@ async function SubmissionTimelineSection({
         .where(eq(validationItems.validationResultId, results.id))
     : []
 
+  const GUIDANCE: Record<string, string> = {
+    pending_review:
+      'A labeling specialist will review the AI analysis and your application. You should hear back within 3 business days.',
+    approved:
+      'Your label is approved. You may proceed with printing and distribution.',
+    conditionally_approved:
+      'Your label has been conditionally approved. Please review the flagged fields and submit corrections within 7 days.',
+    needs_correction:
+      'Some fields on your label need attention. Review the flagged items and resubmit corrections within 30 days.',
+    rejected:
+      'Please review the notes below. You may submit a revised application.',
+  }
+
   return (
     <HorizontalTimeline
       events={buildApplicantTimeline({
@@ -245,6 +241,7 @@ async function SubmissionTimelineSection({
         humanReviews: [],
         overrides: [],
       })}
+      guidance={GUIDANCE[effectiveStatus]}
     />
   )
 }
@@ -357,7 +354,6 @@ export default async function SubmissionDetailPage({
           labelId={label.id}
           label={label}
           appData={appData}
-          effectiveStatus={effectiveStatus}
           isProcessing={isProcessing}
         />
       </Suspense>

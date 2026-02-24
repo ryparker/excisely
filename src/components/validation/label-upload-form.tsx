@@ -13,6 +13,7 @@ import {
   Loader2,
   Pencil,
   ScanText,
+  Smartphone,
   Sparkles,
   Upload,
   XCircle,
@@ -25,6 +26,7 @@ import {
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { QRCodeSVG } from 'qrcode.react'
 import { toast } from 'sonner'
 
 import { extractFieldsFromImage } from '@/app/actions/extract-fields-from-image'
@@ -39,6 +41,13 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -245,8 +254,11 @@ export function LabelUploadForm({
 
   // Show camera button only on touch devices (phones/tablets)
   const [isTouchDevice, setIsTouchDevice] = useState(false)
+  const [showQrDialog, setShowQrDialog] = useState(false)
+  const [origin, setOrigin] = useState('')
   useEffect(() => {
     setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0)
+    setOrigin(window.location.origin)
   }, [])
 
   // Extraction store
@@ -533,6 +545,14 @@ export function LabelUploadForm({
       const capturedFiles = e.target.files
       if (capturedFiles?.length) {
         onDrop(Array.from(capturedFiles))
+        toast.success('Photo added')
+        // Auto-scroll carousel to the "Add more" card so user can easily take another
+        setTimeout(() => {
+          carouselRef.current?.scrollTo({
+            left: carouselRef.current.scrollWidth,
+            behavior: 'smooth',
+          })
+        }, 300)
       }
       // Reset so the same file can be re-captured
       e.target.value = ''
@@ -1088,7 +1108,7 @@ export function LabelUploadForm({
       <p className="mt-1 text-xs text-muted-foreground">
         JPEG, PNG, or WebP up to 10 MB
       </p>
-      {isTouchDevice && (
+      {isTouchDevice ? (
         <button
           type="button"
           onClick={(e) => {
@@ -1100,6 +1120,20 @@ export function LabelUploadForm({
           <Camera className="size-3.5" />
           Take a photo
         </button>
+      ) : (
+        origin && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              setShowQrDialog(true)
+            }}
+            className="mx-auto mt-3 flex items-center gap-1.5 rounded-md bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            <Smartphone className="size-3.5" />
+            Take a photo with your phone
+          </button>
+        )
       )}
     </div>
   )
@@ -1263,19 +1297,19 @@ export function LabelUploadForm({
         <div className="flex min-h-[34rem] flex-col gap-5 p-5">
           {/* Ghost placeholder cards */}
           <div className="flex flex-1 gap-3">
-            <div className="flex min-h-44 w-full flex-1 flex-col items-center justify-center gap-2.5 rounded-xl border-2 border-dashed border-muted-foreground/20 bg-muted/5 sm:w-1/2 md:w-1/3 md:flex-none">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-muted/60">
-                <ImagePlus className="size-5 text-muted-foreground/40" />
+            <div className="group/front flex min-h-44 w-full flex-1 flex-col items-center justify-center gap-2.5 rounded-xl border-2 border-dashed border-muted-foreground/20 bg-muted/5 transition-[transform,border-color,background-color,box-shadow] duration-200 ease-out hover:-translate-y-1 hover:border-primary/40 hover:bg-primary/[0.04] hover:shadow-md sm:w-1/2 md:w-1/3 md:flex-none">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-muted/60 transition-[background-color] duration-200 ease-out group-hover/front:bg-primary/15">
+                <ImagePlus className="size-5 text-muted-foreground/40 transition-[color] duration-200 ease-out group-hover/front:text-primary/70" />
               </div>
-              <span className="text-xs font-medium text-muted-foreground/40">
+              <span className="text-xs font-medium text-muted-foreground/40 transition-[color] duration-200 ease-out group-hover/front:text-primary/70">
                 Front label
               </span>
             </div>
-            <div className="hidden min-h-44 flex-1 flex-col items-center justify-center gap-2.5 rounded-xl border-2 border-dashed border-muted-foreground/15 bg-muted/5 sm:flex sm:w-1/2 md:w-1/3 md:flex-none">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-muted/40">
-                <ImagePlus className="size-5 text-muted-foreground/25" />
+            <div className="group/back hidden min-h-44 flex-1 flex-col items-center justify-center gap-2.5 rounded-xl border-2 border-dashed border-muted-foreground/15 bg-muted/5 transition-[transform,border-color,background-color,box-shadow] duration-200 ease-out hover:-translate-y-1 hover:border-primary/40 hover:bg-primary/[0.04] hover:shadow-md sm:flex sm:w-1/2 md:w-1/3 md:flex-none">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-muted/40 transition-[background-color] duration-200 ease-out group-hover/back:bg-primary/15">
+                <ImagePlus className="size-5 text-muted-foreground/25 transition-[color] duration-200 ease-out group-hover/back:text-primary/70" />
               </div>
-              <span className="text-xs font-medium text-muted-foreground/25">
+              <span className="text-xs font-medium text-muted-foreground/25 transition-[color] duration-200 ease-out group-hover/back:text-primary/70">
                 Back label
               </span>
             </div>
@@ -1290,7 +1324,7 @@ export function LabelUploadForm({
             <p className="text-xs text-muted-foreground">
               JPEG, PNG, or WebP up to 10 MB
             </p>
-            {isTouchDevice && (
+            {isTouchDevice ? (
               <button
                 type="button"
                 onClick={(e) => {
@@ -1302,6 +1336,20 @@ export function LabelUploadForm({
                 <Camera className="size-3.5" />
                 Take a photo
               </button>
+            ) : (
+              origin && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowQrDialog(true)
+                  }}
+                  className="mt-1 flex items-center gap-1.5 rounded-md bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                >
+                  <Smartphone className="size-3.5" />
+                  Take a photo with your phone
+                </button>
+              )
             )}
           </div>
         </div>
@@ -1413,7 +1461,7 @@ export function LabelUploadForm({
                   <Upload className="size-4" />
                   {isTouchDevice ? 'Browse files' : 'Add more'}
                 </button>
-                {isTouchDevice && (
+                {isTouchDevice ? (
                   <button
                     type="button"
                     onClick={(e) => {
@@ -1425,6 +1473,20 @@ export function LabelUploadForm({
                     <Camera className="size-4" />
                     Take a photo
                   </button>
+                ) : (
+                  origin && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setShowQrDialog(true)
+                      }}
+                      className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                    >
+                      <Smartphone className="size-4" />
+                      Use your phone
+                    </button>
+                  )
                 )}
               </div>
             </div>
@@ -2524,6 +2586,56 @@ export function LabelUploadForm({
               )}
             </div>
 
+            {/* Add photos during review — hidden inputs + action buttons */}
+            {showSplitPane && extraction.status === 'success' && (
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={openFileDialog}
+                >
+                  <ImagePlus className="size-3.5" />
+                  Add photos
+                </Button>
+                {isTouchDevice && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={openCamera}
+                  >
+                    <Camera className="size-3.5" />
+                    Take a photo
+                  </Button>
+                )}
+                {!isTouchDevice && origin && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowQrDialog(true)}
+                  >
+                    <Smartphone className="size-3.5" />
+                    Use your phone
+                  </Button>
+                )}
+                {hasScannedOnce && files.length !== imageCountAtLastScan && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleScanLabels}
+                    disabled={extraction.status !== 'success'}
+                  >
+                    <ScanText className="size-3.5" />
+                    Re-scan with {files.length} image
+                    {files.length > 1 ? 's' : ''}
+                  </Button>
+                )}
+              </div>
+            )}
+
             {/* Type of Product — inline form field with segmented control */}
             {mode === 'submit' &&
               extraction.status !== 'extracting' &&
@@ -2581,6 +2693,37 @@ export function LabelUploadForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
+      {/* Hidden file inputs — always in DOM for add-photos-in-review */}
+      {showSplitPane && (
+        <div className="hidden">
+          <input {...getInputProps()} />
+          {cameraInput}
+        </div>
+      )}
+
+      {/* QR code dialog — desktop camera access via phone */}
+      {origin && (
+        <Dialog open={showQrDialog} onOpenChange={setShowQrDialog}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Take a photo with your phone</DialogTitle>
+              <DialogDescription>
+                Scan this QR code to open the submission page on your phone.
+                You&apos;ll need to sign in.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-center py-4">
+              <QRCodeSVG
+                value={`${origin}/submit`}
+                size={200}
+                level="M"
+                className="rounded-lg"
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {showSplitPane ? (
         <motion.div
           initial={prefersReducedMotion ? false : { opacity: 0 }}
