@@ -76,12 +76,13 @@ export function SLASettings({ defaults }: SLASettingsProps) {
         {/* Review Response Time */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <Label>Review Response Time</Label>
+            <Label htmlFor="review-response-time">Review Response Time</Label>
             <span className="font-mono text-sm text-muted-foreground tabular-nums">
               {values.reviewResponseHours}h
             </span>
           </div>
           <Slider
+            id="review-response-time"
             value={[values.reviewResponseHours]}
             min={1}
             max={168}
@@ -96,12 +97,13 @@ export function SLASettings({ defaults }: SLASettingsProps) {
         {/* Total Turnaround Time */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <Label>Total Turnaround Time</Label>
+            <Label htmlFor="total-turnaround-time">Total Turnaround Time</Label>
             <span className="font-mono text-sm text-muted-foreground tabular-nums">
               {values.totalTurnaroundHours}h
             </span>
           </div>
           <Slider
+            id="total-turnaround-time"
             value={[values.totalTurnaroundHours]}
             min={1}
             max={168}
@@ -116,12 +118,15 @@ export function SLASettings({ defaults }: SLASettingsProps) {
         {/* Auto-Approval Rate Target */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <Label>Auto-Approval Rate Target</Label>
+            <Label htmlFor="auto-approval-rate">
+              Auto-Approval Rate Target
+            </Label>
             <span className="font-mono text-sm text-muted-foreground tabular-nums">
               {values.autoApprovalRateTarget}%
             </span>
           </div>
           <Slider
+            id="auto-approval-rate"
             value={[values.autoApprovalRateTarget]}
             min={0}
             max={100}

@@ -158,9 +158,9 @@ export function ReviewDetailPanels({
   }))
 
   return (
-    <div className="grid grid-cols-[55%_1fr] gap-4">
-      {/* Left column — sticky image + tabs */}
-      <div className="sticky top-6 flex h-[calc(100vh-3rem)] flex-col">
+    <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[55%_1fr]">
+      {/* Left column — sticky image + tabs (stacks on mobile) */}
+      <div className="flex h-[60vh] flex-col lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)]">
         <ImageTabs
           images={images}
           selectedImageId={selectedImageId}

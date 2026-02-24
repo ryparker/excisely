@@ -118,10 +118,7 @@ export async function extractFieldsFromImage(input: {
     console.error('[extractFieldsFromImage] Error:', error)
     return {
       success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : 'Failed to extract fields from image',
+      error: 'An unexpected error occurred during field extraction',
     }
   }
 }

@@ -13,6 +13,7 @@ import { Card } from '@/components/ui/card'
 import {
   Table,
   TableBody,
+  TableCaption,
   TableCell,
   TableHeader,
   TableRow,
@@ -129,6 +130,7 @@ export function ApplicantsTable({
   return (
     <Card className="overflow-clip py-0">
       <Table>
+        <TableCaption className="sr-only">Registered applicants</TableCaption>
         <TableHeader>
           <TableRow className="bg-muted/30 hover:bg-muted/30">
             <ColumnHeader sortKey="companyName">Company Name</ColumnHeader>

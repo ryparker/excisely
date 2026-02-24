@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { and, eq, sql, count } from 'drizzle-orm'
@@ -22,6 +23,10 @@ import {
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { confidenceColor } from '@/lib/utils'
+
+export const metadata: Metadata = {
+  title: 'AI Errors',
+}
 
 export const dynamic = 'force-dynamic'
 

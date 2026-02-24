@@ -44,6 +44,10 @@ export async function validateLabel(
     return { success: false, error: 'Authentication required' }
   }
 
+  if (session.user.role === 'applicant') {
+    return { success: false, error: 'Specialist access required' }
+  }
+
   try {
     // 2. Parse and validate form data
     const rawData = {
@@ -100,6 +104,10 @@ export async function validateLabel(
 
     if (!Array.isArray(imageUrls) || imageUrls.length === 0) {
       return { success: false, error: 'At least one label image is required' }
+    }
+
+    if (imageUrls.length > 10) {
+      return { success: false, error: 'Maximum 10 images allowed' }
     }
 
     for (const url of imageUrls) {
@@ -328,10 +336,7 @@ export async function validateLabel(
     console.error('[validateLabel] Unexpected error:', error)
     return {
       success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : 'An unexpected error occurred during validation',
+      error: 'An unexpected error occurred during validation',
     }
   }
 }

@@ -89,3 +89,6 @@ skills/
 .windsurf/
 .vercel
 .env*.local
+
+# auth credentials
+auth-*.json

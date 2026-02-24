@@ -21,7 +21,7 @@ export function DashboardAnimatedShell({
   return (
     <>
       <AutoRefresh />
-      <PageShell className="space-y-5" staggerMs={40}>
+      <PageShell className="space-y-6" staggerMs={40}>
         {header}
         {stats}
         {filters}

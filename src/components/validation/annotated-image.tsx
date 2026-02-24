@@ -263,7 +263,7 @@ function ImageViewerContent({
     <div
       ref={containerRef}
       className={cn(
-        'relative h-full overflow-hidden border bg-muted bg-[linear-gradient(oklch(0.5_0_0/0.08)_1px,transparent_1px),linear-gradient(90deg,oklch(0.5_0_0/0.08)_1px,transparent_1px)] bg-[length:20px_20px]',
+        'relative h-full overflow-hidden border bg-muted bg-[linear-gradient(oklch(0.5_0_0/0.04)_1px,transparent_1px),linear-gradient(90deg,oklch(0.5_0_0/0.04)_1px,transparent_1px)] bg-[length:20px_20px]',
         hasTopBanner ? 'rounded-b-lg border-t-0' : 'rounded-lg',
         isDrawing
           ? 'cursor-crosshair'
@@ -1251,7 +1251,7 @@ export function AnnotatedImage({
         {placeholderUrl && !imageError && (
           <div
             className={cn(
-              'absolute inset-0 z-10 overflow-hidden rounded-lg border bg-muted bg-[linear-gradient(oklch(0.5_0_0/0.08)_1px,transparent_1px),linear-gradient(90deg,oklch(0.5_0_0/0.08)_1px,transparent_1px)] bg-[length:20px_20px]',
+              'absolute inset-0 z-10 overflow-hidden rounded-lg border bg-muted bg-[linear-gradient(oklch(0.5_0_0/0.04)_1px,transparent_1px),linear-gradient(90deg,oklch(0.5_0_0/0.04)_1px,transparent_1px)] bg-[length:20px_20px]',
               // Fade OUT smoothly (500ms) but appear instantly (no transition)
               // when !isPositioned. This prevents the user seeing the wrong
               // scale/translate on the image underneath during a slow fade-in.

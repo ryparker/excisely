@@ -304,10 +304,7 @@ export async function reanalyzeLabel(
 
     return {
       success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : 'An unexpected error occurred during re-analysis',
+      error: 'An unexpected error occurred during re-analysis',
     }
   }
 }

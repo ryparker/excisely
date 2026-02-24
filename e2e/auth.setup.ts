@@ -25,6 +25,7 @@ for (const account of APPLICANT_ACCOUNTS) {
     await page.goto('/login', { waitUntil: 'networkidle' })
 
     await page.getByLabel('Email').fill(account.email)
+    await page.keyboard.press('Escape') // dismiss demo accounts dropdown
     await page.getByLabel('Password').fill(account.password)
     await page.getByRole('button', { name: /sign in/i }).click()
 
@@ -41,6 +42,7 @@ setup('authenticate as specialist', async ({ page }) => {
   await page.goto('/login', { waitUntil: 'networkidle' })
 
   await page.getByLabel('Email').fill('dave.morrison@ttb.gov')
+  await page.keyboard.press('Escape') // dismiss demo accounts dropdown
   await page.getByLabel('Password').fill('specialist123')
   await page.getByRole('button', { name: /sign in/i }).click()
 

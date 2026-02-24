@@ -1,10 +1,13 @@
+'use client'
+
+import { useCallback, useRef, useState } from 'react'
 import { Info, Scale } from 'lucide-react'
 
 import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from '@/components/ui/hover-card'
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { RegulationQuickView } from '@/components/shared/regulation-quick-view'
 import { FIELD_DISPLAY_NAMES } from '@/config/field-display-names'
 import { FIELD_TOOLTIPS } from '@/config/field-tooltips'
@@ -31,6 +34,28 @@ export function FieldLabel({
     return <span className={className}>{displayText}</span>
   }
 
+  return (
+    <span className={className}>
+      {displayText}
+      <FieldInfoPopover fieldName={fieldName} tooltip={tooltip} />
+    </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Inner component (needs hooks, split out so FieldLabel can early-return)
+// ---------------------------------------------------------------------------
+
+interface FieldInfoPopoverProps {
+  fieldName: string
+  tooltip: (typeof FIELD_TOOLTIPS)[string]
+}
+
+function FieldInfoPopover({ fieldName, tooltip }: FieldInfoPopoverProps) {
+  const [open, setOpen] = useState(false)
+  const hoverTimeout = useRef<ReturnType<typeof setTimeout>>(null)
+  const closeTimeout = useRef<ReturnType<typeof setTimeout>>(null)
+
   const title = FIELD_DISPLAY_NAMES[fieldName] ?? fieldName.replace(/_/g, ' ')
 
   const cfrSections = tooltip.cfr
@@ -42,15 +67,45 @@ export function FieldLabel({
     | Array<NonNullable<ReturnType<typeof getSection>>>
     | undefined
 
+  const handlePointerEnter = useCallback(() => {
+    // Only hover-open for mouse (not touch)
+    if (closeTimeout.current) clearTimeout(closeTimeout.current)
+    hoverTimeout.current = setTimeout(() => setOpen(true), 200)
+  }, [])
+
+  const handlePointerLeave = useCallback(() => {
+    if (hoverTimeout.current) clearTimeout(hoverTimeout.current)
+    closeTimeout.current = setTimeout(() => setOpen(false), 150)
+  }, [])
+
+  const handleContentPointerEnter = useCallback(() => {
+    if (closeTimeout.current) clearTimeout(closeTimeout.current)
+  }, [])
+
   return (
-    <HoverCard openDelay={200} closeDelay={100}>
-      <HoverCardTrigger asChild>
-        <span className={className}>
-          {displayText}
-          <Info className="ml-1 inline size-3 text-muted-foreground/50" />
-        </span>
-      </HoverCardTrigger>
-      <HoverCardContent side="top" align="start" className="w-72 p-3">
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          onPointerEnter={(e) => {
+            if (e.pointerType === 'mouse') handlePointerEnter()
+          }}
+          onPointerLeave={(e) => {
+            if (e.pointerType === 'mouse') handlePointerLeave()
+          }}
+          className="ml-1 inline-flex translate-y-px items-center rounded-sm p-0.5 text-muted-foreground/50 transition-colors hover:text-muted-foreground focus-visible:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+          aria-label={`Info about ${title}`}
+        >
+          <Info className="size-3" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="top"
+        align="start"
+        className="w-72 p-3"
+        onPointerEnter={handleContentPointerEnter}
+        onPointerLeave={handlePointerLeave}
+      >
         <div className="flex items-baseline justify-between gap-2">
           <p className="text-[13px] leading-tight font-semibold">{title}</p>
           {tooltip.reference && (
@@ -90,7 +145,7 @@ export function FieldLabel({
             </div>
           </div>
         )}
-      </HoverCardContent>
-    </HoverCard>
+      </PopoverContent>
+    </Popover>
   )
 }

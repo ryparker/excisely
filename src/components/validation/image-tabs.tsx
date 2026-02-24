@@ -30,7 +30,7 @@ export function ImageTabs({
   if (images.length <= 1) return null
 
   return (
-    <div className="mb-1 flex gap-1.5">
+    <div className="mb-1.5 flex gap-2">
       {images.map((img) => {
         const isActive = img.id === selectedImageId
         const failed = failedIds.has(img.id)
@@ -40,10 +40,10 @@ export function ImageTabs({
             key={img.id}
             type="button"
             className={cn(
-              'flex items-center gap-2 rounded-lg border px-2 py-1.5 transition-colors',
+              'flex items-center gap-2.5 rounded-lg border px-2.5 py-2 transition-colors',
               isActive
-                ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
-                : 'border-border bg-muted/40 opacity-75 hover:opacity-100',
+                ? 'border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20'
+                : 'border-border bg-muted/40 opacity-70 hover:opacity-100',
             )}
             onClick={() => onSelect(img.id)}
           >
@@ -66,7 +66,7 @@ export function ImageTabs({
             </span>
             <span
               className={cn(
-                'text-xs font-medium',
+                'text-[13px] font-medium',
                 isActive ? 'text-foreground' : 'text-muted-foreground',
               )}
             >

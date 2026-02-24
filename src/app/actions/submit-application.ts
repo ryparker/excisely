@@ -48,6 +48,10 @@ export async function submitApplication(
     return { success: false, error: 'Authentication required' }
   }
 
+  if (session.user.role !== 'applicant') {
+    return { success: false, error: 'Applicant access required' }
+  }
+
   let labelId: string | null = null
 
   try {
@@ -104,6 +108,10 @@ export async function submitApplication(
 
     if (!Array.isArray(imageUrls) || imageUrls.length === 0) {
       return { success: false, error: 'At least one label image is required' }
+    }
+
+    if (imageUrls.length > 10) {
+      return { success: false, error: 'Maximum 10 images allowed' }
     }
 
     for (const url of imageUrls) {
@@ -419,10 +427,7 @@ export async function submitApplication(
 
     return {
       success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : 'An unexpected error occurred during submission',
+      error: 'An unexpected error occurred during submission',
     }
   }
 }

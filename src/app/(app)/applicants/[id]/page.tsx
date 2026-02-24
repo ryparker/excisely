@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { and, eq, desc, asc, sql } from 'drizzle-orm'
@@ -26,6 +27,20 @@ import { ApplicantLabelsTable } from '@/components/applicants/applicant-labels-t
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}): Promise<Metadata> {
+  const { id } = await params
+  const [row] = await db
+    .select({ companyName: applicants.companyName })
+    .from(applicants)
+    .where(eq(applicants.id, id))
+    .limit(1)
+  return { title: row?.companyName ?? 'Applicant Detail' }
+}
 
 export const dynamic = 'force-dynamic'
 

@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { eq, count, and, desc, asc, sql, ilike, type SQL } from 'drizzle-orm'
 import { ShieldCheck } from 'lucide-react'
@@ -15,6 +16,7 @@ import { getSLAStatus } from '@/lib/sla/status'
 import { getSignedImageUrl } from '@/lib/storage/blob'
 import { PageHeader } from '@/components/layout/page-header'
 import {
+  SLAMetricCard,
   SLAMetricCards,
   type SLAMetricCardData,
 } from '@/components/dashboard/sla-metric-card'
@@ -26,6 +28,10 @@ import { ResetFiltersButton } from '@/components/shared/reset-filters-button'
 import { LabelsTable } from '@/components/labels/labels-table'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+
+export const metadata: Metadata = {
+  title: 'Dashboard',
+}
 
 export const dynamic = 'force-dynamic'
 
@@ -77,33 +83,40 @@ const STATUS_FILTERS = [
 
 function SLACardsSkeleton() {
   return (
-    <>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            className="space-y-3 rounded-xl border bg-card p-5 shadow-sm"
-          >
-            <div className="flex items-center gap-2">
-              <Skeleton className="size-3.5 rounded" />
-              <Skeleton className="h-3.5 w-32" />
-            </div>
-            <div className="flex items-baseline gap-1.5">
-              <Skeleton className="h-7 w-14" />
-              <Skeleton className="h-3 w-10" />
-            </div>
-            <Skeleton className="h-1.5 w-full rounded-full" />
-            <div className="flex items-center gap-1.5">
-              <Skeleton className="size-1.5 rounded-full" />
-              <Skeleton className="h-3 w-16" />
-            </div>
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div
+          key={i}
+          className="space-y-3 rounded-xl border bg-card p-5 shadow-sm"
+        >
+          <div className="flex items-center gap-2">
+            <Skeleton className="size-3.5 rounded" />
+            <Skeleton className="h-3.5 w-32" />
           </div>
-        ))}
+          <div className="flex items-baseline gap-1.5">
+            <Skeleton className="h-7 w-14" />
+            <Skeleton className="h-3 w-10" />
+          </div>
+          <Skeleton className="h-1.5 w-full rounded-full" />
+          <div className="flex items-center gap-1.5">
+            <Skeleton className="size-1.5 rounded-full" />
+            <Skeleton className="h-3 w-16" />
+          </div>
+        </div>
+      ))}
+      <div className="space-y-3 rounded-xl border bg-card p-5 shadow-sm">
+        <div className="flex items-center gap-2">
+          <Skeleton className="size-3.5 rounded" />
+          <Skeleton className="h-3.5 w-24" />
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <Skeleton className="h-7 w-16" />
+          <Skeleton className="h-3 w-12" />
+        </div>
+        <Skeleton className="h-3 w-28" />
+        <Skeleton className="h-3 w-36" />
       </div>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Skeleton className="h-[100px] rounded-xl" />
-      </div>
-    </>
+    </div>
   )
 }
 
@@ -200,12 +213,12 @@ async function DashboardSLACards() {
   ]
 
   return (
-    <>
-      <SLAMetricCards metrics={slaCards} />
-      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <TokenUsageSummary metrics={tokenUsageMetrics} />
-      </div>
-    </>
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+      {slaCards.map((metric, i) => (
+        <SLAMetricCard key={metric.label} {...metric} index={i} />
+      ))}
+      <TokenUsageSummary metrics={tokenUsageMetrics} />
+    </div>
   )
 }
 

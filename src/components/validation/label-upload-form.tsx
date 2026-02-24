@@ -247,6 +247,10 @@ export function LabelUploadForm({
     'user' | 'ai' | null
   >(null)
 
+  // Photo review dialog — auto-opens when photos are added during review phase
+  const [photoReviewOpen, setPhotoReviewOpen] = useState(false)
+  const prevFileCountRef = useRef(0)
+
   // Carousel scroll state
   const carouselRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
@@ -391,6 +395,19 @@ export function LabelUploadForm({
   useEffect(() => {
     onActiveChange?.(files.length > 0)
   }, [files.length, onActiveChange])
+
+  // Auto-open photo review dialog when new photos are added during review phase
+  useEffect(() => {
+    if (
+      hasScannedOnce &&
+      extraction.status === 'success' &&
+      files.length > prevFileCountRef.current &&
+      files.length > imageCountAtLastScan
+    ) {
+      setPhotoReviewOpen(true)
+    }
+    prevFileCountRef.current = files.length
+  }, [files.length, hasScannedOnce, extraction.status, imageCountAtLastScan])
 
   // Reset submission step when returning to idle upload state
   const setSubmissionStep = extraction.setSubmissionStep
@@ -582,7 +599,11 @@ export function LabelUploadForm({
       try {
         const body = new FormData()
         body.append('file', fileEntry.file)
-        const res = await fetch('/api/blob/upload', { method: 'POST', body })
+        const res = await fetch('/api/blob/upload', {
+          method: 'POST',
+          body,
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        })
         if (!res.ok) {
           const data = await res
             .json()
@@ -1640,7 +1661,7 @@ export function LabelUploadForm({
                 className={cn(
                   extraction.aiOriginalValues.has('brand_name') &&
                     !extraction.modifiedFields.has('brand_name') &&
-                    'border-l-2 border-l-indigo-400',
+                    'bg-indigo-50/50 dark:bg-indigo-950/20',
                 )}
                 {...register('brandName')}
                 onFocus={() => handleFieldFocus('brand_name')}
@@ -1673,7 +1694,7 @@ export function LabelUploadForm({
                 className={cn(
                   extraction.aiOriginalValues.has('fanciful_name') &&
                     !extraction.modifiedFields.has('fanciful_name') &&
-                    'border-l-2 border-l-indigo-400',
+                    'bg-indigo-50/50 dark:bg-indigo-950/20',
                 )}
                 {...register('fancifulName')}
                 onFocus={() => handleFieldFocus('fanciful_name')}
@@ -1709,7 +1730,7 @@ export function LabelUploadForm({
                 className={cn(
                   extraction.aiOriginalValues.has('class_type') &&
                     !extraction.modifiedFields.has('class_type') &&
-                    'border-l-2 border-l-indigo-400',
+                    'bg-indigo-50/50 dark:bg-indigo-950/20',
                 )}
                 {...register('classType')}
                 onFocus={() => handleFieldFocus('class_type')}
@@ -1813,7 +1834,7 @@ export function LabelUploadForm({
                 className={cn(
                   extraction.aiOriginalValues.has('alcohol_content') &&
                     !extraction.modifiedFields.has('alcohol_content') &&
-                    'border-l-2 border-l-indigo-400',
+                    'bg-indigo-50/50 dark:bg-indigo-950/20',
                 )}
                 {...register('alcoholContent')}
                 onFocus={() => handleFieldFocus('alcohol_content')}
@@ -1838,7 +1859,7 @@ export function LabelUploadForm({
                 className={cn(
                   extraction.aiOriginalValues.has('net_contents') &&
                     !extraction.modifiedFields.has('net_contents') &&
-                    'border-l-2 border-l-indigo-400',
+                    'bg-indigo-50/50 dark:bg-indigo-950/20',
                 )}
                 {...register('netContents')}
                 onFocus={() => handleFieldFocus('net_contents')}
@@ -1871,7 +1892,7 @@ export function LabelUploadForm({
                 className={cn(
                   extraction.aiOriginalValues.has('name_and_address') &&
                     !extraction.modifiedFields.has('name_and_address') &&
-                    'border-l-2 border-l-indigo-400',
+                    'bg-indigo-50/50 dark:bg-indigo-950/20',
                 )}
                 {...register('nameAndAddress')}
                 onFocus={() => handleFieldFocus('name_and_address')}
@@ -1935,7 +1956,7 @@ export function LabelUploadForm({
                   className={cn(
                     extraction.aiOriginalValues.has('country_of_origin') &&
                       !extraction.modifiedFields.has('country_of_origin') &&
-                      'border-l-2 border-l-indigo-400',
+                      'bg-indigo-50/50 dark:bg-indigo-950/20',
                   )}
                   {...register('countryOfOrigin')}
                   onFocus={() => handleFieldFocus('country_of_origin')}
@@ -1998,7 +2019,7 @@ export function LabelUploadForm({
                       className={cn(
                         extraction.aiOriginalValues.has('grape_varietal') &&
                           !extraction.modifiedFields.has('grape_varietal') &&
-                          'border-l-2 border-l-indigo-400',
+                          'bg-indigo-50/50 dark:bg-indigo-950/20',
                       )}
                       {...register('grapeVarietal')}
                       onFocus={() => handleFieldFocus('grape_varietal')}
@@ -2029,7 +2050,7 @@ export function LabelUploadForm({
                           !extraction.modifiedFields.has(
                             'appellation_of_origin',
                           ) &&
-                          'border-l-2 border-l-indigo-400',
+                          'bg-indigo-50/50 dark:bg-indigo-950/20',
                       )}
                       {...register('appellationOfOrigin')}
                       onFocus={() => handleFieldFocus('appellation_of_origin')}
@@ -2056,7 +2077,7 @@ export function LabelUploadForm({
                       className={cn(
                         extraction.aiOriginalValues.has('vintage_year') &&
                           !extraction.modifiedFields.has('vintage_year') &&
-                          'border-l-2 border-l-indigo-400',
+                          'bg-indigo-50/50 dark:bg-indigo-950/20',
                       )}
                       {...register('vintageYear')}
                       onFocus={() => handleFieldFocus('vintage_year')}
@@ -2116,7 +2137,7 @@ export function LabelUploadForm({
                       className={cn(
                         extraction.aiOriginalValues.has('age_statement') &&
                           !extraction.modifiedFields.has('age_statement') &&
-                          'border-l-2 border-l-indigo-400',
+                          'bg-indigo-50/50 dark:bg-indigo-950/20',
                       )}
                       {...register('ageStatement')}
                       onFocus={() => handleFieldFocus('age_statement')}
@@ -2147,7 +2168,7 @@ export function LabelUploadForm({
                           !extraction.modifiedFields.has(
                             'state_of_distillation',
                           ) &&
-                          'border-l-2 border-l-indigo-400',
+                          'bg-indigo-50/50 dark:bg-indigo-950/20',
                       )}
                       {...register('stateOfDistillation')}
                       onFocus={() => handleFieldFocus('state_of_distillation')}
@@ -2590,53 +2611,63 @@ export function LabelUploadForm({
               )}
             </div>
 
-            {/* Add photos during review — hidden inputs + action buttons */}
+            {/* Add photos during review — thumbnails + action buttons (mobile/tablet only; desktop shows these in left panel) */}
             {showSplitPane && extraction.status === 'success' && (
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={openFileDialog}
-                >
-                  <ImagePlus className="size-3.5" />
-                  Add photos
-                </Button>
-                {isTouchDevice && (
+              <div className="space-y-3 lg:hidden">
+                {/* Thumbnail strip */}
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-2 overflow-x-auto">
+                    {files.map((fileEntry, index) => (
+                      <div
+                        key={`${fileEntry.file.name}-${index}`}
+                        className="group relative size-14 shrink-0 overflow-hidden rounded-lg border bg-muted/20"
+                      >
+                        <Image
+                          src={fileEntry.preview}
+                          alt={fileEntry.file.name}
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeFile(index)}
+                          className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/40 group-hover:opacity-100"
+                          aria-label={`Remove ${fileEntry.file.name}`}
+                        >
+                          <X className="size-4 text-white" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {files.length} image{files.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex flex-wrap items-center gap-2">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={openCamera}
+                    onClick={openFileDialog}
                   >
-                    <Camera className="size-3.5" />
-                    Take a photo
+                    <ImagePlus className="size-3.5" />
+                    Add photos
                   </Button>
-                )}
-                {!isTouchDevice && origin && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowQrDialog(true)}
-                  >
-                    <Smartphone className="size-3.5" />
-                    Use your phone
-                  </Button>
-                )}
-                {hasScannedOnce && files.length !== imageCountAtLastScan && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleScanLabels}
-                    disabled={extraction.status !== 'success'}
-                  >
-                    <ScanText className="size-3.5" />
-                    Re-scan with {files.length} image
-                    {files.length > 1 ? 's' : ''}
-                  </Button>
-                )}
+                  {isTouchDevice && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={openCamera}
+                    >
+                      <Camera className="size-3.5" />
+                      Take a photo
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
 
@@ -2728,6 +2759,107 @@ export function LabelUploadForm({
         </Dialog>
       )}
 
+      {/* Photo review dialog — auto-opens when photos are added during review */}
+      <Dialog
+        open={photoReviewOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            // Closing without action — revert newly added photos
+            setFiles((prev) => prev.slice(0, imageCountAtLastScan))
+            setPhotoReviewOpen(false)
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {files.length - imageCountAtLastScan} new photo
+              {files.length - imageCountAtLastScan !== 1 ? 's' : ''} added
+            </DialogTitle>
+            <DialogDescription>
+              Re-scan to include the new images in your verification, or add
+              more.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* All images with remove buttons */}
+          <div className="flex flex-wrap gap-2 py-2">
+            {files.map((fileEntry, index) => (
+              <div
+                key={`review-${fileEntry.file.name}-${index}`}
+                className="group relative size-16 shrink-0 overflow-hidden rounded-lg border bg-muted/20"
+              >
+                <Image
+                  src={fileEntry.preview}
+                  alt={fileEntry.file.name}
+                  fill
+                  className="object-cover"
+                  unoptimized
+                />
+                {index >= imageCountAtLastScan && (
+                  <span className="absolute top-0.5 left-0.5 rounded bg-primary px-1 text-[9px] font-bold text-primary-foreground">
+                    NEW
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    removeFile(index)
+                    // Close dialog if all new photos removed
+                    if (files.length - 1 <= imageCountAtLastScan) {
+                      setPhotoReviewOpen(false)
+                    }
+                  }}
+                  className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/40 group-hover:opacity-100"
+                  aria-label={`Remove ${fileEntry.file.name}`}
+                >
+                  <X className="size-4 text-white" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Actions */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setFiles((prev) => prev.slice(0, imageCountAtLastScan))
+                setPhotoReviewOpen(false)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setPhotoReviewOpen(false)
+                // Keep photos, let user add more — dialog will reopen on next add
+              }}
+            >
+              <ImagePlus className="size-3.5" />
+              Add more
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                setPhotoReviewOpen(false)
+                handleScanLabels()
+              }}
+            >
+              <ScanText className="size-3.5" />
+              Re-scan with {files.length} image
+              {files.length !== 1 ? 's' : ''}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {showSplitPane ? (
         <motion.div
           initial={prefersReducedMotion ? false : { opacity: 0 }}
@@ -2760,6 +2892,19 @@ export function LabelUploadForm({
                     : localPreviewUrls
                 }
                 isScanning={extraction.status === 'extracting'}
+                action={
+                  extraction.status === 'success' ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={openFileDialog}
+                    >
+                      <ImagePlus className="size-3.5" />
+                      Add photos
+                    </Button>
+                  ) : undefined
+                }
               />
             </div>
           </div>

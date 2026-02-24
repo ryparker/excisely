@@ -43,6 +43,11 @@ const STATUS_BORDER: Record<string, string> = {
   not_found: 'border-border',
 }
 
+const RESTING_BG: Record<string, string> = {
+  mismatch: 'bg-red-50/30 dark:bg-red-950/10',
+  needs_correction: 'bg-amber-50/30 dark:bg-amber-950/10',
+}
+
 const ACTIVE_BG: Record<string, string> = {
   match: 'bg-green-50/50 dark:bg-green-950/20',
   mismatch: 'bg-red-50/50 dark:bg-red-950/20',
@@ -129,6 +134,7 @@ export function FieldComparisonRow({
   const confidencePercent = Math.round(confidence)
   const borderStyle = STATUS_BORDER[status] ?? 'border-border'
   const badgeStyle = STATUS_BADGE_STYLE[status] ?? ''
+  const restingBg = RESTING_BG[status] ?? ''
   const activeBg = ACTIVE_BG[status] ?? ''
   const activeRing = ACTIVE_RING[status] ?? 'ring-primary'
 
@@ -136,10 +142,11 @@ export function FieldComparisonRow({
     <div
       ref={rowRef}
       className={cn(
-        'cursor-pointer rounded-lg border p-3 transition-shadow duration-150',
+        'cursor-pointer rounded-xl border px-4 py-3.5 transition-shadow duration-150',
         borderStyle,
-        isActive && cn('ring-2 ring-offset-2', activeRing, activeBg),
-        !isActive && 'hover:shadow-sm',
+        isActive
+          ? cn('ring-2 ring-offset-2', activeRing, activeBg)
+          : cn(restingBg, 'hover:shadow-md'),
       )}
       onClick={onClick}
       role="button"
@@ -179,7 +186,7 @@ export function FieldComparisonRow({
       {/* Two-column comparison */}
       <div className="grid grid-cols-2 gap-3">
         <div className="min-w-0">
-          <p className="mb-1 text-[10px] font-semibold tracking-widest text-muted-foreground/50 uppercase">
+          <p className="mb-1 text-[10px] font-semibold tracking-widest text-muted-foreground/60 uppercase">
             Application
           </p>
           <p className="text-[13px] leading-relaxed break-words">
@@ -187,7 +194,7 @@ export function FieldComparisonRow({
           </p>
         </div>
         <div className="min-w-0">
-          <p className="mb-1 text-[10px] font-semibold tracking-widest text-muted-foreground/50 uppercase">
+          <p className="mb-1 text-[10px] font-semibold tracking-widest text-muted-foreground/60 uppercase">
             {hideInternals ? 'Label' : 'Label (AI)'}
           </p>
           {extractedValue === null ? (

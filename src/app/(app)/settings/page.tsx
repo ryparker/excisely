@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { sql } from 'drizzle-orm'
 
@@ -18,6 +19,10 @@ import { ConfidenceThreshold } from '@/components/settings/confidence-threshold'
 import { FieldStrictness } from '@/components/settings/field-strictness'
 import { SLASettings } from '@/components/settings/sla-settings'
 import { Skeleton } from '@/components/ui/skeleton'
+
+export const metadata: Metadata = {
+  title: 'Settings',
+}
 
 export const dynamic = 'force-dynamic'
 

@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { desc, asc, eq, sql, count } from 'drizzle-orm'
 import { Building2 } from 'lucide-react'
 
@@ -12,6 +13,10 @@ import { ResetFiltersButton } from '@/components/shared/reset-filters-button'
 import { ApplicantsTable } from '@/components/applicants/applicants-table'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
+
+export const metadata: Metadata = {
+  title: 'Applicants',
+}
 
 export const dynamic = 'force-dynamic'
 

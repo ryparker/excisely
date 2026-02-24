@@ -2,12 +2,15 @@ import { put } from '@vercel/blob'
 import { NextResponse } from 'next/server'
 
 import { getSession } from '@/lib/auth/get-session'
+import { validateFile } from '@/lib/validators/file-schema'
 
-const ALLOWED_CONTENT_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+export async function POST(request: Request): Promise<Response> {
+  // CSRF-like protection: require XMLHttpRequest header
+  const requestedWith = request.headers.get('X-Requested-With')
+  if (requestedWith !== 'XMLHttpRequest') {
+    return new Response('Forbidden', { status: 403 })
+  }
 
-const MAX_SIZE = 10 * 1024 * 1024 // 10MB
-
-export async function POST(request: Request): Promise<NextResponse> {
   const session = await getSession()
   if (!session?.user) {
     return NextResponse.json(
@@ -24,21 +27,19 @@ export async function POST(request: Request): Promise<NextResponse> {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
 
-    if (!ALLOWED_CONTENT_TYPES.has(file.type)) {
-      return NextResponse.json(
-        { error: `Invalid file type: ${file.type}` },
-        { status: 400 },
-      )
+    // Full validation: MIME type, size, and magic bytes
+    const validation = await validateFile(file)
+    if (!validation.valid) {
+      return NextResponse.json({ error: validation.error }, { status: 400 })
     }
 
-    if (file.size > MAX_SIZE) {
-      return NextResponse.json(
-        { error: 'File exceeds 10 MB limit' },
-        { status: 400 },
-      )
-    }
+    // Sanitize filename
+    const sanitizedName = file.name
+      .replace(/[/\\:*?"<>|]/g, '_')
+      .replace(/\.{2,}/g, '.')
+      .slice(0, 255)
 
-    const blob = await put(`labels/${file.name}`, file, {
+    const blob = await put(`labels/${sanitizedName}`, file, {
       access: 'private',
       contentType: file.type,
       addRandomSuffix: true,
@@ -46,8 +47,9 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     return NextResponse.json({ url: blob.url, pathname: blob.pathname })
   } catch (error) {
+    console.error('[blob/upload] Error:', error)
     return NextResponse.json(
-      { error: (error as Error).message },
+      { error: 'An unexpected error occurred' },
       { status: 500 },
     )
   }

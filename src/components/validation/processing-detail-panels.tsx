@@ -41,9 +41,9 @@ export function ProcessingDetailPanels({
         onSelect={setSelectedImageId}
       />
 
-      <div className="flex min-h-0 flex-1 gap-4">
-        {/* Left panel — image viewer (55%) */}
-        <div className="flex w-[55%] shrink-0 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
+        {/* Left panel — image viewer (55% on desktop, full width on mobile) */}
+        <div className="flex h-[50vh] shrink-0 flex-col overflow-hidden lg:h-auto lg:w-[55%]">
           <div className="min-h-0 flex-1">
             {selectedImage && (
               <AnnotatedImage
@@ -54,7 +54,7 @@ export function ProcessingDetailPanels({
           </div>
         </div>
 
-        {/* Right panel — application data (45%) */}
+        {/* Right panel — application data (45% on desktop) */}
         <ScrollArea className="flex-1">
           <div className="space-y-3 pr-4 pb-1 pl-1">
             {appData ? (

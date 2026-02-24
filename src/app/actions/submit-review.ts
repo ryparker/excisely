@@ -67,6 +67,10 @@ export async function submitReview(
     return { success: false, error: 'Authentication required' }
   }
 
+  if (session.user.role === 'applicant') {
+    return { success: false, error: 'Specialist access required' }
+  }
+
   try {
     // 2. Parse form data
     const rawOverrides = formData.get('overrides')
@@ -126,7 +130,25 @@ export async function submitReview(
       }
     }
 
-    // 4. Apply each override: create human review + update validation item
+    // 4. Validate that all override validationItemIds belong to this label
+    const validItems = await db
+      .select({ id: validationItems.id })
+      .from(validationItems)
+      .innerJoin(
+        validationResults,
+        eq(validationItems.validationResultId, validationResults.id),
+      )
+      .where(eq(validationResults.labelId, labelId))
+
+    const validItemIds = new Set(validItems.map((v) => v.id))
+
+    for (const override of overrides) {
+      if (!validItemIds.has(override.validationItemId)) {
+        return { success: false, error: 'Invalid validation item' }
+      }
+    }
+
+    // 5. Apply each override: create human review + update validation item
     for (const override of overrides) {
       await db.insert(humanReviews).values({
         specialistId: session.user.id,
@@ -192,10 +214,7 @@ export async function submitReview(
     console.error('[submitReview] Unexpected error:', error)
     return {
       success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : 'An unexpected error occurred during review submission',
+      error: 'An unexpected error occurred during review submission',
     }
   }
 }

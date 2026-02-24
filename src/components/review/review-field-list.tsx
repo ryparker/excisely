@@ -533,7 +533,7 @@ export function ReviewFieldList({
 
                 {/* Override controls for flagged matched fields */}
                 {isFlagged && (
-                  <div className="mt-1 ml-1 space-y-2.5 border-l-2 border-amber-300 pl-4 dark:border-amber-700">
+                  <div className="mt-1 ml-1 space-y-2.5 bg-amber-50/50 pl-4 dark:bg-amber-950/20">
                     <div className="flex flex-wrap items-center gap-1.5">
                       {RESOLVE_OPTIONS.filter((o) => o.status !== 'match').map(
                         (option) => {

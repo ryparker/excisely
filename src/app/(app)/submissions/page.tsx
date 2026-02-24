@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
@@ -30,6 +31,10 @@ import { SubmissionsSummaryCards } from '@/components/submissions/submissions-su
 import { SubmissionsTable } from '@/components/submissions/submissions-table'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+
+export const metadata: Metadata = {
+  title: 'Submissions',
+}
 
 export const dynamic = 'force-dynamic'
 

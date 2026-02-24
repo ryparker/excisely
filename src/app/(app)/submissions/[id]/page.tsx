@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -30,6 +31,20 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { timeAgo } from '@/lib/utils'
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}): Promise<Metadata> {
+  const { id } = await params
+  const [row] = await db
+    .select({ brandName: applicationData.brandName })
+    .from(applicationData)
+    .where(eq(applicationData.labelId, id))
+    .limit(1)
+  return { title: row?.brandName ?? 'Submission Detail' }
+}
+
 export const dynamic = 'force-dynamic'
 
 // ---------------------------------------------------------------------------
@@ -40,8 +55,8 @@ function ContentSkeleton() {
   return (
     <div className="space-y-5">
       <Skeleton className="h-20 rounded-lg" />
-      <div className="flex gap-6">
-        <div className="w-[55%] shrink-0">
+      <div className="flex flex-col gap-6 lg:flex-row">
+        <div className="shrink-0 lg:w-[55%]">
           <Skeleton className="aspect-[4/3] rounded-xl" />
         </div>
         <div className="flex-1 space-y-3">
@@ -304,12 +319,12 @@ export default async function SubmissionDetailPage({
     label.status === 'pending' || label.status === 'processing'
 
   return (
-    <PageShell className="space-y-5">
+    <PageShell className="space-y-6">
       {/* Auto-refresh while processing so the page updates when analysis completes */}
       {isProcessing && <AutoRefresh intervalMs={5_000} />}
 
-      {/* Back link + header */}
-      <div className="space-y-2">
+      {/* Back link + header + timeline */}
+      <div className="space-y-4">
         <Button
           variant="ghost"
           size="sm"
@@ -335,18 +350,20 @@ export default async function SubmissionDetailPage({
         >
           <StatusBadge status={effectiveStatus} className="px-3 py-1 text-sm" />
         </PageHeader>
-      </div>
 
-      {/* Horizontal timeline — streams independently */}
-      <Suspense fallback={<TimelineSkeleton />}>
-        <SubmissionTimelineSection
-          labelId={label.id}
-          label={label}
-          appData={appData}
-          applicantRecord={applicantRecord}
-          effectiveStatus={effectiveStatus}
-        />
-      </Suspense>
+        {/* Horizontal timeline — streams independently */}
+        <Suspense fallback={<TimelineSkeleton />}>
+          <SubmissionTimelineSection
+            labelId={label.id}
+            label={label}
+            appData={appData}
+            applicantRecord={applicantRecord}
+            effectiveStatus={effectiveStatus}
+          />
+        </Suspense>
+
+        <div className="border-b" />
+      </div>
 
       {/* Content area — streams independently */}
       <Suspense fallback={<ContentSkeleton />}>

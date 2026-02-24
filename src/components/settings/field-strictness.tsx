@@ -162,13 +162,13 @@ export function FieldStrictness({
       <CardContent>
         <div className="space-y-1">
           {/* Header */}
-          <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 border-b pb-2">
+          <div className="grid grid-cols-1 items-center gap-4 border-b pb-2 sm:grid-cols-[1fr_auto_auto_auto]">
             <span className="text-sm font-medium text-muted-foreground">
               Field
             </span>
             <HoverCard openDelay={200} closeDelay={100}>
               <HoverCardTrigger asChild>
-                <span className="flex w-16 cursor-help items-center justify-center gap-1 text-center text-xs font-medium text-muted-foreground">
+                <span className="hidden w-16 cursor-help items-center justify-center gap-1 text-center text-xs font-medium text-muted-foreground sm:flex">
                   Match
                   <Info className="size-3 shrink-0 opacity-50" />
                 </span>
@@ -184,7 +184,7 @@ export function FieldStrictness({
             </HoverCard>
             <HoverCard openDelay={200} closeDelay={100}>
               <HoverCardTrigger asChild>
-                <span className="flex w-16 cursor-help items-center justify-center gap-1 text-center text-xs font-medium text-muted-foreground">
+                <span className="hidden w-16 cursor-help items-center justify-center gap-1 text-center text-xs font-medium text-muted-foreground sm:flex">
                   Override
                   <Info className="size-3 shrink-0 opacity-50" />
                 </span>
@@ -235,7 +235,7 @@ export function FieldStrictness({
             return (
               <div
                 key={fieldName}
-                className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 py-1.5"
+                className="grid grid-cols-1 items-center gap-4 py-1.5 sm:grid-cols-[1fr_auto_auto_auto]"
               >
                 <span className="flex items-center gap-1.5 text-sm">
                   {FIELD_DISPLAY_NAMES[fieldName]}
@@ -261,7 +261,7 @@ export function FieldStrictness({
                 </span>
                 <span
                   className={cn(
-                    'w-16 text-center font-mono text-xs tabular-nums',
+                    'hidden w-16 text-center font-mono text-xs tabular-nums sm:block',
                     matchRate === null
                       ? 'text-muted-foreground/40'
                       : matchRate >= 80
@@ -275,7 +275,7 @@ export function FieldStrictness({
                 </span>
                 <span
                   className={cn(
-                    'w-16 text-center font-mono text-xs tabular-nums',
+                    'hidden w-16 text-center font-mono text-xs tabular-nums sm:block',
                     overrideRate === null
                       ? 'text-muted-foreground/40'
                       : overrideRate >= 50

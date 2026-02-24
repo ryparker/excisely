@@ -14,6 +14,7 @@ import { Card } from '@/components/ui/card'
 import {
   Table,
   TableBody,
+  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
@@ -202,6 +203,9 @@ export function SubmissionsTable({
   return (
     <Card className="overflow-clip py-0">
       <Table>
+        <TableCaption className="sr-only">
+          Your submitted applications
+        </TableCaption>
         <TableHeader>
           <TableRow className="bg-muted/30 hover:bg-muted/30">
             <TableHead className="w-[60px]">Label</TableHead>

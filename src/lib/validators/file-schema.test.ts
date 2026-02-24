@@ -42,7 +42,7 @@ describe('validateFile', () => {
     type: string,
     name = 'test.jpg',
   ): File {
-    return new File([content], name, { type })
+    return new File([content as BlobPart], name, { type })
   }
 
   // JPEG magic bytes: FF D8 FF

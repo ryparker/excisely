@@ -34,6 +34,7 @@ import {
 import {
   Table,
   TableBody,
+  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
@@ -151,7 +152,7 @@ function LabelThumbnail({ src, alt }: { src: string | null; alt: string }) {
   const showImage = src && !failed
 
   const thumbnail = (
-    <div className="size-20 overflow-hidden rounded-lg border bg-muted">
+    <div className="size-12 overflow-hidden rounded-lg border bg-muted">
       {showImage ? (
         /* eslint-disable-next-line @next/next/no-img-element */
         <img
@@ -419,6 +420,9 @@ export function LabelsTable({
     <>
       <Card className="overflow-clip py-0">
         <Table>
+          <TableCaption className="sr-only">
+            Labels submitted for verification
+          </TableCaption>
           <TableHeader>
             <TableRow className="bg-muted/30 hover:bg-muted/30">
               {!isApplicant && (

@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/card'
 import {
   Table,
   TableBody,
+  TableCaption,
   TableCell,
   TableHeader,
   TableRow,
@@ -81,6 +82,9 @@ export function ApplicantLabelsTable({ labels }: ApplicantLabelsTableProps) {
   return (
     <Card className="overflow-clip py-0">
       <Table>
+        <TableCaption className="sr-only">
+          Labels for this applicant
+        </TableCaption>
         <TableHeader>
           <TableRow className="bg-muted/30 hover:bg-muted/30">
             <ColumnHeader sortKey="brandName">Brand Name</ColumnHeader>

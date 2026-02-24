@@ -117,7 +117,7 @@ function defaultExtraction(
         value: 'Old Tom Reserve',
         confidence: 95,
         reasoning: 'Clearly visible',
-        boundingBox: { x: 0.1, y: 0.1, width: 0.3, height: 0.05 },
+        boundingBox: { x: 0.1, y: 0.1, width: 0.3, height: 0.05, angle: 0 },
         imageIndex: 0,
       },
     ],
@@ -127,6 +127,7 @@ function defaultExtraction(
     processingTimeMs: 2500,
     modelUsed: 'gpt-5-mini',
     rawResponse: {},
+    detectedBeverageType: null,
     metrics: {
       fetchTimeMs: 200,
       ocrTimeMs: 800,
@@ -234,7 +235,9 @@ describe('reanalyzeLabel', () => {
     const result = await reanalyzeLabel('lbl_test')
 
     expect(result.success).toBe(false)
-    expect((result as { error: string }).error).toBe('AI service unavailable')
+    expect((result as { error: string }).error).toBe(
+      'An unexpected error occurred during re-analysis',
+    )
 
     // Verify status was set to 'processing' first, then restored to 'approved'
     const updateCalls = (mocks.db.update as ReturnType<typeof vi.fn>).mock.calls

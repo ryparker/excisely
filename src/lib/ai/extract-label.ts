@@ -504,11 +504,6 @@ export async function extractLabelFieldsFromBuffers(
     totalTokens: usage.totalTokens,
   }
 
-  // Log metrics to server console for debugging
-  console.log(
-    `[AI Pipeline] ${beverageType} | OCR: ${ocrTimeMs}ms | Classification: ${classificationTimeMs}ms | Total: ${totalTimeMs}ms | Words: ${combinedWords.length} | Tokens: ${usage.inputTokens}in/${usage.outputTokens}out`,
-  )
-
   return {
     fields,
     imageClassifications: classification.imageClassifications ?? [],
@@ -596,10 +591,6 @@ export async function extractLabelFieldsForSubmission(
     totalTokens: usage.totalTokens,
   }
 
-  console.log(
-    `[AI Pipeline] Submission (${beverageType}) | OCR: ${ocrTimeMs}ms | Classification: ${classificationTimeMs}ms | BBox match: ${mergeTimeMs}ms | Total: ${totalTimeMs}ms | Words: ${wordCount} | Tokens: ${usage.inputTokens}in/${usage.outputTokens}out`,
-  )
-
   // Classify images from OCR text (no LLM call needed)
   const imageClassifications = classifyImagesFromOcr(ocrResults)
 
@@ -685,10 +676,6 @@ export async function extractLabelFieldsForApplicant(
     totalTokens: usage.totalTokens,
   }
 
-  console.log(
-    `[AI Pipeline] Extraction (applicant) | OCR: ${ocrTimeMs}ms | Classification: ${classificationTimeMs}ms | Total: ${totalTimeMs}ms | Words: ${combinedWords.length} | Tokens: ${usage.inputTokens}in/${usage.outputTokens}out`,
-  )
-
   return {
     fields,
     imageClassifications: classification.imageClassifications ?? [],
@@ -769,10 +756,6 @@ export async function extractLabelFieldsForApplicantWithType(
     outputTokens: usage.outputTokens,
     totalTokens: usage.totalTokens,
   }
-
-  console.log(
-    `[AI Pipeline] Fast extraction (${beverageType}) | OCR: ${ocrTimeMs}ms | Classification: ${classificationTimeMs}ms | BBox match: ${mergeTimeMs}ms | Total: ${totalTimeMs}ms | Words: ${wordCount} | Tokens: ${usage.inputTokens}in/${usage.outputTokens}out`,
-  )
 
   // Classify images from OCR text (no LLM call needed)
   const imageClassifications = classifyImagesFromOcr(ocrResults)
@@ -1176,10 +1159,6 @@ export async function extractLabelFieldsWithAutoDetect(
     outputTokens: usage.outputTokens,
     totalTokens: usage.totalTokens,
   }
-
-  console.log(
-    `[AI Pipeline] Auto-detect (${detectedType ?? 'fallback'}) | OCR: ${ocrTimeMs}ms | Classification: ${classificationTimeMs}ms | BBox match: ${mergeTimeMs}ms | Total: ${totalTimeMs}ms | Words: ${wordCount} | Model: ${modelUsed} | Tokens: ${usage.inputTokens}in/${usage.outputTokens}out`,
-  )
 
   return {
     fields,

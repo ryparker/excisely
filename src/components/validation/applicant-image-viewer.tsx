@@ -23,6 +23,8 @@ interface ApplicantImageViewerProps {
   placeholderUrls?: string[]
   /** When true, shows scan animation overlay on the placeholder */
   isScanning?: boolean
+  /** Optional action element rendered to the right of the image tabs */
+  action?: React.ReactNode
 }
 
 // ---------------------------------------------------------------------------
@@ -35,6 +37,7 @@ export function ApplicantImageViewer({
   onFieldClick,
   placeholderUrls,
   isScanning = false,
+  action,
 }: ApplicantImageViewerProps) {
   const activeHighlightField = useExtractionStore((s) => s.activeHighlightField)
 
@@ -91,16 +94,19 @@ export function ApplicantImageViewer({
 
   return (
     <div className="flex h-full flex-col">
-      <ImageTabs
-        images={tabImages}
-        selectedImageId={String(activeImageIndex)}
-        onSelect={(id) =>
-          setManualSelection({
-            index: Number(id),
-            whenField: activeHighlightField,
-          })
-        }
-      />
+      <div className="flex items-end gap-2">
+        <ImageTabs
+          images={tabImages}
+          selectedImageId={String(activeImageIndex)}
+          onSelect={(id) =>
+            setManualSelection({
+              index: Number(id),
+              whenField: activeHighlightField,
+            })
+          }
+        />
+        {action && <div className="mb-1 ml-auto shrink-0">{action}</div>}
+      </div>
       <div className="min-h-0 flex-1">
         <AnnotatedImage
           imageUrl={getSignedImageUrl(imageUrl)}

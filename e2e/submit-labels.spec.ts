@@ -66,24 +66,14 @@ test.describe('Submit Labels', () => {
         })
 
         // -----------------------------------------------------------------
-        // Phase 1: Navigate + select beverage type
+        // Phase 1: Navigate + upload images
         // -----------------------------------------------------------------
         await page.goto('/submit')
         await expect(
-          page.getByRole('heading', { name: /submit cola application/i }),
+          page.getByRole('heading', { name: /submit label application/i }),
         ).toBeVisible()
 
-        // Click the beverage type button
-        await page
-          .getByRole('button', {
-            name: BEVERAGE_BUTTON_LABELS[label.beverageType],
-          })
-          .click()
-
-        // -----------------------------------------------------------------
-        // Phase 2: Upload image(s)
-        // -----------------------------------------------------------------
-        // Wait for Phase 2 to appear (upload area)
+        // Wait for Phase 1 upload area
         await expect(
           page.getByRole('heading', { name: /upload label images/i }),
         ).toBeVisible()
@@ -95,13 +85,28 @@ test.describe('Submit Labels', () => {
         const fileInput = page.locator('input[type="file"]')
         await fileInput.setInputFiles(absImagePaths)
 
-        // Wait for image preview(s) to appear
-        await expect(page.locator('img[alt]').first()).toBeVisible({
+        // Wait for image preview to appear (filename appears as alt text)
+        const firstFileName = path.basename(label.imagePaths[0])
+        await expect(page.locator(`img[alt="${firstFileName}"]`)).toBeVisible({
           timeout: 10000,
         })
 
-        // Click "Skip — fill in manually" (faster than AI pre-scan)
+        // Click "Skip — fill in manually" to reveal beverage type + form
         await page.getByText('Skip — fill in manually').click()
+
+        // -----------------------------------------------------------------
+        // Phase 2: Select beverage type
+        // -----------------------------------------------------------------
+        await expect(
+          page.getByRole('heading', { name: /what type of product/i }),
+        ).toBeVisible({ timeout: 10000 })
+
+        // Click the beverage type button
+        await page
+          .getByRole('button', {
+            name: BEVERAGE_BUTTON_LABELS[label.beverageType],
+          })
+          .click()
 
         // -----------------------------------------------------------------
         // Phase 3: Fill form fields + submit
@@ -112,37 +117,35 @@ test.describe('Submit Labels', () => {
         ).toBeVisible({ timeout: 10000 })
 
         // Serial Number (Item 4)
-        await page.getByLabel(/serial number/i).fill(label.serialNumber)
+        await page.locator('#serialNumber').fill(label.serialNumber)
 
         // Brand Name (required) — use override if present
         const brandValue = effectiveValue(label, 'brandName')
-        await page.getByLabel(/brand name/i).fill(brandValue)
+        await page.locator('#brandName').fill(brandValue)
 
         // Container Size (required)
         const containerSize = effectiveValue(label, 'containerSizeMl')
-        await page
-          .getByLabel(/total bottle capacity/i)
-          .fill(String(containerSize))
+        await page.locator('#containerSizeMl').fill(String(containerSize))
 
         // Optional fields — fill if base or override value exists
         const classType = effectiveValue(label, 'classType')
         if (classType) {
-          await page.getByLabel(/class\/type designation/i).fill(classType)
+          await page.locator('#classType').fill(classType)
         }
 
         const alcoholContent = effectiveValue(label, 'alcoholContent')
         if (alcoholContent) {
-          await page.getByLabel(/alcohol content/i).fill(alcoholContent)
+          await page.locator('#alcoholContent').fill(alcoholContent)
         }
 
         const netContents = effectiveValue(label, 'netContents')
         if (netContents) {
-          await page.getByLabel(/net contents/i).fill(netContents)
+          await page.locator('#netContents').fill(netContents)
         }
 
         const fancifulName = effectiveValue(label, 'fancifulName')
         if (fancifulName) {
-          await page.getByLabel(/fanciful name/i).fill(fancifulName)
+          await page.locator('#fancifulName').fill(fancifulName)
         }
 
         // Submit the form

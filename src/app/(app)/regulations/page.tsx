@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import {
   Beer,
@@ -50,6 +51,10 @@ const PART_ICON_STYLE: Record<number, string> = {
   4: 'bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-400',
   7: 'bg-yellow-50 text-yellow-600 dark:bg-yellow-950/50 dark:text-yellow-400',
   16: 'bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-400',
+}
+
+export const metadata: Metadata = {
+  title: 'Regulations Reference',
 }
 
 interface RegulationsPageProps {

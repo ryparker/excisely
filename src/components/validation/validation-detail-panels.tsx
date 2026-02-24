@@ -9,6 +9,64 @@ import {
 import { ImageTabs } from '@/components/validation/image-tabs'
 import { FieldComparisonRow } from '@/components/shared/field-comparison-row'
 
+function FieldSummaryHeader({ items }: { items: ValidationItemData[] }) {
+  const total = items.length
+  const matchCount = items.filter((i) => i.status === 'match').length
+  const mismatchCount = items.filter(
+    (i) => i.status === 'mismatch' || i.status === 'needs_correction',
+  ).length
+  const notFoundCount = items.filter((i) => i.status === 'not_found').length
+  const matchPercent = total > 0 ? (matchCount / total) * 100 : 0
+  const mismatchPercent = total > 0 ? (mismatchCount / total) * 100 : 0
+
+  return (
+    <div className="space-y-2.5">
+      <div className="flex items-baseline justify-between">
+        <h2 className="font-heading text-lg font-bold tracking-tight">
+          Field Comparison
+        </h2>
+        <p className="text-xs text-muted-foreground tabular-nums">
+          {matchCount} of {total} fields match
+        </p>
+      </div>
+      {/* Stacked progress bar */}
+      <div className="flex h-1.5 gap-px overflow-hidden rounded-full bg-muted">
+        {matchPercent > 0 && (
+          <div
+            className="rounded-full bg-green-500 transition-all duration-300 ease-out"
+            style={{ width: `${matchPercent}%` }}
+          />
+        )}
+        {mismatchPercent > 0 && (
+          <div
+            className="rounded-full bg-red-500 transition-all duration-300 ease-out"
+            style={{ width: `${mismatchPercent}%` }}
+          />
+        )}
+      </div>
+      {/* Legend */}
+      <div className="flex gap-4 text-[11px] text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block size-2 rounded-full bg-green-500" />
+          {matchCount} Match{matchCount !== 1 ? 'es' : ''}
+        </span>
+        {mismatchCount > 0 && (
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block size-2 rounded-full bg-red-500" />
+            {mismatchCount} Mismatch{mismatchCount !== 1 ? 'es' : ''}
+          </span>
+        )}
+        {notFoundCount > 0 && (
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block size-2 rounded-full bg-muted-foreground/40" />
+            {notFoundCount} Not Found
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 interface ValidationItemData {
   id: string
   fieldName: string
@@ -98,9 +156,9 @@ export function ValidationDetailPanels({
   }))
 
   return (
-    <div className="grid grid-cols-[55%_1fr] gap-4">
-      {/* Left column — sticky image + tabs */}
-      <div className="sticky top-6 flex h-[calc(100vh-3rem)] flex-col">
+    <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[55%_1fr]">
+      {/* Left column — sticky image + tabs (stacks on mobile) */}
+      <div className="flex h-[60vh] flex-col lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)]">
         <ImageTabs
           images={images}
           selectedImageId={selectedImageId}
@@ -128,13 +186,8 @@ export function ValidationDetailPanels({
       </div>
 
       {/* Right column — field comparisons, scrolls with page */}
-      <div className="space-y-3 pb-6">
-        <h2 className="font-heading text-base font-semibold text-muted-foreground">
-          Matched Fields
-          <span className="ml-1.5 text-sm font-normal text-muted-foreground/50 tabular-nums">
-            ({validationItems.length})
-          </span>
-        </h2>
+      <div className="space-y-3.5 pb-6">
+        <FieldSummaryHeader items={validationItems} />
         {validationItems.map((item) => (
           <FieldComparisonRow
             key={item.id}
