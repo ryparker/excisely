@@ -7,41 +7,51 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-/**
- * Human-readable relative time, e.g. "3 days ago", "in 2 hours".
- * Uses longer labels (not abbreviations) for user-facing text.
- */
-export function timeAgo(date: Date): string {
+/** Shared breakdown for relative-time formatting. */
+type TimeBreakdown =
+  | { unit: 'just_now' }
+  | { unit: 'minutes'; value: number; isFuture: boolean }
+  | { unit: 'hours'; value: number; isFuture: boolean }
+  | { unit: 'days'; value: number; isFuture: boolean }
+  | { unit: 'older'; date: Date }
+
+function getRelativeTimeBreakdown(date: Date): TimeBreakdown {
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const absDiffMs = Math.abs(diffMs)
   const isFuture = diffMs < 0
 
-  if (absDiffMs < 60_000) return 'just now'
+  if (absDiffMs < 60_000) return { unit: 'just_now' }
 
   const minutes = Math.floor(absDiffMs / 60_000)
-  if (minutes < 60) {
-    const label = pluralize(minutes, 'minute')
-    return isFuture ? `in ${label}` : `${label} ago`
-  }
+  if (minutes < 60) return { unit: 'minutes', value: minutes, isFuture }
 
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) {
-    const label = pluralize(hours, 'hour')
-    return isFuture ? `in ${label}` : `${label} ago`
-  }
+  if (hours < 24) return { unit: 'hours', value: hours, isFuture }
 
   const days = Math.floor(hours / 24)
-  if (days < 30) {
-    const label = pluralize(days, 'day')
-    return isFuture ? `in ${label}` : `${label} ago`
-  }
+  if (days < 30) return { unit: 'days', value: days, isFuture }
 
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
+  return { unit: 'older', date }
+}
+
+/**
+ * Human-readable relative time, e.g. "3 days ago", "in 2 hours".
+ * Uses longer labels (not abbreviations) for user-facing text.
+ */
+export function timeAgo(date: Date): string {
+  const b = getRelativeTimeBreakdown(date)
+  if (b.unit === 'just_now') return 'just now'
+  if (b.unit === 'older')
+    return b.date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })
+
+  const unitMap = { minutes: 'minute', hours: 'hour', days: 'day' } as const
+  const label = pluralize(b.value, unitMap[b.unit])
+  return b.isFuture ? `in ${label}` : `${label} ago`
 }
 
 /**
@@ -117,25 +127,17 @@ export function formatReviewDate(date: Date): string {
  * Handles future dates with "in" prefix.
  */
 export function formatTimeAgoShort(date: Date): string {
-  const now = new Date()
-  const diffMs = Math.abs(date.getTime() - now.getTime())
-  const isFuture = date.getTime() > now.getTime()
+  const b = getRelativeTimeBreakdown(date)
+  if (b.unit === 'just_now') return 'just now'
+  if (b.unit === 'older')
+    return b.date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    })
 
-  if (diffMs < 60_000) return 'just now'
-
-  const minutes = Math.floor(diffMs / 60_000)
-  if (minutes < 60) return isFuture ? `in ${minutes}m` : `${minutes}m ago`
-
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return isFuture ? `in ${hours}h` : `${hours}h ago`
-
-  const days = Math.floor(hours / 24)
-  if (days < 30) return isFuture ? `in ${days}d` : `${days}d ago`
-
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  })
+  const suffixMap = { minutes: 'm', hours: 'h', days: 'd' } as const
+  const label = `${b.value}${suffixMap[b.unit]}`
+  return b.isFuture ? `in ${label}` : `${label} ago`
 }
 
 /** Full datetime: "Jan 1, 2026, 3:45 PM". */
