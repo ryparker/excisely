@@ -2,23 +2,17 @@ import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import {
-  eq,
-  and,
-  desc,
-  asc,
-  count,
-  ilike,
-  or,
-  sql,
-  gt,
-  type SQL,
-} from 'drizzle-orm'
+import { eq, and, desc, asc, count, ilike, or, gt, type SQL } from 'drizzle-orm'
 
 import { db } from '@/db'
 import { labels, applicationData, applicants } from '@/db/schema'
 import { requireApplicant } from '@/lib/auth/require-role'
 import { getEffectiveStatus } from '@/lib/labels/effective-status'
+import { parsePageSearchParams } from '@/lib/search-params'
+import {
+  flaggedCountSubquery,
+  thumbnailUrlSubquery,
+} from '@/lib/db/label-subqueries'
 import { getSignedImageUrl } from '@/lib/storage/blob'
 import { Plus } from 'lucide-react'
 
@@ -148,8 +142,13 @@ async function SubmissionsSummarySection({
   const attentionCount =
     (statusCounts['needs_correction'] ?? 0) +
     (statusCounts['conditionally_approved'] ?? 0)
+  const reviewedCount =
+    approvedCount +
+    (statusCounts['needs_correction'] ?? 0) +
+    (statusCounts['conditionally_approved'] ?? 0) +
+    (statusCounts['rejected'] ?? 0)
   const approvalRate =
-    totalLabels > 0 ? Math.round((approvedCount / totalLabels) * 100) : 0
+    reviewedCount > 0 ? Math.round((approvedCount / reviewedCount) * 100) : 0
 
   const nearestDeadlineText = nearestDeadlineResult[0]?.deadline
     ? formatDeadlineText(nearestDeadlineResult[0].deadline)
@@ -256,13 +255,7 @@ async function SubmissionsTableSection({
   const whereClause = and(...conditions)
 
   // Flagged count subquery
-  const flaggedCountSql = sql<number>`(
-    SELECT count(*)::int FROM validation_items vi
-    INNER JOIN validation_results vr ON vi.validation_result_id = vr.id
-    WHERE vr.label_id = ${labels.id}
-    AND vr.is_current = true
-    AND vi.status IN ('needs_correction', 'mismatch', 'not_found')
-  )`
+  const flaggedCountSql = flaggedCountSubquery()
 
   // Build ORDER BY
   let orderByClause
@@ -294,14 +287,7 @@ async function SubmissionsTableSection({
         fancifulName: applicationData.fancifulName,
         serialNumber: applicationData.serialNumber,
         flaggedCount: flaggedCountSql,
-        thumbnailUrl: sql<string | null>`(
-          SELECT li.image_url FROM label_images li
-          WHERE li.label_id = ${labels.id}
-          ORDER BY
-            CASE WHEN li.image_type = 'front' THEN 0 ELSE 1 END,
-            li.sort_order
-          LIMIT 1
-        )`,
+        thumbnailUrl: thumbnailUrlSubquery(),
       })
       .from(labels)
       .leftJoin(applicationData, eq(labels.id, applicationData.labelId))
@@ -368,12 +354,10 @@ export default async function SubmissionsPage({
   const session = await requireApplicant()
 
   const params = await searchParams
-  const currentPage = Math.max(1, Number(params.page) || 1)
-  const searchTerm = params.search?.trim() ?? ''
+  const { currentPage, searchTerm, sortKey, sortOrder } =
+    parsePageSearchParams(params)
   const statusFilter = params.status ?? ''
   const beverageTypeFilter = params.beverageType ?? ''
-  const sortKey = params.sort ?? ''
-  const sortOrder = params.order === 'asc' ? 'asc' : 'desc'
 
   // Find applicant record by email
   const [applicantRecord] = await db

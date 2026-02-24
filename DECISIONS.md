@@ -8,7 +8,7 @@ The goal is to show iterative, thoughtful engineering judgment — not just what
 
 ## 1. Engineering Decisions
 
-### Auto-Detect Beverage Type via Keyword Matching Before AI Classification *(Feb 23, 2026)*
+### Auto-Detect Beverage Type via Keyword Matching Before AI Classification _(Feb 23, 2026)_
 
 **Chosen:** Two-step pipeline — rule-based keyword matching on OCR text to detect beverage type (~0ms, free), then type-specific gpt-4.1 extraction. Falls back to the existing all-fields gpt-5-mini pipeline when keywords are ambiguous.
 
@@ -20,7 +20,7 @@ The goal is to show iterative, thoughtful engineering judgment — not just what
 
 **Reasoning:** Most labels contain unambiguous type indicators (e.g., "bourbon whiskey", "cabernet sauvignon", "India pale ale"). Keyword matching catches these for free in <1ms. Type-specific prompts (Pipeline 3) are both faster and more accurate than the generic all-fields prompt (Pipeline 4) because they only ask for relevant fields. The fallback ensures ambiguous labels still work. Net result: same accuracy, ~6-11s faster for the common case, zero additional cost.
 
-### Hybrid Regulations Reference: Curated In-App + eCFR External Links *(Feb 23, 2026)*
+### Hybrid Regulations Reference: Curated In-App + eCFR External Links _(Feb 23, 2026)_
 
 **Chosen:** Curate ~30 key CFR sections as a static TypeScript config file with plain-English summaries, and link out to eCFR (the official electronic Code of Federal Regulations) for authoritative full text.
 
@@ -33,7 +33,7 @@ The goal is to show iterative, thoughtful engineering judgment — not just what
 
 **UX principle:** Progressive disclosure. Field tooltips show a citation badge → click takes you to the regulations page with the section anchored → "View on eCFR" links out to the full legal text. Users choose their depth of engagement at every step.
 
-### Server-Side Data Layer: RSC + Server Actions over Exposed API Routes *(Feb 23, 2026)*
+### Server-Side Data Layer: RSC + Server Actions over Exposed API Routes _(Feb 23, 2026)_
 
 **Chosen:** All data fetching happens in React Server Components and all mutations go through Server Actions. No public API routes are exposed — the client never sees endpoint URLs, request/response shapes, or data schemas in the browser's network tab.
 
@@ -54,7 +54,7 @@ The goal is to show iterative, thoughtful engineering judgment — not just what
 
 The bottom line: hiding the API surface from casual observation is a meaningful security layer for a government tool, but we treat it as one layer in a defense-in-depth strategy — not the only layer.
 
-### Specialist Bulk Approval Queue *(Feb 23, 2026)*
+### Specialist Bulk Approval Queue _(Feb 23, 2026)_
 
 **Chosen:** Split the specialist dashboard's pending_review labels into two distinct queues -- "Ready to Approve" (bulk-approvable, high-confidence labels where all fields match) and "Needs Review" (labels requiring manual specialist attention).
 
@@ -66,7 +66,7 @@ The bottom line: hiding the API surface from casual observation is a meaningful 
 
 **Reasoning:** Specialists currently treat every submission equally, spending the same time on a label where every field matches at 99% confidence as they do on a label with three mismatches and a missing health warning. By triaging into two queues, the "Ready to Approve" tab lets specialists select and approve high-confidence, all-match labels in seconds -- clearing the bulk of daily volume. This frees their time for "Needs Review" labels that genuinely need human judgment (field conflicts, low confidence, missing required fields). The queue criteria are: Ready = `pending_review` status + AI proposed `approved` + all validation items match + overall confidence >= configurable threshold (default 95%). Auto-approval was explicitly removed as a default -- all labels now route through specialist review. Organizations that trust their AI pipeline enough can re-enable auto-approval via a settings toggle. The separation also gives specialists a psychologically satisfying workflow: clear the easy stack first, then focus on the hard problems.
 
-### Batch Upload Deferred *(Feb 23, 2026)*
+### Batch Upload Deferred _(Feb 23, 2026)_
 
 **Chosen:** Remove the batch upload feature entirely rather than ship a broken implementation.
 
@@ -78,19 +78,19 @@ The bottom line: hiding the API surface from casual observation is a meaningful 
 
 **Reasoning:** The batch upload feature had a fundamentally broken UX model -- it treated every uploaded image as a separate COLA application, when real applicants submit one application per product with multiple images (front label, back label, neck strip). The task doc explicitly says "a working core application with clean code is preferred over ambitious but incomplete features." Batch upload was a stretch goal mentioned in passing, not a core requirement. Removing broken code and documenting the decision demonstrates better engineering judgment than shipping a feature that misrepresents how TTB submissions work. The correct design would group images into applications (e.g., CSV mapping or drag-to-group UI), which is a meaningful UX project beyond prototype scope. The specialist "bulk approve" feature (selecting multiple ready labels for approval) is a separate, working feature that was kept.
 
-### Applicant Extraction Model: GPT-4.1 over GPT-5 Mini *(Feb 23, 2026)*
+### Applicant Extraction Model: GPT-4.1 over GPT-5 Mini _(Feb 23, 2026)_
 
 **Chosen:** GPT-4.1 (standard, non-reasoning) for the applicant-side fast extraction pipeline, with a richly descriptive system prompt and minimal output schema (`{fieldName, value}` only).
 
 **Alternatives tested (with measured latency on a 2-image bourbon label):**
 
-| Model | Classification Time | Output Tokens | Accuracy | Notes |
-|-------|-------------------|---------------|----------|-------|
-| GPT-5 Mini (reasoning) | 19–25s | 1,800–2,800 | High — found all fields | Reasoning model; `temperature` not supported; internal chain-of-thought inflates latency and tokens |
-| GPT-5 Nano | 47s | 5,400 | Poor — missed most fields | Paradoxically slower and worse than GPT-5 Mini |
-| GPT-4.1 Nano | 1.1–2.7s | 74 | Low — missed several fields (age statement, fanciful name) | Too terse; insufficient capacity for 10+ field extraction |
-| GPT-4.1 Mini | 4.2s | 145 | Moderate — missed class_type, fanciful_name, state_of_distillation | Fast but not capable enough for the full field set |
-| **GPT-4.1** | **2.4–5.1s** | **~150** | **High — found all fields** | Non-reasoning; supports `temperature: 0`; best speed/accuracy trade-off |
+| Model                  | Classification Time | Output Tokens | Accuracy                                                           | Notes                                                                                               |
+| ---------------------- | ------------------- | ------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| GPT-5 Mini (reasoning) | 19–25s              | 1,800–2,800   | High — found all fields                                            | Reasoning model; `temperature` not supported; internal chain-of-thought inflates latency and tokens |
+| GPT-5 Nano             | 47s                 | 5,400         | Poor — missed most fields                                          | Paradoxically slower and worse than GPT-5 Mini                                                      |
+| GPT-4.1 Nano           | 1.1–2.7s            | 74            | Low — missed several fields (age statement, fanciful name)         | Too terse; insufficient capacity for 10+ field extraction                                           |
+| GPT-4.1 Mini           | 4.2s                | 145           | Moderate — missed class_type, fanciful_name, state_of_distillation | Fast but not capable enough for the full field set                                                  |
+| **GPT-4.1**            | **2.4–5.1s**        | **~150**      | **High — found all fields**                                        | Non-reasoning; supports `temperature: 0`; best speed/accuracy trade-off                             |
 
 **Key engineering challenges solved:**
 
@@ -104,7 +104,7 @@ The bottom line: hiding the API surface from casual observation is a meaningful 
 
 **Reasoning:** The applicant extraction is a transcription aid — the applicant reviews and corrects everything before submission, and the specialist pipeline re-verifies independently with GPT-5 Mini (multimodal, with images). Spending 20+ seconds on a pre-fill that the user will edit anyway is unacceptable UX. GPT-4.1 at ~3-5s hits the sweet spot: fast enough to feel responsive, accurate enough that most fields are correct, and cheap enough ($2/$8 per 1M tokens vs GPT-5 Mini's $0.25/$2 — but GPT-5 Mini's reasoning overhead made it produce 10-20x more output tokens, so effective cost was comparable).
 
-### Front-Loading AI Extraction to the Applicant *(Feb 23, 2026)*
+### Front-Loading AI Extraction to the Applicant _(Feb 23, 2026)_
 
 **Chosen:** AI extracts field values from the label image before the applicant fills out the form. The applicant reviews and corrects the pre-filled values, then submits. AI re-verifies on submission.
 
@@ -120,7 +120,7 @@ The breakthrough insight: the AI runs twice but serves two different purposes. T
 
 What we explicitly chose NOT to show applicants: confidence scores, match results, system thresholds. The principle is straightforward -- show them what the AI sees, not what the AI thinks. Applicants see extracted text values and correct them. They never see "87% confidence" or "partial match" because that information is for specialist decision-making, not applicant data entry. Leaking internal scoring to applicants would create anxiety ("why is my label only 87%?") and potential gaming ("if I adjust this field the confidence goes up").
 
-### Hybrid AI Pipeline: Google Cloud Vision + GPT-5 Mini *(Feb 21, 2026)*
+### Hybrid AI Pipeline: Google Cloud Vision + GPT-5 Mini _(Feb 21, 2026)_
 
 **Chosen:** Two-stage pipeline -- Cloud Vision for OCR with pixel-accurate bounding boxes, then GPT-5 Mini for semantic field classification on the extracted text.
 
@@ -134,7 +134,7 @@ What we explicitly chose NOT to show applicants: confidence scores, match result
 
 > **Revised (Feb 23, 2026):** The pipeline now uses two different classification models depending on context. **Specialist review** still uses GPT-5 Mini (multimodal, with images, full schema with word indices and reasoning) for maximum accuracy. **Applicant pre-fill** uses GPT-4.1 (text-only, minimal schema) for speed — ~3-5s vs ~20s. See "Applicant Extraction Model" decision above for the full evaluation.
 
-### Next.js 16 with App Router (RSC-First) *(Feb 21, 2026)*
+### Next.js 16 with App Router (RSC-First) _(Feb 21, 2026)_
 
 **Chosen:** React Server Components by default, client components only for interactivity (file uploads, image annotations, forms).
 
@@ -146,7 +146,7 @@ What we explicitly chose NOT to show applicants: confidence scores, match result
 
 **Reasoning:** RSC eliminates client-side data fetching entirely -- label data, validation results, and dashboard stats load on the server with zero client-side waterfalls. Server Actions replace exposed API routes for all mutations, reducing the attack surface. This is a data-heavy internal tool where most pages display read-only results; RSC is the natural fit. Next.js 16 specifically gives us Turbopack (2-5x faster builds), `proxy.ts` running on Node.js runtime (not Edge), and `use cache` for explicit caching control.
 
-### Drizzle ORM over Prisma *(Feb 21, 2026)*
+### Drizzle ORM over Prisma _(Feb 21, 2026)_
 
 **Chosen:** Drizzle ORM with Neon Postgres (`@neondatabase/serverless`).
 
@@ -158,7 +158,7 @@ What we explicitly chose NOT to show applicants: confidence scores, match result
 
 **Reasoning:** Drizzle is SQL-first and lightweight -- ideal for a prototype where we want the full power of SQL without the overhead of Prisma's client generation and migration engine. `$inferSelect`/`$inferInsert` derive TypeScript types directly from the schema, and `drizzle-orm/zod` auto-generates Zod validation schemas. This makes `schema.ts` the single source of truth for database structure, TypeScript types, and runtime validation -- zero manual type maintenance. Neon's serverless driver means no connection pooling headaches on Vercel.
 
-### Nano IDs over UUIDs *(Feb 21, 2026)*
+### Nano IDs over UUIDs _(Feb 21, 2026)_
 
 **Chosen:** 21-character nanoid strings for all primary keys (e.g., `V1StGXR8_Z5jdHi6B-myT`).
 
@@ -170,7 +170,7 @@ What we explicitly chose NOT to show applicants: confidence scores, match result
 
 **Reasoning:** Nano IDs are shorter (21 vs 36 chars), URL-friendly (no hyphens to encode), produce smaller database indexes, and are collision-resistant (1% probability of collision after generating 1 billion IDs per second for 149 years). They work well in URLs like `/history/V1StGXR8_Z5jdHi6B-myT` without encoding issues. Generated in application code via `$defaultFn(() => nanoid())` on Drizzle schema definitions.
 
-### Better Auth over NextAuth / Clerk *(Feb 21, 2026)*
+### Better Auth over NextAuth / Clerk _(Feb 21, 2026)_
 
 **Chosen:** Better Auth v1.4 with Drizzle adapter, email/password login, session-based auth.
 
@@ -182,7 +182,7 @@ What we explicitly chose NOT to show applicants: confidence scores, match result
 
 **Reasoning:** Better Auth is simpler to configure, self-hosted (no vendor dependency), and integrates directly with Drizzle ORM. For a prototype with 6 pre-provisioned test accounts and two roles (specialist/applicant), we need reliable session management without the configuration overhead of NextAuth or the cost/lock-in of Clerk. Sessions use 30-day expiry with 1-day refresh, and every server action validates the session before executing.
 
-### Vercel AI SDK (Not Raw OpenAI SDK) *(Feb 21, 2026)*
+### Vercel AI SDK (Not Raw OpenAI SDK) _(Feb 21, 2026)_
 
 **Chosen:** `ai` v6 + `@ai-sdk/openai` provider for the GPT-5 Mini classification stage.
 
@@ -193,7 +193,7 @@ What we explicitly chose NOT to show applicants: confidence scores, match result
 
 **Reasoning:** The Vercel AI SDK provides `generateText` + `Output.object()` with Zod schema enforcement -- structured outputs with automatic retry on schema validation failures. It is provider-agnostic, so swapping GPT-5 Mini for another model (or another provider entirely) requires changing one line. The SDK handles token counting, usage tracking, and streaming natively. LangChain was rejected as too heavy for a single-provider, single-model use case.
 
-### No AI Gateway *(Feb 21, 2026)*
+### No AI Gateway _(Feb 21, 2026)_
 
 **Chosen:** Direct API calls to OpenAI and Google Cloud Vision -- no intermediate proxy.
 
@@ -204,7 +204,7 @@ What we explicitly chose NOT to show applicants: confidence scores, match result
 
 **Reasoning:** We use exactly two AI providers (Cloud Vision for OCR, OpenAI for classification) with no fallback routing, A/B testing, or multi-provider load balancing. An AI gateway would add latency to every request for zero benefit. Usage tracking is handled by the AI SDK's built-in `usage` response field. If this were production with multiple models and providers, a gateway would make sense.
 
-### React Hook Form over Formik / Native Forms *(Feb 21, 2026)*
+### React Hook Form over Formik / Native Forms _(Feb 21, 2026)_
 
 **Chosen:** React Hook Form v7 with `@hookform/resolvers` (Zod resolver).
 
@@ -216,7 +216,7 @@ What we explicitly chose NOT to show applicants: confidence scores, match result
 
 **Reasoning:** The label validation form has 15+ dynamic fields that change based on beverage type selection. React Hook Form uses uncontrolled inputs by default, which means minimal re-renders as the user types -- critical for a form this complex. The Zod resolver provides client-side validation that mirrors the server-side Zod schemas used in server actions (same validation logic, both sides). Server actions always re-validate independently -- never trust the client.
 
-### Lazy Deadline Expiration (No Cron Jobs) *(Feb 21, 2026)*
+### Lazy Deadline Expiration (No Cron Jobs) _(Feb 21, 2026)_
 
 **Chosen:** `getEffectiveStatus()` computes the true label status inline by checking `correction_deadline` against the current time. Fire-and-forget DB update on page load.
 
@@ -228,7 +228,7 @@ What we explicitly chose NOT to show applicants: confidence scores, match result
 
 **Reasoning:** On Vercel serverless, cron jobs are limited to specific intervals and add infrastructure complexity. Our approach is simpler and always accurate: when any code path reads a label's status, `getEffectiveStatus()` checks if the correction deadline has passed and returns the effective status (e.g., `needs_correction` with an expired 30-day deadline becomes `rejected`). A fire-and-forget DB update persists the transition so the database eventually converges. There is no window where a user sees stale data -- the status is computed fresh on every read. The only trade-off is that the `status` column in the database may be temporarily stale between page loads, but this has no user-visible impact.
 
-### Client-Side Blob Uploads *(Feb 21, 2026)*
+### Client-Side Blob Uploads _(Feb 21, 2026)_
 
 **Chosen:** `@vercel/blob/client` for direct browser-to-Blob uploads with per-file progress tracking.
 
@@ -240,7 +240,7 @@ What we explicitly chose NOT to show applicants: confidence scores, match result
 
 **Reasoning:** Server actions in Next.js have a 4.5MB request body limit. Label images can be up to 10MB each, so multi-image submissions would exceed this limit. Client-side direct uploads bypass this entirely -- the browser uploads directly to Vercel Blob's CDN after receiving a short-lived token from our API route (which validates auth and MIME types). `p-limit` controls concurrency to 5 parallel uploads to avoid overwhelming the browser or network.
 
-### CSS Transforms for Image Zoom/Pan *(Feb 21, 2026)*
+### CSS Transforms for Image Zoom/Pan _(Feb 21, 2026)_
 
 **Chosen:** Custom implementation using `transform: scale() translate()` -- approximately 80 lines of code.
 
@@ -252,7 +252,7 @@ What we explicitly chose NOT to show applicants: confidence scores, match result
 
 **Reasoning:** The annotated image viewer needs wheel-to-zoom, drag-to-pan, and programmatic "zoom to field" (when clicking a comparison row). These three behaviors are straightforward with CSS transforms on a container div wrapping the image and SVG overlay. Adding a library for this would bring in 40KB+ of JavaScript for functionality we can implement in ~80 lines. The custom approach also gives us precise control over the "zoom to bounding box" animation when a specialist clicks a field in the comparison checklist.
 
-### Zustand + nuqs for State Management *(Feb 21, 2026)*
+### Zustand + nuqs for State Management _(Feb 21, 2026)_
 
 **Chosen:** Zustand v5 for ephemeral client state, nuqs v2.8 for URL-persisted state.
 
@@ -264,7 +264,7 @@ What we explicitly chose NOT to show applicants: confidence scores, match result
 
 **Reasoning:** Two distinct state categories require different solutions. Zustand handles ephemeral UI state: image annotation interactions (zoom level, active field, pan position), batch upload progress, and review session state. These are transient -- they reset on navigation and don't belong in the URL. nuqs handles persistent filter/navigation state: table filters (status, date range, applicant), pagination, and sort order. These are URL-backed, which means filters survive page refresh, are shareable via URL, and work with React Server Components via `createSearchParamsCache`. The boundary is clean: if state should survive a page refresh or be shareable, it goes in nuqs. Everything else goes in Zustand.
 
-### Tailwind CSS v4 + shadcn/ui *(Feb 21, 2026)*
+### Tailwind CSS v4 + shadcn/ui _(Feb 21, 2026)_
 
 **Chosen:** Tailwind CSS v4 with CSS-first configuration (`@theme` directive) and shadcn/ui (new-york style) for the component library.
 
@@ -298,28 +298,28 @@ The MVP delivers a complete, end-to-end label verification workflow:
 
 Originally scoped as stretch goals, these features were implemented to demonstrate the full workflow:
 
-| Feature                                          | What It Adds                                                                                                                        |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| **Review queue & specialist assignment**         | Priority-ordered queue with per-field override controls and human review audit trail                                                |
-| **Specialist bulk approval**                     | Dashboard splits pending labels into "Ready to Approve" (bulk-approvable) and "Needs Review" tabs for efficient triage              |
-| **Applicant management & compliance reputation** | Applicant list/detail with compliance stats, risk badges, and submission history                                                    |
-| **Reports page with charts**                     | Status distribution, validation trends, and field accuracy charts via Recharts                                                      |
-| **Settings page**                                | Confidence threshold slider, per-field strictness toggles, SLA targets -- accessible to all specialists                             |
-| **Specialist batch approval queue**              | Dashboard splits pending labels into "Ready to Approve" (batch-approvable) and "Needs Review" (manual attention) tabs               |
-| **AI-powered form pre-fill**                     | Front-loads extraction to the applicant -- AI pre-fills form fields, applicant confirms/corrects before submission                   |
+| Feature                                          | What It Adds                                                                                                           |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| **Review queue & specialist assignment**         | Priority-ordered queue with per-field override controls and human review audit trail                                   |
+| **Specialist bulk approval**                     | Dashboard splits pending labels into "Ready to Approve" (bulk-approvable) and "Needs Review" tabs for efficient triage |
+| **Applicant management & compliance reputation** | Applicant list/detail with compliance stats, risk badges, and submission history                                       |
+| **Reports page with charts**                     | Status distribution, validation trends, and field accuracy charts via Recharts                                         |
+| **Settings page**                                | Confidence threshold slider, per-field strictness toggles, SLA targets -- accessible to all specialists                |
+| **Specialist batch approval queue**              | Dashboard splits pending labels into "Ready to Approve" (batch-approvable) and "Needs Review" (manual attention) tabs  |
+| **AI-powered form pre-fill**                     | Front-loads extraction to the applicant -- AI pre-fills form fields, applicant confirms/corrects before submission     |
 
 ### What We Explicitly Excluded
 
-| Feature                         | Reasoning                                                                                                                                                              |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Rate limiting**               | Prototype scope. Production would use `@upstash/ratelimit` + Upstash Redis (in-memory rate limiting does not work on Vercel serverless -- each invocation is isolated) |
-| **COLA system integration**     | Out of scope per Marcus Williams (IT Systems Administrator): "For this prototype, we're not looking to integrate with COLA directly"                                   |
-| **Cron jobs**                   | Lazy evaluation via `getEffectiveStatus()` handles deadline expiration without external infrastructure                                                                 |
-| **Batch upload**                | The UX model was fundamentally wrong (each image as a separate application vs. grouping images into one application). Removed and documented rather than shipping broken code |
-| **Real-time WebSocket updates** | Polling is simpler and sufficient for this use case                                                                                                                    |
-| **Offline support / PWA**       | Government workstations have reliable internet; offline adds complexity with no real benefit                                                                           |
-| **Internationalization (i18n)** | English-only, US government context. TTB vocabulary is English by definition                                                                                           |
-| **Mobile-first responsive**     | Sarah confirmed specialists use desktop workstations ("half our team is over 50"). Desktop-first, tablet-usable                                                        |
+| Feature                         | Reasoning                                                                                                                                                                                                                                            |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Rate limiting**               | Prototype scope. Production would use `@upstash/ratelimit` + Upstash Redis (in-memory rate limiting does not work on Vercel serverless -- each invocation is isolated)                                                                               |
+| **COLA system integration**     | Out of scope per Marcus Williams (IT Systems Administrator): "For this prototype, we're not looking to integrate with COLA directly"                                                                                                                 |
+| **Cron jobs**                   | Lazy evaluation via `getEffectiveStatus()` handles deadline expiration without external infrastructure                                                                                                                                               |
+| **Batch upload**                | The UX model was fundamentally wrong (each image as a separate application vs. grouping images into one application). Removed and documented rather than shipping broken code                                                                        |
+| **Real-time WebSocket updates** | Polling is simpler and sufficient for this use case                                                                                                                                                                                                  |
+| **Offline support / PWA**       | Government workstations have reliable internet; offline adds complexity with no real benefit                                                                                                                                                         |
+| **Internationalization (i18n)** | English-only, US government context. TTB vocabulary is English by definition                                                                                                                                                                         |
+| **Mobile-first responsive**     | Sarah confirmed specialists use desktop workstations ("half our team is over 50"). Desktop-first, tablet-usable                                                                                                                                      |
 | **Email delivery**              | The Correspondence Timeline simulates realistic email notifications (full from/to/subject/body previews with field discrepancy tables) without actually sending mail. Demonstrates the communication UX and audit trail without email infrastructure |
 
 ---

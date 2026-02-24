@@ -23,7 +23,7 @@ Every label that enters the system goes through a 3-stage pipeline:
 
 **Stage 3 — Bounding Box Resolution** (local CPU): Matches classified field values back to their OCR word positions, producing normalized bounding boxes for the annotation viewer.
 
-This hybrid approach plays to each system's strengths: Cloud Vision for pixel-accurate text localization, OpenAI for semantic understanding of what each piece of text *means* on a TTB label.
+This hybrid approach plays to each system's strengths: Cloud Vision for pixel-accurate text localization, OpenAI for semantic understanding of what each piece of text _means_ on a TTB label.
 
 ---
 
@@ -79,6 +79,7 @@ This is the workhorse pipeline. It handles applicant submissions, specialist val
 - Application data from Form 5100.31 is included in the prompt for disambiguation
 
 **What's NOT included** (vs the full multimodal pipeline):
+
 - Image buffers are not sent to the model (biggest time saving)
 - No visual verification of OCR digits (OCR errors still get caught as mismatches by the comparison engine)
 - No image type classification (front/back/neck/strip — done during pre-fill)
@@ -86,13 +87,13 @@ This is the workhorse pipeline. It handles applicant submissions, specialist val
 
 **Callers:**
 
-| Server Action | Context |
-|---|---|
-| `submitApplication` | Applicant submits completed COLA form |
-| `validateLabel` | Specialist uploads label via validation UI |
-| `reanalyzeLabel` | Specialist re-runs AI on existing label |
-| `processBatchItem` | Batch processing of queued labels |
-| `submitBatchApplication` | Applicant batch upload |
+| Server Action            | Context                                    |
+| ------------------------ | ------------------------------------------ |
+| `submitApplication`      | Applicant submits completed COLA form      |
+| `validateLabel`          | Specialist uploads label via validation UI |
+| `reanalyzeLabel`         | Specialist re-runs AI on existing label    |
+| `processBatchItem`       | Batch processing of queued labels          |
+| `submitBatchApplication` | Applicant batch upload                     |
 
 ---
 
@@ -120,11 +121,12 @@ This is the workhorse pipeline. It handles applicant submissions, specialist val
 
 **Why this exists:**
 
-This is the most thorough pipeline — the model can *see* the label images and cross-check OCR results. It catches digit misreads that text-only pipelines miss (e.g., "52%" OCR'd as "12%"). The trade-off is speed: sending full-resolution images to a reasoning model means ~30-40s of multimodal upload + internal processing on top of the text classification time.
+This is the most thorough pipeline — the model can _see_ the label images and cross-check OCR results. It catches digit misreads that text-only pipelines miss (e.g., "52%" OCR'd as "12%"). The trade-off is speed: sending full-resolution images to a reasoning model means ~30-40s of multimodal upload + internal processing on top of the text classification time.
 
 **When it matters:**
 
 Visual verification is most valuable for:
+
 - Alcohol content (a misread % changes the entire validation)
 - Vintage year (2019 vs 2014)
 - Net contents (750 mL vs 150 mL)
@@ -132,6 +134,7 @@ Visual verification is most valuable for:
 In practice, the comparison engine catches these as mismatches anyway (the extracted value won't match the application data), routing them to specialist review. The specialist then verifies visually themselves. This is why the submission pipeline dropped multimodal — the safety net works without it.
 
 **Key differences from submission pipeline:**
+
 - Images sent to model (multimodal messages)
 - Word indices requested and provided by model
 - Visual verification instructions in prompt
@@ -198,11 +201,13 @@ This pipeline hardcodes confidence at 80 and provides no reasoning. That's fine 
 
 **Why this exists:**
 
-When an applicant first uploads label images *before selecting a beverage type*, the system needs to:
+When an applicant first uploads label images _before selecting a beverage type_, the system needs to:
+
 1. Figure out what kind of product this is (spirits? wine? malt beverage?)
 2. Extract all possible fields from the label
 
 This pipeline uses the **union of all fields** from all beverage types and asks the model to detect the beverage type from context clues:
+
 - Spirits: proof, age statements, "whiskey", "bourbon", "vodka"
 - Wine: grape varietals, vintage years, appellations, "contains sulfites"
 - Malt beverages: "ale", "lager", "IPA", "brewed by", "hard seltzer"
@@ -242,16 +247,19 @@ Previously (Pipeline 4), when no beverage type was selected, the system sent all
 3. **Ambiguous?** → Fall back to Pipeline 4's full extraction (gpt-5-mini, ~10-20s)
 
 **Performance:**
+
 - Happy path (clear keywords): ~4-9s — same speed as manual type selection
 - Fallback (ambiguous): ~10-20s — no worse than before
 
 **Keyword matching rules:**
+
 - Each type has ~30 keywords (spirits: "whiskey", "bourbon", "proof", "distilled by"...)
 - Score = count of matching keywords in OCR text
 - Winner needs at least 1 hit AND 1+ more hits than runner-up
 - Returns null (triggers fallback) if tied or no keywords found
 
 **UX impact:**
+
 - Applicants can skip the beverage type selection step entirely
 - AI auto-fills the type card with an "AI detected" badge
 - If detection fails, a toast prompts manual selection
@@ -296,6 +304,7 @@ Previously (Pipeline 4), when no beverage type was selected, the system sent all
 ```
 
 **Key properties:**
+
 - Word-level granularity (not character or paragraph)
 - Pixel-accurate bounding polygons (4 vertices per word)
 - Handles rotated, curved, and embossed text
@@ -363,6 +372,7 @@ Two strategies, both producing identical output:
 ```
 
 **Text matching algorithm** (`findMatchingWords`):
+
 1. Normalize both strings (lowercase, strip punctuation, collapse whitespace)
 2. Slide a window across OCR words (up to 60 words wide)
 3. Accumulate text and compare against target
@@ -370,6 +380,7 @@ Two strategies, both producing identical output:
 5. Runs in <1ms for typical labels (~150 words)
 
 **Coordinate normalization:**
+
 - All bounding boxes are normalized to 0-1 range (divided by image dimensions)
 - Text angle computed from word baseline vectors, snapped to nearest 90 degrees
 - Supports horizontal (0), vertical (90/-90), and upside-down (180) text
@@ -494,13 +505,13 @@ The `needs_correction` status is applied when a mismatch occurs on a minor field
 
 ## Cost Model
 
-| Component | Cost | Per Label |
-|---|---|---|
-| Cloud Vision OCR | $1.50 / 1K images | ~$0.003 (2 images) |
-| gpt-5-mini input | $0.25 / 1M tokens | ~$0.0005 (2K tokens) |
-| gpt-5-mini output | $2.00 / 1M tokens | ~$0.004 (2K tokens) |
-| gpt-4.1 (pre-fill) | ~$0.10 / 1M tokens | ~$0.0001 (1.3K tokens) |
-| **Total per label** | | **~$0.008** |
+| Component           | Cost               | Per Label              |
+| ------------------- | ------------------ | ---------------------- |
+| Cloud Vision OCR    | $1.50 / 1K images  | ~$0.003 (2 images)     |
+| gpt-5-mini input    | $0.25 / 1M tokens  | ~$0.0005 (2K tokens)   |
+| gpt-5-mini output   | $2.00 / 1M tokens  | ~$0.004 (2K tokens)    |
+| gpt-4.1 (pre-fill)  | ~$0.10 / 1M tokens | ~$0.0001 (1.3K tokens) |
+| **Total per label** |                    | **~$0.008**            |
 
 Pre-fill adds ~$0.0001 per scan. A label that goes through pre-fill + submission + one reanalysis costs roughly $0.02.
 

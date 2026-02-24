@@ -97,7 +97,7 @@ describe('overrideStatus', () => {
     const result = await overrideStatus(validInput())
     expect(result).toEqual({
       success: false,
-      error: 'Only specialists can override label status',
+      error: 'Only specialists can perform this action',
     })
   })
 

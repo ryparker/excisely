@@ -81,7 +81,7 @@ describe('updateConfidenceThreshold', () => {
     const result = await updateConfidenceThreshold(50)
     expect(result).toEqual({
       success: false,
-      error: 'Specialist access required',
+      error: 'Only specialists can perform this action',
     })
   })
 
@@ -136,7 +136,7 @@ describe('updateFieldStrictness', () => {
     const result = await updateFieldStrictness({ brand_name: 'strict' })
     expect(result).toEqual({
       success: false,
-      error: 'Specialist access required',
+      error: 'Only specialists can perform this action',
     })
   })
 
@@ -188,7 +188,7 @@ describe('updateSLATargets', () => {
     const result = await updateSLATargets(validTargets)
     expect(result).toEqual({
       success: false,
-      error: 'Specialist access required',
+      error: 'Only specialists can perform this action',
     })
   })
 

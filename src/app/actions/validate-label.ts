@@ -12,9 +12,10 @@ import {
 } from '@/db/schema'
 import { extractLabelFieldsForSubmission } from '@/lib/ai/extract-label'
 import { compareField } from '@/lib/ai/compare-fields'
-import { getSession } from '@/lib/auth/get-session'
+import { guardSpecialist } from '@/lib/auth/action-guards'
+import { formatZodError } from '@/lib/actions/parse-zod-error'
+import { parseImageUrls } from '@/lib/actions/parse-image-urls'
 import { validateLabelSchema } from '@/lib/validators/label-schema'
-import { validateImageUrl } from '@/lib/validators/file-schema'
 import {
   buildExpectedFields,
   determineOverallStatus,
@@ -39,14 +40,9 @@ export async function validateLabel(
   formData: FormData,
 ): Promise<ValidateLabelResult> {
   // 1. Authenticate
-  const session = await getSession()
-  if (!session?.user) {
-    return { success: false, error: 'Authentication required' }
-  }
-
-  if (session.user.role === 'applicant') {
-    return { success: false, error: 'Specialist access required' }
-  }
+  const guard = await guardSpecialist()
+  if (!guard.success) return guard
+  const { session } = guard
 
   try {
     // 2. Parse and validate form data
@@ -80,41 +76,15 @@ export async function validateLabel(
 
     const parsed = validateLabelSchema.safeParse(rawData)
     if (!parsed.success) {
-      const firstError = parsed.error.issues[0]
-      return {
-        success: false,
-        error: `Validation error: ${firstError.path.join('.')} — ${firstError.message}`,
-      }
+      return { success: false, error: formatZodError(parsed.error) }
     }
 
     const input = parsed.data
 
     // 3. Extract and validate image URLs
-    const imageUrlsRaw = formData.get('imageUrls')
-    if (!imageUrlsRaw || typeof imageUrlsRaw !== 'string') {
-      return { success: false, error: 'No image URLs provided' }
-    }
-
-    let imageUrls: string[]
-    try {
-      imageUrls = JSON.parse(imageUrlsRaw)
-    } catch {
-      return { success: false, error: 'Invalid image URLs format' }
-    }
-
-    if (!Array.isArray(imageUrls) || imageUrls.length === 0) {
-      return { success: false, error: 'At least one label image is required' }
-    }
-
-    if (imageUrls.length > 10) {
-      return { success: false, error: 'Maximum 10 images allowed' }
-    }
-
-    for (const url of imageUrls) {
-      if (!validateImageUrl(url)) {
-        return { success: false, error: `Invalid image URL: ${url}` }
-      }
-    }
+    const imageUrlsResult = parseImageUrls(formData)
+    if (!imageUrlsResult.success) return imageUrlsResult
+    const { imageUrls } = imageUrlsResult
 
     // 4. Create label record with status "processing"
     const [label] = await db

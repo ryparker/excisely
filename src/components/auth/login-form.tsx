@@ -27,12 +27,6 @@ interface LoginFormProps {
 
 const TEST_USERS = [
   {
-    name: 'Sarah Chen',
-    email: 'sarah.chen@ttb.gov',
-    password: 'specialist123',
-    role: 'specialist' as const,
-  },
-  {
     name: 'Thomas Blackwell',
     email: 'labeling@oldtomdistillery.com',
     password: 'applicant123',
@@ -49,6 +43,12 @@ const TEST_USERS = [
     email: 'labels@cascadehop.com',
     password: 'applicant123',
     role: 'applicant' as const,
+  },
+  {
+    name: 'Sarah Chen',
+    email: 'sarah.chen@ttb.gov',
+    password: 'specialist123',
+    role: 'specialist' as const,
   },
 ] as const
 

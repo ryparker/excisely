@@ -6,7 +6,13 @@ import { z } from 'zod'
 
 import { db } from '@/db'
 import { labels, statusOverrides } from '@/db/schema'
-import { getSession } from '@/lib/auth/get-session'
+import {
+  CONDITIONAL_DEADLINE_DAYS,
+  CORRECTION_DEADLINE_DAYS,
+} from '@/config/constants'
+import { guardSpecialist } from '@/lib/auth/action-guards'
+import { formatZodError } from '@/lib/actions/parse-zod-error'
+import { addDays } from '@/lib/labels/validation-helpers'
 
 // ---------------------------------------------------------------------------
 // Schema
@@ -34,15 +40,6 @@ type OverrideStatusResult =
   | { success: true }
   | { success: false; error: string }
 
-const CONDITIONAL_DEADLINE_DAYS = 7
-const CORRECTION_DEADLINE_DAYS = 30
-
-function addDays(date: Date, days: number): Date {
-  const result = new Date(date)
-  result.setDate(result.getDate() + days)
-  return result
-}
-
 // ---------------------------------------------------------------------------
 // Server Action
 // ---------------------------------------------------------------------------
@@ -50,25 +47,13 @@ function addDays(date: Date, days: number): Date {
 export async function overrideStatus(
   input: z.infer<typeof overrideStatusSchema>,
 ): Promise<OverrideStatusResult> {
-  const session = await getSession()
-  if (!session?.user) {
-    return { success: false, error: 'Authentication required' }
-  }
-
-  if (session.user.role === 'applicant') {
-    return {
-      success: false,
-      error: 'Only specialists can override label status',
-    }
-  }
+  const guard = await guardSpecialist()
+  if (!guard.success) return guard
+  const { session } = guard
 
   const parsed = overrideStatusSchema.safeParse(input)
   if (!parsed.success) {
-    const firstError = parsed.error.issues[0]
-    return {
-      success: false,
-      error: firstError.message,
-    }
+    return { success: false, error: formatZodError(parsed.error) }
   }
 
   const { labelId, newStatus, justification, reasonCode } = parsed.data

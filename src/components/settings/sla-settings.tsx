@@ -62,108 +62,115 @@ export function SLASettings({ defaults }: SLASettingsProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 font-heading text-lg">
-          SLA Targets
+        <CardTitle className="flex items-center gap-2">
+          Turnaround Targets
           {isPending && (
             <Loader2 className="size-4 animate-spin text-muted-foreground" />
           )}
         </CardTitle>
         <CardDescription>
-          Configure service level agreement targets for label review turnaround.
+          Set maximum response times and queue depth for review operations.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Review Response Time */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="review-response-time">Review Response Time</Label>
-            <span className="font-mono text-sm text-muted-foreground tabular-nums">
-              {values.reviewResponseHours}h
-            </span>
+      <CardContent>
+        <div className="grid gap-6 sm:grid-cols-2">
+          {/* Review Response Time */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="review-response-time" className="text-sm">
+                Review Response Time
+              </Label>
+              <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-sm tabular-nums">
+                {values.reviewResponseHours}h
+              </span>
+            </div>
+            <Slider
+              id="review-response-time"
+              value={[values.reviewResponseHours]}
+              min={1}
+              max={168}
+              step={1}
+              onValueChange={([v]) => handleChange('reviewResponseHours', v)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Max hours from pending review to reviewed.
+            </p>
           </div>
-          <Slider
-            id="review-response-time"
-            value={[values.reviewResponseHours]}
-            min={1}
-            max={168}
-            step={1}
-            onValueChange={([v]) => handleChange('reviewResponseHours', v)}
-          />
-          <p className="text-xs text-muted-foreground">
-            Maximum hours from pending review to reviewed (1-168h).
-          </p>
-        </div>
 
-        {/* Total Turnaround Time */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="total-turnaround-time">Total Turnaround Time</Label>
-            <span className="font-mono text-sm text-muted-foreground tabular-nums">
-              {values.totalTurnaroundHours}h
-            </span>
+          {/* Total Turnaround Time */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="total-turnaround-time" className="text-sm">
+                Total Turnaround Time
+              </Label>
+              <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-sm tabular-nums">
+                {values.totalTurnaroundHours}h
+              </span>
+            </div>
+            <Slider
+              id="total-turnaround-time"
+              value={[values.totalTurnaroundHours]}
+              min={1}
+              max={168}
+              step={1}
+              onValueChange={([v]) => handleChange('totalTurnaroundHours', v)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Max hours from submission to final decision.
+            </p>
           </div>
-          <Slider
-            id="total-turnaround-time"
-            value={[values.totalTurnaroundHours]}
-            min={1}
-            max={168}
-            step={1}
-            onValueChange={([v]) => handleChange('totalTurnaroundHours', v)}
-          />
-          <p className="text-xs text-muted-foreground">
-            Maximum hours from submission to final decision (1-168h).
-          </p>
-        </div>
 
-        {/* Auto-Approval Rate Target */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="auto-approval-rate">
-              Auto-Approval Rate Target
-            </Label>
-            <span className="font-mono text-sm text-muted-foreground tabular-nums">
-              {values.autoApprovalRateTarget}%
-            </span>
+          {/* Auto-Approval Rate Target */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="auto-approval-rate" className="text-sm">
+                Auto-Approval Rate Target
+              </Label>
+              <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-sm tabular-nums">
+                {values.autoApprovalRateTarget}%
+              </span>
+            </div>
+            <Slider
+              id="auto-approval-rate"
+              value={[values.autoApprovalRateTarget]}
+              min={0}
+              max={100}
+              step={1}
+              onValueChange={([v]) => handleChange('autoApprovalRateTarget', v)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Target percentage of labels auto-approved by AI.
+            </p>
           </div>
-          <Slider
-            id="auto-approval-rate"
-            value={[values.autoApprovalRateTarget]}
-            min={0}
-            max={100}
-            step={1}
-            onValueChange={([v]) => handleChange('autoApprovalRateTarget', v)}
-          />
-          <p className="text-xs text-muted-foreground">
-            Target percentage of labels auto-approved by AI without human
-            review.
-          </p>
-        </div>
 
-        {/* Max Queue Depth */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="maxQueueDepth">Max Queue Depth</Label>
-            <span className="font-mono text-sm text-muted-foreground tabular-nums">
-              {values.maxQueueDepth}
-            </span>
+          {/* Max Queue Depth */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="maxQueueDepth" className="text-sm">
+                Max Queue Depth
+              </Label>
+              <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-sm tabular-nums">
+                {values.maxQueueDepth}
+              </span>
+            </div>
+            <Input
+              id="maxQueueDepth"
+              type="number"
+              min={1}
+              max={1000}
+              value={values.maxQueueDepth}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10)
+                if (!isNaN(v) && v >= 1 && v <= 1000) {
+                  handleChange('maxQueueDepth', v)
+                }
+              }}
+              className="w-full font-mono"
+            />
+            <p className="text-xs text-muted-foreground">
+              Maximum pending review labels at any time.
+            </p>
           </div>
-          <Input
-            id="maxQueueDepth"
-            type="number"
-            min={1}
-            max={1000}
-            value={values.maxQueueDepth}
-            onChange={(e) => {
-              const v = parseInt(e.target.value, 10)
-              if (!isNaN(v) && v >= 1 && v <= 1000) {
-                handleChange('maxQueueDepth', v)
-              }
-            }}
-            className="w-32"
-          />
-          <p className="text-xs text-muted-foreground">
-            Maximum pending review labels at any time (1-1000).
-          </p>
         </div>
       </CardContent>
     </Card>

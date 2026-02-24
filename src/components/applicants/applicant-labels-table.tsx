@@ -1,8 +1,8 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { motion, useReducedMotion } from 'motion/react'
 
+import { AnimatedTableRow } from '@/components/shared/animated-table-row'
 import { ColumnHeader } from '@/components/shared/column-header'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Card } from '@/components/ui/card'
@@ -14,8 +14,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { BEVERAGE_ICON, BEVERAGE_LABEL_FULL } from '@/config/beverage-display'
-import { cn } from '@/lib/utils'
+import {
+  BEVERAGE_ICON,
+  BEVERAGE_LABEL_FULL,
+  BEVERAGE_OPTIONS,
+} from '@/config/beverage-display'
+import { cn, confidenceColor, formatConfidence, formatDate } from '@/lib/utils'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -35,49 +39,11 @@ interface ApplicantLabelsTableProps {
 }
 
 // ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const BEVERAGE_OPTIONS = [
-  { label: 'All Types', value: '' },
-  { label: 'Spirits', value: 'distilled_spirits' },
-  { label: 'Wine', value: 'wine' },
-  { label: 'Malt Beverage', value: 'malt_beverage' },
-]
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(date)
-}
-
-function formatConfidence(value: string | null): string {
-  if (!value) return '--'
-  const num = Number(value)
-  return `${Math.round(num)}%`
-}
-
-function confidenceColor(value: string | null): string {
-  if (!value) return 'text-muted-foreground/40'
-  const num = Number(value)
-  if (num >= 90) return 'text-green-600 dark:text-green-400'
-  if (num >= 70) return 'text-amber-600 dark:text-amber-400'
-  return 'text-red-600 dark:text-red-400'
-}
-
-// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 export function ApplicantLabelsTable({ labels }: ApplicantLabelsTableProps) {
   const router = useRouter()
-  const shouldReduceMotion = useReducedMotion()
 
   return (
     <Card className="overflow-clip py-0">
@@ -110,21 +76,13 @@ export function ApplicantLabelsTable({ labels }: ApplicantLabelsTableProps) {
         <TableBody>
           {labels.map((label, i) => {
             const BevIcon = BEVERAGE_ICON[label.beverageType]
-            const RowTag = shouldReduceMotion ? 'tr' : motion.tr
 
             return (
-              <RowTag
+              <AnimatedTableRow
                 key={label.id}
+                index={i}
                 className="cursor-pointer transition-colors hover:bg-muted/50"
                 onClick={() => router.push(`/labels/${label.id}`)}
-                {...(!shouldReduceMotion && {
-                  initial: { opacity: 0 },
-                  animate: { opacity: 1 },
-                  transition: {
-                    duration: 0.2,
-                    delay: i * 0.02,
-                  },
-                })}
               >
                 <TableCell>
                   <div className="font-medium">
@@ -160,7 +118,7 @@ export function ApplicantLabelsTable({ labels }: ApplicantLabelsTableProps) {
                 <TableCell className="text-right text-muted-foreground tabular-nums">
                   {formatDate(label.createdAt)}
                 </TableCell>
-              </RowTag>
+              </AnimatedTableRow>
             )
           })}
         </TableBody>

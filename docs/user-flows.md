@@ -128,11 +128,13 @@ These attack vectors were identified during design but are outside the scope of 
 **Threat:** An applicant could design label artwork specifically to fool the AI pipeline -- using fonts, colors, or layouts that cause OCR misreads, or embedding text that reads differently to a machine than to a human eye.
 
 **Examples:**
+
 - Using a font where "l" (lowercase L) and "I" (uppercase I) are visually identical but OCR maps them differently
 - Placing required text (e.g., health warning) in a color that blends with the background, visible to humans at certain angles but invisible to flat image scanning
 - Splitting mandatory text across non-contiguous regions so the classifier cannot associate them
 
 **Mitigation ideas (not implemented):**
+
 - **Dual-model verification** -- Run two independent AI pipelines (e.g., Cloud Vision + Gemini OCR) and flag labels where results diverge
 - **Suspicion scoring** -- Track per-applicant AI confidence trends. A sudden drop in extraction confidence for a previously reliable applicant could indicate adversarial intent
 - **Rate limiting extraction** -- Prevent applicants from iterating rapidly on label designs by monitoring the scan-to-submit ratio
@@ -143,6 +145,7 @@ These attack vectors were identified during design but are outside the scope of 
 **Threat:** A malicious or compromised account could submit hundreds of batch uploads to drain AI API credits (each label costs ~$0.003 in Cloud Vision + GPT-5 Mini calls).
 
 **Mitigation ideas (not implemented):**
+
 - **Per-applicant daily cap** -- Limit each applicant to N label submissions per 24-hour period (e.g., 50 for standard accounts, 500 for verified high-volume producers)
 - **API cost circuit breaker** -- Monitor aggregate AI API spend per hour. If spend exceeds a threshold (e.g., $50/hour), pause new submissions and alert administrators
 - **Progressive rate limiting** -- First 10 submissions per hour are instant. Submissions 11-50 are queued with a 5-second delay. Beyond 50, the applicant is asked to contact support
@@ -153,6 +156,7 @@ These attack vectors were identified during design but are outside the scope of 
 **Threat:** Prototype uses simple passwords (`specialist123`, `applicant123`) and 30-day session expiry, which are inappropriate for production.
 
 **Production mitigations (not implemented):**
+
 - SSO integration with TTB's identity provider (likely PIV/CAC card authentication for government workstations)
 - Session expiry reduced to 8 hours (one work shift) with re-authentication required
 - IP allowlisting for specialist accounts (government network only)

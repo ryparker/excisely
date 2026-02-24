@@ -215,6 +215,26 @@
       animation: none;
     }
   }
+
+  /**
+   * Workaround for unwanted behavior in radix-ui's dialog. Radix dialog uses a 3rd party
+   * dependency 'react-remove-scroll' which will cause the following unwanted behavior:
+   * * adds 15px margin-right to body - This additional 15px causes the entire body to jump
+   *   if the body already has overflow-y set.
+   *
+   * Note: We intentionally do NOT override overflow:hidden here - that's needed for
+   * Radix's scroll lock to work properly on mobile (prevents background scroll when
+   * sheets/dialogs are open).
+   *
+   * @see https://github.com/theKashey/react-remove-scroll
+   * @see https://github.com/radix-ui/primitives/issues/1572#issuecomment-1194513834
+   */
+  @supports (scrollbar-gutter: stable) {
+    html body[data-scroll-locked] {
+      margin-right: 0 !important;
+      top: unset !important;
+    }
+  }
 }
 
 /* ---- Regulation card :target highlight ---- */

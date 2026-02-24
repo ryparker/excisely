@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache'
 
 import { db } from '@/db'
 import { settings } from '@/db/schema'
-import { getSession } from '@/lib/auth/get-session'
+import { guardSpecialist } from '@/lib/auth/action-guards'
 
 const updateAutoApprovalSchema = z.object({
   enabled: z.boolean(),
@@ -55,14 +55,8 @@ async function upsertSetting(key: string, value: unknown): Promise<void> {
 export async function updateAutoApproval(
   enabled: boolean,
 ): Promise<UpdateSettingsResult> {
-  const session = await getSession()
-  if (!session?.user) {
-    return { success: false, error: 'Authentication required' }
-  }
-
-  if (session.user.role === 'applicant') {
-    return { success: false, error: 'Specialist access required' }
-  }
+  const guard = await guardSpecialist()
+  if (!guard.success) return guard
 
   const parsed = updateAutoApprovalSchema.safeParse({ enabled })
   if (!parsed.success) {
@@ -82,14 +76,8 @@ export async function updateAutoApproval(
 export async function updateConfidenceThreshold(
   threshold: number,
 ): Promise<UpdateSettingsResult> {
-  const session = await getSession()
-  if (!session?.user) {
-    return { success: false, error: 'Authentication required' }
-  }
-
-  if (session.user.role === 'applicant') {
-    return { success: false, error: 'Specialist access required' }
-  }
+  const guard = await guardSpecialist()
+  if (!guard.success) return guard
 
   const parsed = updateConfidenceSchema.safeParse({
     confidenceThreshold: threshold,
@@ -111,14 +99,8 @@ export async function updateConfidenceThreshold(
 export async function updateApprovalThreshold(
   threshold: number,
 ): Promise<UpdateSettingsResult> {
-  const session = await getSession()
-  if (!session?.user) {
-    return { success: false, error: 'Authentication required' }
-  }
-
-  if (session.user.role === 'applicant') {
-    return { success: false, error: 'Specialist access required' }
-  }
+  const guard = await guardSpecialist()
+  if (!guard.success) return guard
 
   const parsed = updateApprovalThresholdSchema.safeParse({
     approvalThreshold: threshold,
@@ -141,14 +123,8 @@ export async function updateApprovalThreshold(
 export async function updateFieldStrictness(
   fieldStrictness: Record<string, string>,
 ): Promise<UpdateSettingsResult> {
-  const session = await getSession()
-  if (!session?.user) {
-    return { success: false, error: 'Authentication required' }
-  }
-
-  if (session.user.role === 'applicant') {
-    return { success: false, error: 'Specialist access required' }
-  }
+  const guard = await guardSpecialist()
+  if (!guard.success) return guard
 
   const parsed = updateStrictnessSchema.safeParse({ fieldStrictness })
   if (!parsed.success) {
@@ -174,14 +150,8 @@ export async function updateSLATargets(targets: {
   autoApprovalRateTarget: number
   maxQueueDepth: number
 }): Promise<UpdateSettingsResult> {
-  const session = await getSession()
-  if (!session?.user) {
-    return { success: false, error: 'Authentication required' }
-  }
-
-  if (session.user.role === 'applicant') {
-    return { success: false, error: 'Specialist access required' }
-  }
+  const guard = await guardSpecialist()
+  if (!guard.success) return guard
 
   const parsed = updateSLASchema.safeParse(targets)
   if (!parsed.success) {

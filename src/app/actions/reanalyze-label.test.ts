@@ -186,7 +186,7 @@ describe('reanalyzeLabel', () => {
     const result = await reanalyzeLabel('lbl_test')
     expect(result).toEqual({
       success: false,
-      error: 'Insufficient permissions',
+      error: 'Only specialists can perform this action',
     })
   })
 

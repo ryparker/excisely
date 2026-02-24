@@ -35,53 +35,46 @@ interface SampleLabel {
 
 const SAMPLE_LABELS: SampleLabel[] = [
   {
-    name: 'Cooper Ridge Malbec',
+    name: 'Domaine Jourdan Chinon',
     beverageType: 'Wine',
     images: [
       {
-        src: '/sample-labels/cooper-ridge-malbec/front.png',
+        src: '/sample-labels/domaine-jourdan/front.png',
         label: 'Front',
-        filename: 'cooper-ridge-malbec-front.png',
+        filename: 'domaine-jourdan-front.png',
       },
       {
-        src: '/sample-labels/cooper-ridge-malbec/back.png',
+        src: '/sample-labels/domaine-jourdan/back.png',
         label: 'Back',
-        filename: 'cooper-ridge-malbec-back.png',
+        filename: 'domaine-jourdan-back.png',
       },
     ],
     fields: [
-      { label: 'Serial Number', value: '26009001' },
-      { label: 'Brand Name', value: 'Cooper Ridge' },
-      { label: 'Fanciful Name', value: 'Fox Hollow Vineyard' },
-      { label: 'Class/Type', value: 'Malbec' },
-      { label: 'Alcohol Content', value: 'Alc. 13% by Vol.' },
-      { label: 'Net Contents', value: '750 ml' },
-      { label: 'Container Size', value: '750' },
+      { label: 'Serial Number', value: '26002003' },
+      { label: 'Brand Name', value: 'Domaine Jourdan' },
+      { label: 'Fanciful Name', value: 'Croix Boissée' },
+      { label: 'Class/Type', value: 'White Wine' },
+      { label: 'Alcohol Content', value: 'ALCOHOL 13.5 % BY VOLUME' },
+      { label: 'Net Contents', value: '750ML' },
     ],
   },
   {
-    name: 'Backbone Bourbon',
+    name: 'Dashfire Old Fashioned',
     beverageType: 'Distilled Spirits',
     images: [
       {
-        src: '/sample-labels/backbone-bourbon/front.png',
+        src: '/sample-labels/dashfire/front.png',
         label: 'Front',
-        filename: 'backbone-bourbon-front.png',
-      },
-      {
-        src: '/sample-labels/backbone-bourbon/back.png',
-        label: 'Back',
-        filename: 'backbone-bourbon-back.png',
+        filename: 'dashfire-front.png',
       },
     ],
     fields: [
-      { label: 'Serial Number', value: '26009002' },
-      { label: 'Brand Name', value: 'Backbone Bourbon' },
-      { label: 'Fanciful Name', value: 'Estate' },
-      { label: 'Class/Type', value: 'Straight Bourbon Whiskey' },
-      { label: 'Alcohol Content', value: '57% ALC/VOL 114 PROOF' },
-      { label: 'Net Contents', value: '750ML' },
-      { label: 'Container Size', value: '750' },
+      { label: 'Serial Number', value: '26003004' },
+      { label: 'Brand Name', value: 'Dashfire' },
+      { label: 'Fanciful Name', value: 'Old Fashioned' },
+      { label: 'Class/Type', value: 'Bourbon' },
+      { label: 'Alcohol Content', value: '38% ALC. / VOL.' },
+      { label: 'Net Contents', value: '100ML' },
     ],
   },
   {
@@ -95,13 +88,12 @@ const SAMPLE_LABELS: SampleLabel[] = [
       },
     ],
     fields: [
-      { label: 'Serial Number', value: '26009003' },
+      { label: 'Serial Number', value: '26003001' },
       { label: 'Brand Name', value: 'Sierra Nevada' },
       { label: 'Fanciful Name', value: 'Trip Thru the Woods' },
       { label: 'Class/Type', value: 'Stout' },
       { label: 'Alcohol Content', value: 'ALC. 13.8% BY VOL.' },
       { label: 'Net Contents', value: '1 PT. 9.4 FL. OZ.' },
-      { label: 'Container Size', value: '750' },
     ],
   },
 ]

@@ -13,7 +13,7 @@ import {
 } from '@/db/schema'
 import { extractLabelFieldsForSubmission } from '@/lib/ai/extract-label'
 import { compareField } from '@/lib/ai/compare-fields'
-import { getSession } from '@/lib/auth/get-session'
+import { guardSpecialist } from '@/lib/auth/action-guards'
 import {
   addDays,
   buildExpectedFields,
@@ -39,13 +39,8 @@ export async function reanalyzeLabel(
   labelId: string,
 ): Promise<ReanalyzeLabelResult> {
   // 1. Auth check — specialist only
-  const session = await getSession()
-  if (!session?.user) {
-    return { success: false, error: 'Authentication required' }
-  }
-  if (session.user.role === 'applicant') {
-    return { success: false, error: 'Insufficient permissions' }
-  }
+  const guard = await guardSpecialist()
+  if (!guard.success) return guard
 
   // 2. Fetch the label
   const [label] = await db

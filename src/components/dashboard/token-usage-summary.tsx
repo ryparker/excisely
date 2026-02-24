@@ -9,12 +9,7 @@ import {
   HoverCardTrigger,
 } from '@/components/ui/hover-card'
 import type { TokenUsageMetrics } from '@/lib/sla/queries'
-
-function formatNumber(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
-  return String(n)
-}
+import { formatNumber } from '@/lib/utils'
 
 export function TokenUsageSummary({
   metrics,
@@ -49,7 +44,7 @@ export function TokenUsageSummary({
           <HoverCardTrigger asChild>
             <button
               type="button"
-              className="ml-auto flex size-4 items-center justify-center rounded-full text-muted-foreground/40 transition-colors hover:text-muted-foreground"
+              className="ml-auto flex size-6 items-center justify-center rounded-full text-muted-foreground/40 transition-colors hover:bg-muted hover:text-muted-foreground"
               aria-label="About Token Usage"
             >
               <Info className="size-3" />

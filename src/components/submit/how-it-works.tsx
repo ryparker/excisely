@@ -461,9 +461,9 @@ export function HowItWorks() {
   const submissionStep = useExtractionStore((s) => s.submissionStep)
 
   return (
-    <div className="mt-4 mb-1">
+    <div className="my-6">
       {/* Desktop: horizontal stepper */}
-      <div className="hidden items-start justify-center sm:flex">
+      <div className="hidden items-start sm:flex">
         {STEPS.map((step, i) => {
           const state = getStepState(i, submissionStep)
           const connectorFilled = i < submissionStep - 1

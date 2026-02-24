@@ -5,6 +5,7 @@ import { db } from '@/db'
 import { labels } from '@/db/schema'
 import { getSession } from '@/lib/auth/get-session'
 import { getSLATargets } from '@/lib/settings/get-settings'
+import { fetchSLAMetrics } from '@/lib/sla/queries'
 import { getSLAStatus, worstSLAStatus, type SLAStatus } from '@/lib/sla/status'
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import { MobileHeader } from '@/components/layout/mobile-header'
@@ -28,24 +29,52 @@ export default async function AppLayout({
   let slaHealth: SLAStatus = 'green'
 
   if (userRole !== 'applicant') {
-    const [pendingResult, queueResult, slaTargets] = await Promise.all([
-      db
-        .select({ total: sql<number>`count(*)::int` })
-        .from(labels)
-        .where(
-          sql`${labels.status} IN ('pending_review', 'needs_correction', 'conditionally_approved')`,
-        ),
-      db
-        .select({ total: count() })
-        .from(labels)
-        .where(eq(labels.status, 'pending_review')),
-      getSLATargets(),
-    ])
+    try {
+      const [pendingResult, slaMetrics, slaTargets] = await Promise.all([
+        db
+          .select({ total: sql<number>`count(*)::int` })
+          .from(labels)
+          .where(
+            sql`${labels.status} IN ('pending_review', 'needs_correction', 'conditionally_approved')`,
+          ),
+        fetchSLAMetrics(),
+        getSLATargets(),
+      ])
 
-    reviewCount = pendingResult[0]?.total ?? 0
-    const queueDepth = queueResult[0]?.total ?? 0
-    const queueStatus = getSLAStatus(queueDepth, slaTargets.maxQueueDepth)
-    slaHealth = worstSLAStatus([queueStatus])
+      reviewCount = pendingResult[0]?.total ?? 0
+
+      const statuses: SLAStatus[] = [
+        getSLAStatus(slaMetrics.queueDepth, slaTargets.maxQueueDepth),
+      ]
+      if (slaMetrics.avgReviewResponseHours !== null) {
+        statuses.push(
+          getSLAStatus(
+            slaMetrics.avgReviewResponseHours,
+            slaTargets.reviewResponseHours,
+          ),
+        )
+      }
+      if (slaMetrics.avgTotalTurnaroundHours !== null) {
+        statuses.push(
+          getSLAStatus(
+            slaMetrics.avgTotalTurnaroundHours,
+            slaTargets.totalTurnaroundHours,
+          ),
+        )
+      }
+      if (slaMetrics.autoApprovalRate !== null) {
+        statuses.push(
+          getSLAStatus(
+            slaMetrics.autoApprovalRate,
+            slaTargets.autoApprovalRateTarget,
+            false,
+          ),
+        )
+      }
+      slaHealth = worstSLAStatus(statuses)
+    } catch (error) {
+      console.error('[Layout] Failed to fetch sidebar data:', error)
+    }
   }
 
   return (

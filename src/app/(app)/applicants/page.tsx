@@ -5,13 +5,13 @@ import { Building2 } from 'lucide-react'
 import { db } from '@/db'
 import { applicants, labels } from '@/db/schema'
 import { requireSpecialist } from '@/lib/auth/require-role'
+import { parsePageSearchParams } from '@/lib/search-params'
 import { REASON_CODE_LABELS } from '@/config/override-reasons'
 import { PageHeader } from '@/components/layout/page-header'
 import { PageShell } from '@/components/layout/page-shell'
 import { SearchInput } from '@/components/shared/search-input'
 import { ResetFiltersButton } from '@/components/shared/reset-filters-button'
 import { ApplicantsTable } from '@/components/applicants/applicants-table'
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 
 export const metadata: Metadata = {
@@ -53,16 +53,21 @@ export default async function ApplicantsPage({
   await requireSpecialist()
 
   const params = await searchParams
-  const searchTerm = params.search?.trim() ?? ''
-  const sortKey = params.sort ?? ''
-  const sortOrder = params.order === 'asc' ? 'asc' : 'desc'
+  const {
+    currentPage: page,
+    searchTerm,
+    sortKey,
+    sortOrder,
+  } = parsePageSearchParams(params)
   const riskFilter = params.risk ?? ''
-  const page = Math.max(1, Number(params.page) || 1)
 
   // Computed columns for sorting
+  // Approval rate only considers reviewed labels (terminal statuses),
+  // not pending/processing labels that haven't been evaluated yet.
+  const reviewedCountSql = sql<number>`count(case when ${labels.status} in ('approved', 'needs_correction', 'conditionally_approved', 'rejected') then 1 end)`
   const approvalRateSql = sql<number>`
-    CASE WHEN count(${labels.id}) > 0
-    THEN round((count(case when ${labels.status} = 'approved' then 1 end)::numeric / count(${labels.id})) * 100)
+    CASE WHEN ${reviewedCountSql} > 0
+    THEN round((count(case when ${labels.status} = 'approved' then 1 end)::numeric / ${reviewedCountSql}) * 100)
     ELSE 0 END
   `
   const totalLabelsSql = count(labels.id)
@@ -96,6 +101,7 @@ export default async function ApplicantsPage({
       createdAt: applicants.createdAt,
       totalLabels: totalLabelsSql,
       approvedCount: sql<number>`count(case when ${labels.status} = 'approved' then 1 end)`,
+      reviewedCount: sql<number>`count(case when ${labels.status} in ('approved', 'needs_correction', 'conditionally_approved', 'rejected') then 1 end)`,
       lastSubmission: lastSubmissionSql,
       topOverrideReason: sql<string | null>`(
         SELECT so.reason_code FROM status_overrides so
@@ -119,9 +125,10 @@ export default async function ApplicantsPage({
     .orderBy(orderByClause)
 
   const applicantsWithStats = rows.map((row) => {
+    const reviewedCount = row.reviewedCount ?? 0
     const approvalRate =
-      row.totalLabels > 0
-        ? Math.round((row.approvedCount / row.totalLabels) * 100)
+      reviewedCount > 0
+        ? Math.round((row.approvedCount / reviewedCount) * 100)
         : null
     const topReason = row.topOverrideReason
       ? (REASON_CODE_LABELS[row.topOverrideReason] ?? row.topOverrideReason)
@@ -149,11 +156,7 @@ export default async function ApplicantsPage({
       <PageHeader
         title="Applicants"
         description="Companies that have submitted labels for verification."
-      >
-        <Badge variant="secondary" className="text-sm">
-          {applicantsWithStats.length} total
-        </Badge>
-      </PageHeader>
+      />
 
       {/* Search + Reset */}
       <div className="flex items-center gap-2">

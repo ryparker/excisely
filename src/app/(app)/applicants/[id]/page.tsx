@@ -20,13 +20,17 @@ import {
 import { REASON_CODE_LABELS } from '@/config/override-reasons'
 import { requireSpecialist } from '@/lib/auth/require-role'
 import { getEffectiveStatus } from '@/lib/labels/effective-status'
+import { formatDate } from '@/lib/utils'
+import { STATUS_LABELS } from '@/components/shared/status-badge'
 import { PageHeader } from '@/components/layout/page-header'
 import { PageShell } from '@/components/layout/page-shell'
-import { StatusBadge } from '@/components/shared/status-badge'
+import { FilterBar } from '@/components/shared/filter-bar'
+import { StatCard } from '@/components/shared/stat-card'
 import { ApplicantLabelsTable } from '@/components/applicants/applicant-labels-table'
-import { Badge } from '@/components/ui/badge'
+import { ApplicantNotes } from '@/components/applicants/applicant-notes'
+import { RiskBadge } from '@/components/applicants/risk-badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 
 export async function generateMetadata({
   params,
@@ -43,50 +47,6 @@ export async function generateMetadata({
 }
 
 export const dynamic = 'force-dynamic'
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(date)
-}
-
-function getRiskBadge(approvalRate: number | null) {
-  if (approvalRate === null) {
-    return (
-      <Badge variant="secondary" className="text-xs">
-        No data
-      </Badge>
-    )
-  }
-
-  if (approvalRate >= 90) {
-    return (
-      <Badge className="bg-green-100 text-green-800 hover:bg-green-100/80 dark:bg-green-900/30 dark:text-green-400">
-        Low Risk
-      </Badge>
-    )
-  }
-
-  if (approvalRate >= 70) {
-    return (
-      <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100/80 dark:bg-amber-900/30 dark:text-amber-400">
-        Medium Risk
-      </Badge>
-    )
-  }
-
-  return (
-    <Badge className="bg-red-100 text-red-800 hover:bg-red-100/80 dark:bg-red-900/30 dark:text-red-400">
-      High Risk
-    </Badge>
-  )
-}
 
 // ---------------------------------------------------------------------------
 // Page
@@ -212,13 +172,24 @@ export default async function ApplicantDetailPage({
       }))
     : labelsWithStatus
 
-  // Compute compliance stats (from unfiltered set)
+  // Compute compliance stats from reviewed labels only (exclude pending/processing)
+  const REVIEWED_STATUSES = new Set([
+    'approved',
+    'needs_correction',
+    'conditionally_approved',
+    'rejected',
+  ])
   const totalLabels = allLabelsWithStatus.length
-  const approvedCount = allLabelsWithStatus.filter(
+  const reviewedLabels = allLabelsWithStatus.filter((l) =>
+    REVIEWED_STATUSES.has(l.effectiveStatus),
+  )
+  const approvedCount = reviewedLabels.filter(
     (l) => l.effectiveStatus === 'approved',
   ).length
   const approvalRate =
-    totalLabels > 0 ? Math.round((approvedCount / totalLabels) * 100) : null
+    reviewedLabels.length > 0
+      ? Math.round((approvedCount / reviewedLabels.length) * 100)
+      : null
   const lastSubmission =
     allLabelsWithStatus.length > 0 ? allLabelRows[0].createdAt : null
 
@@ -275,90 +246,68 @@ export default async function ApplicantDetailPage({
               .join(' — ') || undefined
           }
         >
-          {getRiskBadge(approvalRate)}
+          <RiskBadge approvalRate={approvalRate} />
         </PageHeader>
       </div>
 
       {/* Compliance stats cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Approval Rate</CardTitle>
-            <TrendingUp className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {approvalRate !== null ? `${approvalRate}%` : '--'}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {approvedCount} of {totalLabels} approved
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Submissions
-            </CardTitle>
-            <FileCheck className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalLabels}</div>
-            <p className="text-xs text-muted-foreground">
-              Labels submitted for verification
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              Last Submission
-            </CardTitle>
-            <Calendar className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {lastSubmission ? formatDate(lastSubmission) : '--'}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Most recent label submission
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              Top Override Reason
-            </CardTitle>
-            <Building2 className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="truncate text-2xl font-bold">
-              {topOverrideReason ?? 'None'}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Most common specialist override reason
-            </p>
-          </CardContent>
-        </Card>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          icon={TrendingUp}
+          iconBg={
+            approvalRate === null
+              ? 'bg-muted'
+              : approvalRate >= 90
+                ? 'bg-emerald-100 dark:bg-emerald-900/30'
+                : approvalRate >= 70
+                  ? 'bg-amber-100 dark:bg-amber-900/30'
+                  : 'bg-red-100 dark:bg-red-900/30'
+          }
+          iconColor={
+            approvalRate === null
+              ? 'text-muted-foreground'
+              : approvalRate >= 90
+                ? 'text-emerald-600 dark:text-emerald-400'
+                : approvalRate >= 70
+                  ? 'text-amber-600 dark:text-amber-400'
+                  : 'text-red-600 dark:text-red-400'
+          }
+          label="Approval Rate"
+          value={approvalRate !== null ? `${approvalRate}%` : '--'}
+          description={`${approvedCount} of ${reviewedLabels.length} reviewed approved`}
+        />
+        <StatCard
+          icon={FileCheck}
+          iconBg="bg-blue-100 dark:bg-blue-900/30"
+          iconColor="text-blue-600 dark:text-blue-400"
+          label="Total Submissions"
+          value={totalLabels}
+          description="Labels submitted for verification"
+        />
+        <StatCard
+          icon={Calendar}
+          iconBg="bg-muted"
+          iconColor="text-muted-foreground"
+          label="Last Submission"
+          value={lastSubmission ? formatDate(lastSubmission) : '--'}
+          description="Most recent label submission"
+        />
+        <StatCard
+          icon={Building2}
+          iconBg="bg-muted"
+          iconColor="text-muted-foreground"
+          label="Top Override Reason"
+          value={topOverrideReason ?? 'None'}
+          description="Most common specialist override reason"
+          valueClassName="truncate"
+        />
       </div>
 
       {/* Notes */}
-      {applicant.notes && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Notes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm whitespace-pre-wrap text-muted-foreground">
-              {applicant.notes}
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      <ApplicantNotes
+        applicantId={applicant.id}
+        initialNotes={applicant.notes}
+      />
 
       {/* Label history */}
       <div className="space-y-4">
@@ -366,35 +315,23 @@ export default async function ApplicantDetailPage({
           Label History
         </h2>
 
-        {/* Status filter tabs */}
+        {/* Status filter pills */}
         {availableStatuses.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant={statusFilter ? 'ghost' : 'secondary'}
-              size="sm"
-              asChild
-            >
-              <Link href={`/applicants/${id}`}>All ({totalLabels})</Link>
-            </Button>
-            {availableStatuses.map((status) => {
-              const statusCount = allLabelsWithStatus.filter(
-                (l) => l.effectiveStatus === status,
-              ).length
-              return (
-                <Button
-                  key={status}
-                  variant={statusFilter === status ? 'secondary' : 'ghost'}
-                  size="sm"
-                  asChild
-                >
-                  <Link href={`/applicants/${id}?status=${status}`}>
-                    <StatusBadge status={status} className="mr-1" />(
-                    {statusCount})
-                  </Link>
-                </Button>
-              )
-            })}
-          </div>
+          <FilterBar
+            paramKey="status"
+            options={[
+              { label: 'All', value: '', count: totalLabels },
+              ...availableStatuses.map((status) => ({
+                label: STATUS_LABELS[status] ?? status,
+                value: status,
+                count: allLabelsWithStatus.filter(
+                  (l) => l.effectiveStatus === status,
+                ).length,
+                attention:
+                  status === 'needs_correction' || status === 'pending_review',
+              })),
+            ]}
+          />
         )}
 
         {filteredLabels.length === 0 ? (

@@ -1,7 +1,9 @@
 'use client'
 
-import { useCallback, useRef, useState, useTransition } from 'react'
+import { useCallback, useState } from 'react'
 
+import { useSettingsSave } from '@/hooks/use-settings-save'
+import { SaveFeedback } from '@/components/shared/save-feedback'
 import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -28,40 +30,22 @@ interface ApprovalThresholdProps {
 
 export function ApprovalThreshold({ defaultValue }: ApprovalThresholdProps) {
   const [value, setValue] = useState(defaultValue)
-  const [isPending, startTransition] = useTransition()
-  const [saved, setSaved] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { isPending, saved, error, save } = useSettingsSave()
 
-  const save = useCallback(
+  const saveValue = useCallback(
     (newValue: number) => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current)
-      }
-      debounceRef.current = setTimeout(() => {
-        startTransition(async () => {
-          setError(null)
-          setSaved(false)
-          const result = await updateApprovalThreshold(newValue)
-          if (result.success) {
-            setSaved(true)
-            setTimeout(() => setSaved(false), 2000)
-          } else {
-            setError(result.error)
-          }
-        })
-      }, 500)
+      save(() => updateApprovalThreshold(newValue))
     },
-    [startTransition],
+    [save],
   )
 
   const handleSliderChange = useCallback(
     (values: number[]) => {
       const newValue = values[0] ?? defaultValue
       setValue(newValue)
-      save(newValue)
+      saveValue(newValue)
     },
-    [defaultValue, save],
+    [defaultValue, saveValue],
   )
 
   const handleInputChange = useCallback(
@@ -74,9 +58,9 @@ export function ApprovalThreshold({ defaultValue }: ApprovalThresholdProps) {
       const num = Math.min(100, Math.max(80, Number(raw)))
       if (Number.isNaN(num)) return
       setValue(num)
-      save(num)
+      saveValue(num)
     },
-    [save],
+    [saveValue],
   )
 
   return (
@@ -118,15 +102,7 @@ export function ApprovalThreshold({ defaultValue }: ApprovalThresholdProps) {
             Range: 80%–100%. Higher values are stricter — fewer labels qualify
             for batch approval but with higher accuracy.
           </p>
-          <div className="h-5 text-sm">
-            {isPending && (
-              <span className="text-muted-foreground">Saving...</span>
-            )}
-            {saved && (
-              <span className="text-green-600 dark:text-green-400">Saved</span>
-            )}
-            {error && <span className="text-destructive">{error}</span>}
-          </div>
+          <SaveFeedback isPending={isPending} saved={saved} error={error} />
         </div>
       </CardContent>
     </Card>

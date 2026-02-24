@@ -1,10 +1,13 @@
 'use client'
 
-import { useCallback, useRef, useState, useTransition } from 'react'
+import { useCallback, useState } from 'react'
 import { Info } from 'lucide-react'
 
+import { useSettingsSave } from '@/hooks/use-settings-save'
+import { SaveFeedback } from '@/components/shared/save-feedback'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
+import { FIELD_DISPLAY_NAMES } from '@/config/field-display-names'
+import { FIELD_TOOLTIPS } from '@/config/field-tooltips'
 import {
   Card,
   CardContent,
@@ -18,60 +21,6 @@ import {
   HoverCardTrigger,
 } from '@/components/ui/hover-card'
 import { updateFieldStrictness } from '@/app/actions/update-settings'
-
-const FIELD_DISPLAY_NAMES: Record<string, string> = {
-  brand_name: 'Brand Name',
-  fanciful_name: 'Fanciful Name',
-  class_type: 'Class/Type',
-  alcohol_content: 'Alcohol Content',
-  net_contents: 'Net Contents',
-  health_warning: 'Health Warning Statement',
-  name_and_address: 'Name and Address',
-  qualifying_phrase: 'Qualifying Phrase',
-  country_of_origin: 'Country of Origin',
-  grape_varietal: 'Grape Varietal',
-  appellation_of_origin: 'Appellation of Origin',
-  vintage_year: 'Vintage Year',
-  sulfite_declaration: 'Sulfite Declaration',
-  age_statement: 'Age Statement',
-  state_of_distillation: 'State of Distillation',
-  standards_of_fill: 'Standards of Fill',
-}
-
-const FIELD_TOOLTIPS: Record<string, string> = {
-  brand_name:
-    'Item 6 on Form 5100.31. The primary commercial name on the label, e.g. "Jack Daniel\'s".',
-  fanciful_name:
-    'Item 7. An optional distinctive name like "Old No. 7" or "Gentleman Jack".',
-  class_type:
-    'The product classification, e.g. "Whisky", "Bourbon Whiskey", "Table Wine".',
-  alcohol_content:
-    'ABV as printed on the label. Normalized to a percentage, e.g. "40% Alc./Vol." and "80 Proof" both resolve to 40%.',
-  net_contents:
-    'Volume of the container. Normalized to mL, so "750 mL" and "25.4 FL OZ" are treated as equivalent.',
-  health_warning:
-    'The GOVERNMENT WARNING statement required on all containers. Must begin with "GOVERNMENT WARNING:" in all caps.',
-  name_and_address:
-    'Item 8. The producer/bottler name and address, e.g. "Jack Daniel Distillery, Lynchburg, Tennessee".',
-  qualifying_phrase:
-    'The bottler/producer relationship, e.g. "Distilled by", "Bottled by", "Imported by". Matched against known TTB phrases.',
-  country_of_origin:
-    'Required for imported products, e.g. "Product of Scotland". Uses containment matching.',
-  grape_varietal:
-    'Wine only. The grape variety, e.g. "Cabernet Sauvignon", "Chardonnay".',
-  appellation_of_origin:
-    'Wine only. The geographic origin, e.g. "Napa Valley", "Willamette Valley".',
-  vintage_year:
-    'Wine only. The harvest year, e.g. "2019". Compared as exact numeric match.',
-  sulfite_declaration:
-    'Wine only. "Contains Sulfites" statement required on most wines.',
-  age_statement:
-    'Spirits only. Aging duration, e.g. "Aged 12 Years". Normalized to a numeric year value.',
-  state_of_distillation:
-    'Spirits only. State where distilled, e.g. "Kentucky", "Tennessee".',
-  standards_of_fill:
-    'Whether the container size is a TTB-approved standard of fill (e.g. 750 mL, 1 L, 1.75 L).',
-}
 
 const STRICTNESS_LEVELS = ['strict', 'moderate', 'lenient'] as const
 type StrictnessLevel = (typeof STRICTNESS_LEVELS)[number]
@@ -112,38 +61,13 @@ export function FieldStrictness({
   fieldOverrideRates = {},
 }: FieldStrictnessProps) {
   const [values, setValues] = useState<Record<string, string>>(defaults)
-  const [isPending, startTransition] = useTransition()
-  const [saved, setSaved] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const save = useCallback(
-    (newValues: Record<string, string>) => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current)
-      }
-      debounceRef.current = setTimeout(() => {
-        startTransition(async () => {
-          setError(null)
-          setSaved(false)
-          const result = await updateFieldStrictness(newValues)
-          if (result.success) {
-            setSaved(true)
-            setTimeout(() => setSaved(false), 2000)
-          } else {
-            setError(result.error)
-          }
-        })
-      }, 500)
-    },
-    [startTransition],
-  )
+  const { isPending, saved, error, save } = useSettingsSave()
 
   const handleChange = useCallback(
     (fieldName: string, level: string) => {
       const newValues = { ...values, [fieldName]: level }
       setValues(newValues)
-      save(newValues)
+      save(() => updateFieldStrictness(newValues))
     },
     [values, save],
   )
@@ -153,16 +77,16 @@ export function FieldStrictness({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Field Comparison Strictness</CardTitle>
+        <CardTitle>Per-Field Rules</CardTitle>
         <CardDescription>
-          Control how strictly each field is compared between the application
-          data and the extracted label text.
+          Set strictness per field. Match and override rates help calibrate —
+          high override rates suggest the setting is too strict.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-1">
           {/* Header */}
-          <div className="grid grid-cols-1 items-center gap-4 border-b pb-2 sm:grid-cols-[1fr_auto_auto_auto]">
+          <div className="grid grid-cols-1 items-center gap-4 border-b px-3 pb-2 sm:grid-cols-[1fr_auto_auto_auto]">
             <span className="text-sm font-medium text-muted-foreground">
               Field
             </span>
@@ -198,13 +122,13 @@ export function FieldStrictness({
                 </p>
               </HoverCardContent>
             </HoverCard>
-            <div className="flex gap-1">
+            <div className="flex gap-1 rounded-lg p-0.5">
               {STRICTNESS_LEVELS.map((level) => {
                 const tip = STRICTNESS_TOOLTIPS[level]
                 return (
                   <HoverCard key={level} openDelay={200} closeDelay={100}>
                     <HoverCardTrigger asChild>
-                      <span className="flex w-[90px] cursor-help items-center justify-center gap-1 text-center text-xs font-medium text-muted-foreground capitalize">
+                      <span className="flex w-[86px] cursor-help items-center justify-center gap-1 text-center text-xs font-medium text-muted-foreground capitalize">
                         {level}
                         <Info className="size-3 shrink-0 opacity-50" />
                       </span>
@@ -227,19 +151,22 @@ export function FieldStrictness({
           </div>
 
           {/* Rows */}
-          {fieldNames.map((fieldName) => {
+          {fieldNames.map((fieldName, index) => {
             const current = (values[fieldName] ?? 'moderate') as StrictnessLevel
-            const fieldTip = FIELD_TOOLTIPS[fieldName]
+            const fieldTipData = FIELD_TOOLTIPS[fieldName]
             const matchRate = fieldMatchRates[fieldName] ?? null
             const overrideRate = fieldOverrideRates[fieldName] ?? null
             return (
               <div
                 key={fieldName}
-                className="grid grid-cols-1 items-center gap-4 py-1.5 sm:grid-cols-[1fr_auto_auto_auto]"
+                className={cn(
+                  'grid grid-cols-1 items-center gap-4 rounded-lg px-3 py-2.5 sm:grid-cols-[1fr_auto_auto_auto]',
+                  index % 2 === 0 && 'bg-muted/40',
+                )}
               >
                 <span className="flex items-center gap-1.5 text-sm">
                   {FIELD_DISPLAY_NAMES[fieldName]}
-                  {fieldTip && (
+                  {fieldTipData && (
                     <HoverCard openDelay={200} closeDelay={100}>
                       <HoverCardTrigger asChild>
                         <Info className="size-3.5 shrink-0 cursor-help text-muted-foreground/50" />
@@ -253,7 +180,7 @@ export function FieldStrictness({
                           {FIELD_DISPLAY_NAMES[fieldName]}
                         </p>
                         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                          {fieldTip}
+                          {fieldTipData.description}
                         </p>
                       </HoverCardContent>
                     </HoverCard>
@@ -287,29 +214,32 @@ export function FieldStrictness({
                 >
                   {overrideRate !== null ? `${overrideRate}%` : '--'}
                 </span>
-                <div className="flex gap-1">
+                <div className="flex gap-1 rounded-lg bg-muted p-0.5">
                   {STRICTNESS_LEVELS.map((level) => (
-                    <Button
+                    <button
                       key={level}
-                      variant={current === level ? 'default' : 'outline'}
-                      size="sm"
+                      type="button"
                       className={cn(
-                        'w-[90px] capitalize',
-                        current === level &&
-                          level === 'strict' &&
-                          'bg-red-600 text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800',
-                        current === level &&
-                          level === 'moderate' &&
-                          'bg-amber-500 text-white hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700',
-                        current === level &&
-                          level === 'lenient' &&
-                          'bg-green-600 text-white hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800',
+                        'flex h-8 w-[86px] items-center justify-center gap-1.5 rounded-md text-xs font-medium capitalize transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden',
+                        current === level
+                          ? 'bg-background text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground',
                       )}
                       onClick={() => handleChange(fieldName, level)}
                       disabled={isPending}
                     >
+                      {current === level && (
+                        <span
+                          className={cn(
+                            'size-1.5 rounded-full',
+                            level === 'strict' && 'bg-red-500',
+                            level === 'moderate' && 'bg-amber-500',
+                            level === 'lenient' && 'bg-emerald-500',
+                          )}
+                        />
+                      )}
                       {level}
-                    </Button>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -317,15 +247,12 @@ export function FieldStrictness({
           })}
         </div>
 
-        <div className="mt-4 h-5 text-sm">
-          {isPending && (
-            <span className="text-muted-foreground">Saving...</span>
-          )}
-          {saved && (
-            <span className="text-green-600 dark:text-green-400">Saved</span>
-          )}
-          {error && <span className="text-destructive">{error}</span>}
-        </div>
+        <SaveFeedback
+          isPending={isPending}
+          saved={saved}
+          error={error}
+          className="mt-4"
+        />
       </CardContent>
     </Card>
   )

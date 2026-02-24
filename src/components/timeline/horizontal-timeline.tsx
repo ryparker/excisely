@@ -1,10 +1,7 @@
 'use client'
 
-import { useRef, useState, useEffect, useCallback } from 'react'
 import {
   Check,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   Cpu,
   Info,
@@ -110,8 +107,227 @@ function formatFullTime(date: Date): string {
   })
 }
 
-// Scroll by ~3 steps worth of pixels
-const SCROLL_AMOUNT = 360
+// ---------------------------------------------------------------------------
+// Shared HoverCard content
+// ---------------------------------------------------------------------------
+
+function EventHoverContent({ event }: { event: TimelineEvent }) {
+  return (
+    <div className="space-y-1.5">
+      <p className="font-medium">{event.title}</p>
+      <p className="text-muted-foreground">{event.description}</p>
+      <div className="flex items-center gap-2 text-xs text-muted-foreground/70">
+        <time>{formatFullTime(event.timestamp)}</time>
+        {event.actorName && (
+          <>
+            <span>·</span>
+            <span>{event.actorName}</span>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// SVG connector between desktop steps
+// ---------------------------------------------------------------------------
+
+function StepConnector() {
+  return (
+    <div className="mt-4 self-start">
+      <svg
+        width="48"
+        height="2"
+        viewBox="0 0 48 2"
+        className="w-8 lg:w-12"
+        aria-hidden
+      >
+        <line
+          x1="0"
+          y1="1"
+          x2="48"
+          y2="1"
+          className="stroke-border/60"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      </svg>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Desktop step — icon circle centered above title + timestamp
+// ---------------------------------------------------------------------------
+
+function DesktopStep({
+  event,
+  index,
+  isLast,
+}: {
+  event: TimelineEvent
+  index: number
+  isLast: boolean
+}) {
+  const shouldReduceMotion = useReducedMotion()
+  const Icon = ICON_MAP[event.type] ?? Check
+  const isFuture = event.timestamp > new Date()
+
+  return (
+    <HoverCard openDelay={200} closeDelay={100}>
+      <HoverCardTrigger asChild>
+        <motion.button
+          type="button"
+          className={cn(
+            'group flex flex-col items-center gap-1.5 focus-visible:outline-none',
+            isFuture && 'opacity-50',
+          )}
+          initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
+          animate={{ opacity: isFuture ? 0.5 : 1, y: 0 }}
+          transition={
+            shouldReduceMotion
+              ? { duration: 0 }
+              : {
+                  type: 'tween',
+                  duration: 0.35,
+                  delay: index * 0.06,
+                  ease: [0.25, 0.46, 0.45, 0.94],
+                }
+          }
+        >
+          <div className="relative">
+            {/* Pulse ring on last (current) event */}
+            {isLast && !isFuture && !shouldReduceMotion && (
+              <motion.div
+                className={cn(
+                  'absolute inset-0 rounded-full',
+                  getPulseColor(event),
+                )}
+                animate={{
+                  scale: [1, 1.8, 1.8],
+                  opacity: [0, 0.35, 0],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: 'easeOut',
+                  times: [0, 0.4, 1],
+                }}
+              />
+            )}
+            <div
+              className={cn(
+                'relative z-10 flex size-8 items-center justify-center rounded-full border border-transparent transition-all duration-300',
+                getIconColor(event),
+                isFuture && 'border-border/60',
+                'group-focus-visible:ring-2 group-focus-visible:ring-ring group-focus-visible:ring-offset-2',
+              )}
+            >
+              <Icon className="size-3.5" strokeWidth={1.75} />
+            </div>
+          </div>
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-xs font-semibold">{event.title}</span>
+            <span className="max-w-28 text-center text-[11px] leading-tight text-muted-foreground">
+              {formatShortTime(event.timestamp)}
+            </span>
+          </div>
+        </motion.button>
+      </HoverCardTrigger>
+      <HoverCardContent side="bottom" align="center" className="w-64 text-sm">
+        <EventHoverContent event={event} />
+      </HoverCardContent>
+    </HoverCard>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Mobile step — icon left, title + timestamp right, vertical list
+// ---------------------------------------------------------------------------
+
+function MobileStep({
+  event,
+  index,
+  isLast,
+}: {
+  event: TimelineEvent
+  index: number
+  isLast: boolean
+}) {
+  const shouldReduceMotion = useReducedMotion()
+  const Icon = ICON_MAP[event.type] ?? Check
+  const isFuture = event.timestamp > new Date()
+
+  return (
+    <HoverCard openDelay={200} closeDelay={100}>
+      <HoverCardTrigger asChild>
+        <motion.button
+          type="button"
+          className={cn(
+            'group flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+            isFuture && 'opacity-50',
+          )}
+          initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
+          animate={{ opacity: isFuture ? 0.5 : 1, y: 0 }}
+          transition={
+            shouldReduceMotion
+              ? { duration: 0 }
+              : {
+                  type: 'tween',
+                  duration: 0.3,
+                  delay: index * 0.05,
+                  ease: [0.25, 0.46, 0.45, 0.94],
+                }
+          }
+        >
+          <div className="relative shrink-0">
+            {isLast && !isFuture && !shouldReduceMotion && (
+              <motion.div
+                className={cn(
+                  'absolute inset-0 rounded-full',
+                  getPulseColor(event),
+                )}
+                animate={{
+                  scale: [1, 1.8, 1.8],
+                  opacity: [0, 0.35, 0],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: 'easeOut',
+                  times: [0, 0.4, 1],
+                }}
+              />
+            )}
+            <div
+              className={cn(
+                'relative z-10 flex size-8 items-center justify-center rounded-full transition-all duration-300',
+                getIconColor(event),
+                isFuture && 'ring-dashed ring-2 ring-muted-foreground/20',
+              )}
+            >
+              <Icon className="size-3.5" strokeWidth={1.75} />
+            </div>
+          </div>
+          <div className="min-w-0">
+            <span className="text-xs font-medium">{event.title}</span>
+            <span className="ml-1.5 text-[11px] text-muted-foreground">
+              — {event.description}
+            </span>
+          </div>
+        </motion.button>
+      </HoverCardTrigger>
+      <HoverCardContent side="bottom" sideOffset={4} className="w-64 text-sm">
+        <EventHoverContent event={event} />
+      </HoverCardContent>
+    </HoverCard>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
 
 interface HorizontalTimelineProps {
   events: TimelineEvent[]
@@ -122,203 +338,50 @@ export function HorizontalTimeline({
   events,
   guidance,
 }: HorizontalTimelineProps) {
-  const shouldReduceMotion = useReducedMotion()
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const [canScrollLeft, setCanScrollLeft] = useState(false)
-  const [canScrollRight, setCanScrollRight] = useState(false)
-
-  const updateScrollState = useCallback(() => {
-    const el = scrollRef.current
-    if (!el) return
-    setCanScrollLeft(el.scrollLeft > 2)
-    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2)
-  }, [])
-
-  // Auto-scroll to the most recent (rightmost) event on mount
-  useEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-
-    // Instant scroll to end — no animation on mount
-    el.scrollLeft = el.scrollWidth
-    // Defer state update so layout is settled
-    requestAnimationFrame(updateScrollState)
-
-    const observer = new ResizeObserver(updateScrollState)
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [updateScrollState])
-
-  const scroll = useCallback(
-    (direction: 'left' | 'right') => {
-      const el = scrollRef.current
-      if (!el) return
-      el.scrollBy({
-        left: direction === 'left' ? -SCROLL_AMOUNT : SCROLL_AMOUNT,
-        behavior: shouldReduceMotion ? 'instant' : 'smooth',
-      })
-    },
-    [shouldReduceMotion],
-  )
-
   if (events.length === 0) return null
 
-  // Display chronologically (oldest first) for horizontal flow
+  // Display chronologically (oldest first)
   const chronological = [...events].reverse()
 
   return (
-    <div className="relative isolate -mx-4 -my-5 sm:-mx-6">
-      {/* Left arrow — 44px tap target, visually compact */}
-      <button
-        onClick={() => scroll('left')}
-        className={cn(
-          'absolute top-1/2 left-1 z-10 flex size-7 -translate-y-1/2 items-center justify-center rounded-full border border-border/50 bg-background/90 text-muted-foreground shadow-sm backdrop-blur-sm',
-          'transition-opacity duration-150',
-          'before:absolute before:inset-[-8px] before:content-[""]',
-          'hover:text-foreground',
-          canScrollLeft
-            ? 'pointer-events-auto opacity-100'
-            : 'pointer-events-none opacity-0',
-        )}
-        aria-label="Scroll timeline left"
-        tabIndex={canScrollLeft ? 0 : -1}
-      >
-        <ChevronLeft className="size-4" />
-      </button>
+    <div className="@container my-6">
+      {/* Desktop: horizontal stepper (container >= 768px) */}
+      <div className="hidden flex-wrap items-start gap-y-4 @3xl:flex">
+        {chronological.map((event, i) => {
+          const isLast = i === chronological.length - 1
 
-      {/* Right arrow */}
-      <button
-        onClick={() => scroll('right')}
-        className={cn(
-          'absolute top-1/2 right-1 z-10 flex size-7 -translate-y-1/2 items-center justify-center rounded-full border border-border/50 bg-background/90 text-muted-foreground shadow-sm backdrop-blur-sm',
-          'transition-opacity duration-150',
-          'before:absolute before:inset-[-8px] before:content-[""]',
-          'hover:text-foreground',
-          canScrollRight
-            ? 'pointer-events-auto opacity-100'
-            : 'pointer-events-none opacity-0',
-        )}
-        aria-label="Scroll timeline right"
-        tabIndex={canScrollRight ? 0 : -1}
-      >
-        <ChevronRight className="size-4" />
-      </button>
+          return (
+            <div key={event.id} className="flex items-start">
+              <DesktopStep event={event} index={i} isLast={isLast} />
+              {!isLast && <StepConnector />}
+            </div>
+          )
+        })}
+      </div>
 
-      {/* Scroll container — hidden scrollbar, native touch/trackpad support */}
-      <div
-        ref={scrollRef}
-        onScroll={updateScrollState}
-        className="overflow-x-auto overflow-y-visible py-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      >
-        <div className="mx-auto flex w-max gap-2 px-4 sm:px-6">
-          {chronological.map((event, index) => {
-            const Icon = ICON_MAP[event.type] ?? Check
-            const isFuture = event.timestamp > new Date()
-            const isFirst = index === 0
-            const isLast = index === chronological.length - 1
-
-            return (
-              <motion.div
-                key={event.id}
-                className={cn(
-                  'relative flex w-[100px] shrink-0 flex-col items-center',
-                  isFuture && 'opacity-50',
-                )}
-                initial={shouldReduceMotion ? false : { opacity: 0, y: 6 }}
-                animate={{ opacity: isFuture ? 0.5 : 1, y: 0 }}
-                transition={{
-                  delay: shouldReduceMotion ? 0 : index * 0.06,
-                  duration: 0.25,
-                }}
-              >
-                {/* Connector line — absolutely positioned so it doesn't shift circle centering */}
-                {!isFirst && (
-                  <div
-                    className="absolute top-[19px] right-1/2 h-0.5 rounded-full bg-muted-foreground/20"
-                    style={{ left: '-58px' }}
-                  />
-                )}
-                {/* Circle with HoverCard tooltip + optional pulse ring */}
-                <HoverCard openDelay={200} closeDelay={100}>
-                  <HoverCardTrigger asChild>
-                    <button
-                      type="button"
-                      className="relative cursor-default"
-                      aria-label={event.title}
-                    >
-                      {isLast && !isFuture && !shouldReduceMotion && (
-                        <motion.div
-                          className={cn(
-                            'absolute inset-0 rounded-full',
-                            getPulseColor(event),
-                          )}
-                          animate={{
-                            scale: [1, 1.8, 1.8],
-                            opacity: [0, 0.3, 0],
-                          }}
-                          transition={{
-                            duration: 2,
-                            repeat: Infinity,
-                            ease: 'easeOut',
-                          }}
-                        />
-                      )}
-                      <motion.div
-                        className={cn(
-                          'relative z-10 flex size-10 items-center justify-center rounded-full',
-                          getIconColor(event),
-                          isFuture &&
-                            'ring-dashed ring-2 ring-muted-foreground/20',
-                        )}
-                        initial={shouldReduceMotion ? false : { scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{
-                          type: 'spring',
-                          stiffness: 500,
-                          damping: 25,
-                          delay: shouldReduceMotion ? 0 : index * 0.06,
-                        }}
-                      >
-                        <Icon className="size-5" />
-                      </motion.div>
-                    </button>
-                  </HoverCardTrigger>
-                  <HoverCardContent
-                    side="bottom"
-                    align="center"
-                    className="w-64 text-sm"
-                  >
-                    <div className="space-y-1.5">
-                      <p className="font-medium">{event.title}</p>
-                      <p className="text-muted-foreground">
-                        {event.description}
-                      </p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground/70">
-                        <time>{formatFullTime(event.timestamp)}</time>
-                        {event.actorName && (
-                          <>
-                            <span>·</span>
-                            <span>{event.actorName}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </HoverCardContent>
-                </HoverCard>
-                <p className="mt-1.5 max-w-[100px] text-center text-xs leading-tight font-medium">
-                  {event.title}
-                </p>
-                <p className="mt-0.5 text-center text-[10px] text-muted-foreground">
-                  {formatShortTime(event.timestamp)}
-                </p>
-              </motion.div>
-            )
-          })}
+      {/* Mobile/narrow: compact vertical list (container < 768px) */}
+      <div className="relative @3xl:hidden">
+        <div className="flex max-h-64 flex-col gap-0.5 overflow-y-auto pt-2 pl-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {events.map((event, i) => (
+            <MobileStep
+              key={event.id}
+              event={event}
+              index={i}
+              isLast={i === 0}
+            />
+          ))}
         </div>
+        {/* Bottom fade hint when content overflows */}
+        {events.length > 4 && (
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-background to-transparent"
+            aria-hidden
+          />
+        )}
       </div>
 
       {guidance && (
-        <div className="mx-4 mt-4 flex items-start gap-2.5 rounded-lg bg-muted/50 px-4 py-3 sm:mx-6">
+        <div className="mt-4 flex items-start gap-2.5 rounded-lg bg-muted/50 px-4 py-3">
           <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground/60" />
           <p className="text-[13px] leading-relaxed text-muted-foreground">
             {guidance}

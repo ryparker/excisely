@@ -1,38 +1,9 @@
 import type { TimelineEmail } from './types'
-
-// ---------------------------------------------------------------------------
-// Field display names (shared with report-message.tsx)
-// ---------------------------------------------------------------------------
-
-const FIELD_DISPLAY_NAMES: Record<string, string> = {
-  brand_name: 'Brand Name',
-  fanciful_name: 'Fanciful Name',
-  class_type: 'Class/Type',
-  alcohol_content: 'Alcohol Content',
-  net_contents: 'Net Contents',
-  health_warning: 'Health Warning Statement',
-  name_and_address: 'Name and Address',
-  qualifying_phrase: 'Qualifying Phrase',
-  country_of_origin: 'Country of Origin',
-  grape_varietal: 'Grape Varietal',
-  appellation_of_origin: 'Appellation of Origin',
-  vintage_year: 'Vintage Year',
-  sulfite_declaration: 'Sulfite Declaration',
-  age_statement: 'Age Statement',
-  state_of_distillation: 'State of Distillation',
-  standards_of_fill: 'Standards of Fill',
-}
+import { FIELD_DISPLAY_NAMES } from '@/config/field-display-names'
+import { formatDateLong } from '@/lib/utils'
 
 function fieldName(name: string): string {
   return FIELD_DISPLAY_NAMES[name] ?? name.replace(/_/g, ' ')
-}
-
-function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(date)
 }
 
 // ---------------------------------------------------------------------------
@@ -133,7 +104,7 @@ export function generateStatusEmail(
 
     case 'conditionally_approved': {
       const deadline = correctionDeadline
-        ? formatDate(correctionDeadline)
+        ? formatDateLong(correctionDeadline)
         : '7 days from this notice'
       subject = `Label Application Conditionally Approved${serialSuffix}`
       body = [
@@ -165,7 +136,7 @@ export function generateStatusEmail(
 
     case 'needs_correction': {
       const deadline = correctionDeadline
-        ? formatDate(correctionDeadline)
+        ? formatDateLong(correctionDeadline)
         : '30 days from this notice'
       subject = `Label Application Requires Correction${serialSuffix}`
       body = [
@@ -268,7 +239,7 @@ export function generateOverrideEmail(
     correctionDeadline &&
     (override.newStatus === 'needs_correction' ||
       override.newStatus === 'conditionally_approved')
-      ? `\n\nYour updated deadline for corrections is ${formatDate(correctionDeadline)}.`
+      ? `\n\nYour updated deadline for corrections is ${formatDateLong(correctionDeadline)}.`
       : ''
 
   const body = [

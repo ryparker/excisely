@@ -7,6 +7,7 @@ All notable changes to Excisely are documented here. This project follows a narr
 ## Unreleased
 
 ### Added
+
 - **Auto-detect beverage type from label images** — Applicants can now skip the beverage type selection step. The AI pipeline detects the product type from OCR keywords (whiskey/bourbon → spirits, cabernet/sulfites → wine, ale/lager → malt) before running type-specific extraction. Happy path runs in ~4-9s (same as manual selection). Falls back to the generic pipeline for ambiguous labels. Auto-detected type shows an "AI detected" badge that disappears when the user overrides it.
 - **Regulations Reference page** — New `/regulations` route with curated plain-English summaries of ~30 key CFR sections across Parts 4 (Wine), 5 (Spirits), 7 (Malt Beverages), and 16 (Health Warning). Searchable, filterable by part and field, with deep links to eCFR for authoritative full text. Progressive disclosure: summary first, key requirements on expand, full legal text one click away.
 - **Contextual regulation links in field tooltips** — Hovering over any field label (Brand Name, Alcohol Content, etc.) now shows CFR citation badges linking to the specific regulation. Puts regulatory context right where specialists already look.
@@ -15,6 +16,7 @@ All notable changes to Excisely are documented here. This project follows a narr
 - **Regulation lookup utilities** (`src/lib/regulations/lookup.ts`) — Search by field name, beverage type, or free text across all curated sections.
 
 ### Changed
+
 - **Correspondence Timeline replaces copy-to-clipboard reports** — The original plan called for "Send Report" buttons with copy-to-clipboard as a stopgap. We replaced this entirely with a Correspondence Timeline on each label's detail page. It shows a reverse-chronological feed of every communication event (automatic status notifications, specialist override notices, deadline warnings) with expandable email previews showing full From/To/Subject/Body headers and field discrepancy tables. This feels more like a real system — specialists see the audit trail of what was communicated and when, rather than manually copying text into emails.
 - **Dashboard redesigned with SLA metrics** — The specialist dashboard now shows real-time SLA tracking (processing time targets, review queue depth, approval rates) instead of just label counts. Gives specialists visibility into team performance at a glance.
 - **Labels table upgraded** — Added inline search, multi-column sorting, status filters, and deadline countdown badges. The table now handles the full workflow without needing to navigate to individual label pages for basic triage.
@@ -26,6 +28,7 @@ All notable changes to Excisely are documented here. This project follows a narr
 - **Label upload form overhauled** — Major refactor of the validation form with better field organization, improved dropzone UX, and clearer beverage-type-aware field visibility.
 
 ### Added
+
 - **AI Errors page** — New route for viewing and triaging AI pipeline failures (OCR errors, classification timeouts, malformed responses). Previously these were silent failures visible only in server logs.
 - **Auto-refresh component** — Shared polling component for pages that need live updates (queue status).
 - **Reanalysis guard** — Prevents concurrent re-analysis of the same label, with UI feedback showing when a label is already being processed.
@@ -37,9 +40,11 @@ All notable changes to Excisely are documented here. This project follows a narr
 - **Override reason codes** — Predefined reason codes for status overrides (regulatory basis for specialist decisions).
 
 ### Removed
+
 - **Batch upload feature** — Removed the multi-file batch upload (routes, components, server actions, store, CSV parser) because the UX model was fundamentally wrong — it treated every image as a separate application, when real applicants submit one application per product with multiple images. The specialist "bulk approve" feature (selecting multiple ready labels for approval) is unaffected.
 
 ### Fixed
+
 - **Extract label pipeline hardened** — Better error handling for OCR failures, classification timeouts, and edge cases in the field merging step.
 - **Schema refinements** — Minor column additions to support new features.
 
@@ -48,9 +53,11 @@ All notable changes to Excisely are documented here. This project follows a narr
 ## 0.3.0 — Feb 23, 2026
 
 ### Added
+
 - **Comprehensive test suite** — 284 tests across 19 test files covering the AI comparison engine, config validators, label processing pipeline, correspondence timeline, SLA metrics, and server action integration tests (override status, update settings, reanalyze label). Includes test factory utilities and mock helpers.
 
 ### Fixed
+
 - **Gitignore pattern fix** — `config/` pattern was accidentally ignoring `src/config/`, hiding TTB configuration files from git. Scoped the ignore to root `config/` only.
 - **Vitest scope** — Restricted test runner to `src/` to exclude Playwright E2E specs from unit test runs.
 
@@ -59,6 +66,7 @@ All notable changes to Excisely are documented here. This project follows a narr
 ## 0.2.0 — Feb 22, 2026
 
 ### Added
+
 - **Applicant context on review page** — Company name, contact info, and email now display in the review header so specialists have applicant context without navigating away.
 - **Annotation drawing improvements** — Adjustment mode with resize handles, move support, confirm/redraw workflow, and two-level Escape. AI overlays auto-hide during drawing for a clean canvas.
 - **Live crop preview** — Drawn annotation rectangle shows a live crop preview that dynamically repositions to avoid overlapping the selection area.
@@ -66,11 +74,13 @@ All notable changes to Excisely are documented here. This project follows a narr
 - **Multi-image tab support** — Labels with multiple images now show tabbed navigation in the review detail panels.
 
 ### Changed
+
 - **Banner field display** — Field name banner now sits above the image (not overlapping) with seamless border radius and TTB field description tooltips.
 - **Layout and sidebar refactored** — Cleaner page structure, improved sidebar navigation, updated settings page layout.
 - **Deprecated pages removed** — Removed old history and reports pages that were superseded by the labels table and dashboard metrics.
 
 ### Fixed
+
 - **Turbopack build panic** — Duplicate icon files (icon.png + icon.svg) in `src/app/` triggered a known Turbopack bug. Removed redundant files.
 
 ---
@@ -78,6 +88,7 @@ All notable changes to Excisely are documented here. This project follows a narr
 ## 0.1.1 — Feb 22, 2026
 
 ### Fixed
+
 - **Private blob storage** — Switched Vercel Blob to private access with signed download URLs. Added `getSignedImageUrl()` and `fetchImageBytes()` for server-side image access.
 - **OCR pipeline updated** — Now accepts Buffer instead of URL since private blobs require authentication for access.
 - **Better Auth adapter** — Removed `usePlural` option that caused model lookup failures ("users" not found in schema).
@@ -90,6 +101,7 @@ All notable changes to Excisely are documented here. This project follows a narr
 ## 0.1.0 — Feb 22, 2026
 
 ### Added
+
 - **Full application implementation** — All 7 phases (25 steps) built in a single implementation pass. 116 source files, ~15,100 lines of TypeScript across 17 routes.
 - **Phase 1 (Scaffolding):** Next.js 16 with Turbopack, Drizzle schema (14 tables, 9 enums), Better Auth (specialist + applicant roles), shadcn/ui government theme (navy/gold/slate), ESLint/Prettier/Husky/Vitest/Playwright tooling.
 - **Phase 2 (AI Pipeline):** Google Cloud Vision OCR for word-level bounding polygons, GPT-5 Mini classification via AI SDK structured output, field comparison engine (exact/fuzzy/normalized matching with Dice coefficient), TTB config files (beverage types, class/type codes, health warning text, qualifying phrases).
@@ -104,6 +116,7 @@ All notable changes to Excisely are documented here. This project follows a narr
 ## 0.0.1 — Feb 22, 2026
 
 ### Added
+
 - **Planning documentation** — Implementation plan (25 steps, 7 phases, 20+ key decisions), architecture document with system diagrams and DB schema, engineering decisions with rationale, TTB research context, test workflow definitions (150+ test cases), README with setup instructions.
 - **Risk mitigation update** — Replaced GPT-5.2 fallback strategy with human review routing for low-confidence AI extractions (cheaper, more reliable for a prototype).
 - **Project naming** — Chose "Excisely" (excise + precisely) with documented alternatives.

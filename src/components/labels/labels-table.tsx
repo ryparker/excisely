@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useState, useCallback, useRef, useTransition } from 'react'
+import React, { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, FileText, Loader2, RefreshCw, ShieldCheck } from 'lucide-react'
+import { Check, Loader2, RefreshCw, ShieldCheck } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useQueryState, parseAsInteger } from 'nuqs'
 import pLimit from 'p-limit'
@@ -11,9 +11,16 @@ import { reanalyzeLabel } from '@/app/actions/reanalyze-label'
 import { batchApprove } from '@/app/actions/batch-approve'
 import { useReanalysisStore } from '@/stores/reanalysis-store'
 import { REASON_CODE_LABELS } from '@/config/override-reasons'
-import { BEVERAGE_ICON, BEVERAGE_LABEL_FULL } from '@/config/beverage-display'
-import { confidenceColor } from '@/lib/utils'
+import {
+  BEVERAGE_ICON,
+  BEVERAGE_LABEL_FULL,
+  BEVERAGE_OPTIONS,
+} from '@/config/beverage-display'
+import { getDeadlineInfo } from '@/lib/labels/effective-status'
+import { confidenceColor, formatConfidence, formatDate } from '@/lib/utils'
 import { ColumnHeader } from '@/components/shared/column-header'
+import { LabelThumbnail } from '@/components/shared/label-thumbnail'
+import { TablePagination } from '@/components/shared/table-pagination'
 import { Highlight } from '@/components/shared/highlight'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Badge } from '@/components/ui/badge'
@@ -40,11 +47,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from '@/components/ui/hover-card'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -83,13 +85,6 @@ type BulkItemStatus = 'pending' | 'processing' | 'success' | 'error'
 // Constants
 // ---------------------------------------------------------------------------
 
-const BEVERAGE_OPTIONS = [
-  { label: 'All Types', value: '' },
-  { label: 'Spirits', value: 'distilled_spirits' },
-  { label: 'Wine', value: 'wine' },
-  { label: 'Malt Beverage', value: 'malt_beverage' },
-]
-
 const NON_REANALYZABLE_STATUSES = new Set(['pending', 'processing'])
 
 const URGENCY_COLORS: Record<string, string> = {
@@ -103,109 +98,18 @@ const URGENCY_COLORS: Record<string, string> = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(date)
-}
-
-function formatConfidence(value: string | null): string {
-  if (!value) return '--'
-  const num = Number(value)
-  return `${Math.round(num)}%`
-}
-
 function getDeadlineDisplay(deadline: Date | null): React.ReactNode {
-  if (!deadline) return '--'
-  const now = new Date()
-  const diff = deadline.getTime() - now.getTime()
-  const daysRemaining = Math.ceil(diff / (1000 * 60 * 60 * 24))
+  const info = getDeadlineInfo(deadline)
+  if (!info) return '--'
 
-  if (daysRemaining <= 0) {
+  if (info.urgency === 'expired') {
     return <span className={URGENCY_COLORS.expired}>Expired</span>
   }
 
-  let urgency: string
-  if (daysRemaining <= 2) urgency = 'red'
-  else if (daysRemaining <= 5) urgency = 'amber'
-  else urgency = 'green'
-
   return (
-    <span className={URGENCY_COLORS[urgency]}>
-      {daysRemaining} day{daysRemaining !== 1 ? 's' : ''}
+    <span className={URGENCY_COLORS[info.urgency]}>
+      {info.daysRemaining} day{info.daysRemaining !== 1 ? 's' : ''}
     </span>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Thumbnail with error fallback
-// ---------------------------------------------------------------------------
-
-function LabelThumbnail({ src, alt }: { src: string | null; alt: string }) {
-  const [failed, setFailed] = useState(false)
-  const onError = useCallback(() => setFailed(true), [])
-  const openTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
-  const [open, setOpen] = useState(false)
-
-  const showImage = src && !failed
-
-  const thumbnail = (
-    <div className="size-12 overflow-hidden rounded-lg border bg-muted">
-      {showImage ? (
-        /* eslint-disable-next-line @next/next/no-img-element */
-        <img
-          src={src}
-          alt={alt}
-          onError={onError}
-          className="size-full object-cover"
-        />
-      ) : (
-        <div className="flex size-full items-center justify-center text-muted-foreground/30">
-          <FileText className="size-5" />
-        </div>
-      )}
-    </div>
-  )
-
-  if (!showImage) return thumbnail
-
-  return (
-    <HoverCard
-      open={open}
-      onOpenChange={setOpen}
-      openDelay={300}
-      closeDelay={0}
-    >
-      <HoverCardTrigger
-        asChild
-        onMouseEnter={() => {
-          openTimerRef.current = setTimeout(() => setOpen(true), 300)
-        }}
-        onMouseLeave={() => {
-          if (openTimerRef.current) clearTimeout(openTimerRef.current)
-          setOpen(false)
-        }}
-      >
-        {thumbnail}
-      </HoverCardTrigger>
-      <HoverCardContent
-        side="right"
-        align="start"
-        sideOffset={8}
-        className="w-auto p-1"
-        onMouseEnter={() => setOpen(false)}
-        onPointerDownOutside={() => setOpen(false)}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={src}
-          alt={alt}
-          className="max-h-72 max-w-64 rounded object-contain"
-        />
-      </HoverCardContent>
-    </HoverCard>
   )
 }
 
@@ -414,8 +318,6 @@ export function LabelsTable({
   const bulkPercent =
     bulkTotal > 0 ? Math.round((bulkCompleted / bulkTotal) * 100) : 0
 
-  const offset = (currentPage - 1) * pageSize
-
   return (
     <>
       <Card className="overflow-clip py-0">
@@ -424,7 +326,7 @@ export function LabelsTable({
             Labels submitted for verification
           </TableCaption>
           <TableHeader>
-            <TableRow className="bg-muted/30 hover:bg-muted/30">
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
               {!isApplicant && (
                 <TableHead className="w-[40px]">
                   {selectableRows.length > 0 && (
@@ -602,37 +504,19 @@ export function LabelsTable({
           </TableBody>
         </Table>
 
-        <div className="flex items-center justify-between border-t px-6 py-3">
-          <p className="text-xs text-muted-foreground">
-            {totalPages > 1
-              ? `Showing ${offset + 1}\u2013${Math.min(offset + pageSize, tableTotal)} of ${tableTotal} labels`
-              : `${tableTotal} label${tableTotal !== 1 ? 's' : ''}`}
-          </p>
-          {totalPages > 1 && (
-            <div className="flex items-center gap-2">
-              {currentPage > 1 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    setCurrentPage(currentPage - 1 > 1 ? currentPage - 1 : null)
-                  }
-                >
-                  Previous
-                </Button>
-              )}
-              {currentPage < totalPages && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(currentPage + 1)}
-                >
-                  Next
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          tableTotal={tableTotal}
+          pageSize={pageSize}
+          entityName="label"
+          onPrevious={() =>
+            setCurrentPage(currentPage - 1 > 1 ? currentPage - 1 : null)
+          }
+          onNext={() => setCurrentPage(currentPage + 1)}
+          alwaysShowButtons
+          className="bg-muted/20"
+        />
       </Card>
 
       {/* Bulk action bar */}

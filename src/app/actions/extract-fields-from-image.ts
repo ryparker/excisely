@@ -2,7 +2,8 @@
 
 import { z } from 'zod'
 
-import { getSession } from '@/lib/auth/get-session'
+import { guardAuth } from '@/lib/auth/action-guards'
+import { formatZodError } from '@/lib/actions/parse-zod-error'
 import {
   extractLabelFieldsForApplicantWithType,
   extractLabelFieldsWithAutoDetect,
@@ -61,19 +62,13 @@ export async function extractFieldsFromImage(input: {
   imageUrls: string[]
   beverageType?: string
 }): Promise<ExtractFieldsResponse> {
-  const session = await getSession()
-  if (!session?.user) {
-    return { success: false, error: 'Authentication required' }
-  }
+  const guard = await guardAuth()
+  if (!guard.success) return guard
 
   try {
     const parsed = inputSchema.safeParse(input)
     if (!parsed.success) {
-      const firstError = parsed.error.issues[0]
-      return {
-        success: false,
-        error: `Validation error: ${firstError.message}`,
-      }
+      return { success: false, error: formatZodError(parsed.error) }
     }
 
     for (const url of parsed.data.imageUrls) {

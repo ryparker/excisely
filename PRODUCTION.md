@@ -31,6 +31,7 @@ The prototype uses simple email + password authentication — adequate for demon
 The prototype has two roles: specialist and applicant. In production, we'd need a third:
 
 **Manager role capabilities:**
+
 - View specialist workload and throughput metrics (labels processed per day, average review time, approval/rejection rates)
 - Reassign labels between specialists for load balancing
 - Access the AI pipeline configuration (confidence thresholds, field strictness) — this is currently on the specialist settings page, but in production it should be restricted to managers only. Tuning the AI pipeline affects every label processed; it's a policy decision, not an individual specialist preference
@@ -49,6 +50,7 @@ This is the biggest gap between prototype and production.
 **The problem:** Right now the AI pipeline is a fixed configuration in code — Cloud Vision for OCR, GPT-5 Mini for classification, with prompts defined in `src/lib/ai/prompts.ts` and comparison logic in `src/lib/ai/compare-fields.ts`. If we change a prompt, swap a model, or adjust matching thresholds, there's no record of what version of the pipeline produced previous results.
 
 **What we'd implement:**
+
 - **Pipeline version identifier** — a semantic version (e.g., `v1.2.0`) attached to every validation result. The version encodes: OCR provider + model, classification provider + model, prompt template hash, comparison algorithm version, and confidence thresholds
 - **Version stored per label** — each `validation_items` row records which pipeline version produced it. When we change anything, the version bumps and new validations use the new version while historical results retain their version tag
 - **Changelog** — human-readable description of what changed in each version ("Switched classification from GPT-5 Mini to GPT-5.2 for improved multi-line field grouping")
@@ -60,6 +62,7 @@ This is the biggest gap between prototype and production.
 ### Model Portability
 
 The current architecture already abstracts the AI SDK provider (swapping `openai('gpt-5-mini')` for another model is a one-line change), but production would need:
+
 - Configuration-driven model selection (not hardcoded)
 - Cost and latency monitoring per model
 - Graceful fallback if a provider has an outage (e.g., fall back from GPT-5 Mini to GPT-4.1 Nano)
@@ -74,6 +77,7 @@ The current architecture already abstracts the AI SDK provider (swapping `openai
 **Current state:** The prototype uses ~1,000 seeded labels with 100-150 unique images. The AI responses in seed data are fabricated — they demonstrate the UI but don't reflect real model behavior on real labels.
 
 **What production needs:** A curated dataset of 2,000-5,000+ real label images spanning:
+
 - All major beverage types (wine, beer, spirits, malt beverages)
 - Edge cases: curved labels, metallic/reflective surfaces, multi-panel labels, labels with non-standard layouts
 - Low-quality images: poor lighting, slight blur, partial occlusion
@@ -86,6 +90,7 @@ The current architecture already abstracts the AI SDK provider (swapping `openai
 ### Accuracy Benchmarking
 
 Before production, we'd want to measure and publish:
+
 - Per-field extraction accuracy (brand name, alcohol content, health warning, etc.)
 - False positive rate (fields marked as "match" that actually differ)
 - False negative rate (fields marked as "mismatch" that actually match)
@@ -105,6 +110,7 @@ Documented in DECISIONS.md but worth reiterating: the prototype has no rate limi
 ### Input Sanitization & Content Security
 
 The prototype validates file uploads (MIME type, extension, magic bytes, size limit), but production would add:
+
 - Virus/malware scanning on uploaded images before processing
 - Stricter Content Security Policy (currently permissive for development)
 - Subresource Integrity (SRI) for external scripts
@@ -113,6 +119,7 @@ The prototype validates file uploads (MIME type, extension, magic bytes, size li
 ### Session Management
 
 Better Auth handles session basics, but production would need:
+
 - Concurrent session limits (prevent credential sharing)
 - Session invalidation on password change
 - Idle timeout appropriate for government use (15-30 minutes per NIST guidelines)
@@ -137,6 +144,7 @@ The goal is zero standing secrets — no credential that works forever. If a sec
 ### Monitoring & Alerting
 
 The prototype has no monitoring beyond Vercel's built-in dashboards. Production would need:
+
 - AI API latency and error rate monitoring (alert if Cloud Vision or OpenAI degrades)
 - Validation throughput metrics (labels processed per hour, queue depth)
 - Cost tracking dashboards (AI API spend per day/week/month)
@@ -162,17 +170,18 @@ Government systems typically need to meet FedRAMP authorization, operate within 
 
 **Preferred approach: Vercel (frontend) + AWS GovCloud (data & AI)**
 
-| Layer | Prototype | Production | Reasoning |
-| --- | --- | --- | --- |
-| **Compute / CDN** | Vercel (commercial) | Vercel Federal or AWS (see below) | Vercel is the best platform for Next.js — zero-config deploys, automatic support for new Next.js features on release day, built-in edge network, and preview deployments for every PR. If Vercel offers a FedRAMP-authorized or government-compliant tier, that's the ideal choice. |
-| **Database** | Neon Postgres (serverless) | Amazon RDS for PostgreSQL on GovCloud | RDS in AWS GovCloud is FedRAMP High authorized. We'd switch from Neon's serverless driver to standard `pg` (node-postgres) with connection pooling via PgBouncer or RDS Proxy. Drizzle ORM is driver-agnostic — `src/db/index.ts` already auto-detects the driver based on the connection URL, so this is a configuration change, not a code change. |
-| **File storage** | Vercel Blob (Cloudflare R2) | Amazon S3 on GovCloud | S3 in GovCloud is FedRAMP High authorized with server-side encryption (SSE-S3 or SSE-KMS), bucket policies, and access logging. Label images are regulatory evidence — they need encryption at rest, versioning, and retention policies. The upload flow would switch from `@vercel/blob/client` to pre-signed S3 URLs, which is a similar pattern (client-side direct upload with server-issued tokens). |
-| **AI — OCR** | Google Cloud Vision | Google Cloud Vision (with VPC-SC) or Amazon Textract on GovCloud | Google Cloud has FedRAMP High authorization for some services, but availability depends on the specific agency's ATOs. Amazon Textract on GovCloud is a direct alternative — it provides OCR with word-level bounding boxes similar to Cloud Vision. Would require updating `src/lib/ai/ocr.ts` to use the Textract SDK instead of the Vision SDK, but the output structure (text + bounding polygons) is comparable. |
-| **AI — Classification** | OpenAI GPT-5 Mini | Azure OpenAI on Government or AWS Bedrock | OpenAI's commercial API is not FedRAMP authorized. Azure OpenAI Service is available in Azure Government regions with FedRAMP High authorization — same models, government-compliant infrastructure. Alternatively, AWS Bedrock in GovCloud offers Claude and other models. The AI SDK is provider-agnostic, so switching from `@ai-sdk/openai` to `@ai-sdk/azure` or `@ai-sdk/amazon-bedrock` is a provider swap, not an architecture change. |
+| Layer                   | Prototype                   | Production                                                       | Reasoning                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ----------------------- | --------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Compute / CDN**       | Vercel (commercial)         | Vercel Federal or AWS (see below)                                | Vercel is the best platform for Next.js — zero-config deploys, automatic support for new Next.js features on release day, built-in edge network, and preview deployments for every PR. If Vercel offers a FedRAMP-authorized or government-compliant tier, that's the ideal choice.                                                                                                                                                            |
+| **Database**            | Neon Postgres (serverless)  | Amazon RDS for PostgreSQL on GovCloud                            | RDS in AWS GovCloud is FedRAMP High authorized. We'd switch from Neon's serverless driver to standard `pg` (node-postgres) with connection pooling via PgBouncer or RDS Proxy. Drizzle ORM is driver-agnostic — `src/db/index.ts` already auto-detects the driver based on the connection URL, so this is a configuration change, not a code change.                                                                                           |
+| **File storage**        | Vercel Blob (Cloudflare R2) | Amazon S3 on GovCloud                                            | S3 in GovCloud is FedRAMP High authorized with server-side encryption (SSE-S3 or SSE-KMS), bucket policies, and access logging. Label images are regulatory evidence — they need encryption at rest, versioning, and retention policies. The upload flow would switch from `@vercel/blob/client` to pre-signed S3 URLs, which is a similar pattern (client-side direct upload with server-issued tokens).                                      |
+| **AI — OCR**            | Google Cloud Vision         | Google Cloud Vision (with VPC-SC) or Amazon Textract on GovCloud | Google Cloud has FedRAMP High authorization for some services, but availability depends on the specific agency's ATOs. Amazon Textract on GovCloud is a direct alternative — it provides OCR with word-level bounding boxes similar to Cloud Vision. Would require updating `src/lib/ai/ocr.ts` to use the Textract SDK instead of the Vision SDK, but the output structure (text + bounding polygons) is comparable.                          |
+| **AI — Classification** | OpenAI GPT-5 Mini           | Azure OpenAI on Government or AWS Bedrock                        | OpenAI's commercial API is not FedRAMP authorized. Azure OpenAI Service is available in Azure Government regions with FedRAMP High authorization — same models, government-compliant infrastructure. Alternatively, AWS Bedrock in GovCloud offers Claude and other models. The AI SDK is provider-agnostic, so switching from `@ai-sdk/openai` to `@ai-sdk/azure` or `@ai-sdk/amazon-bedrock` is a provider swap, not an architecture change. |
 
 **Fallback: Full AWS deployment**
 
 If Vercel doesn't have a government-compliant offering, the Next.js app can be deployed on AWS directly:
+
 - **AWS Amplify** — Managed Next.js hosting on AWS, supports SSR and API routes. Less seamless than Vercel for cutting-edge Next.js features (new features may lag behind Vercel support by weeks or months), but runs within AWS GovCloud.
 - **Self-hosted on ECS/Fargate** — Docker container running `next start` behind an ALB. Full control, full operational burden. Would need to manage scaling, health checks, deployments, and CDN (CloudFront) ourselves. This is the most flexible option but also the most maintenance-heavy.
 - **OpenNext + SST** — Open-source adapter that deploys Next.js to AWS Lambda + CloudFront, approximating Vercel's serverless architecture. Active community but not an official Vercel or AWS product, so support risk exists.
@@ -182,6 +191,7 @@ The key point: **the application code is not coupled to Vercel**. Drizzle works 
 ### What the Review Would Cover
 
 A formal infrastructure review for a government deployment would typically evaluate:
+
 - **Data classification** — What sensitivity level is COLA application data? This determines the required FedRAMP impact level (Low/Moderate/High).
 - **Data residency** — Must all data (database, images, AI processing) remain in US-based data centers? GovCloud regions guarantee this; commercial cloud regions may not.
 - **Encryption** — At rest (database, blob storage) and in transit (TLS). The prototype uses TLS everywhere but doesn't configure encryption at rest beyond provider defaults.
@@ -224,6 +234,7 @@ The prototype simulates a realistic email notification system through the **Corr
 ### Automated Accessibility Testing
 
 The prototype targets WCAG 2.1 AA through shadcn/ui's accessible primitives, but we haven't run automated audits. Production would integrate:
+
 - axe-core in CI pipeline (fail builds on accessibility regressions)
 - Regular Lighthouse audits with score thresholds
 - Screen reader testing with real assistive technology (NVDA, JAWS, VoiceOver)
@@ -258,15 +269,15 @@ Before writing another line of code, we'd put the current prototype in front of 
 
 Several specific assumptions need testing with real users:
 
-| Assumption We Made | How We'd Validate |
-| --- | --- |
-| Specialists want keyboard shortcuts for queue processing (A/R/C/J/K) | Observe whether specialists discover and use them, or prefer mouse-driven workflow |
-| Side-by-side field comparison is the right layout | Some specialists may prefer an overlay approach or a checklist-first view — test alternatives |
-| 5-second processing target is the right bar | Interview mentioned this, but is it 5 seconds total or 5 seconds for the AI step? Does the upload time count? |
-| Confidence scores are meaningful to specialists | Do they understand what "87% confidence" means? Do they trust it? Or do they ignore scores and just look at the diff? |
-| "Needs Correction" vs "Conditionally Approved" distinction is clear | TTB uses these terms, but do specialists and applicants interpret the correction windows consistently? |
-| Desktop-first is correct | "Half our team is over 50" doesn't necessarily mean desktop-only. Some specialists may review on tablets during meetings or at home |
-| Auto-generated communication reports save time | Or do specialists prefer writing their own rejection/approval language for each case? |
+| Assumption We Made                                                   | How We'd Validate                                                                                                                   |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Specialists want keyboard shortcuts for queue processing (A/R/C/J/K) | Observe whether specialists discover and use them, or prefer mouse-driven workflow                                                  |
+| Side-by-side field comparison is the right layout                    | Some specialists may prefer an overlay approach or a checklist-first view — test alternatives                                       |
+| 5-second processing target is the right bar                          | Interview mentioned this, but is it 5 seconds total or 5 seconds for the AI step? Does the upload time count?                       |
+| Confidence scores are meaningful to specialists                      | Do they understand what "87% confidence" means? Do they trust it? Or do they ignore scores and just look at the diff?               |
+| "Needs Correction" vs "Conditionally Approved" distinction is clear  | TTB uses these terms, but do specialists and applicants interpret the correction windows consistently?                              |
+| Desktop-first is correct                                             | "Half our team is over 50" doesn't necessarily mean desktop-only. Some specialists may review on tablets during meetings or at home |
+| Auto-generated communication reports save time                       | Or do specialists prefer writing their own rejection/approval language for each case?                                               |
 
 **Phase 3: Iterative Refinement**
 

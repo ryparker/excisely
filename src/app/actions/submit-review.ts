@@ -10,7 +10,8 @@ import {
   validationItems,
   validationResults,
 } from '@/db/schema'
-import { getSession } from '@/lib/auth/get-session'
+import { guardSpecialist } from '@/lib/auth/action-guards'
+import { formatZodError } from '@/lib/actions/parse-zod-error'
 import { type BeverageType } from '@/config/beverage-types'
 import {
   determineOverallStatus,
@@ -62,14 +63,9 @@ export async function submitReview(
   formData: FormData,
 ): Promise<SubmitReviewResult> {
   // 1. Authenticate
-  const session = await getSession()
-  if (!session?.user) {
-    return { success: false, error: 'Authentication required' }
-  }
-
-  if (session.user.role === 'applicant') {
-    return { success: false, error: 'Specialist access required' }
-  }
+  const guard = await guardSpecialist()
+  if (!guard.success) return guard
+  const { session } = guard
 
   try {
     // 2. Parse form data
@@ -97,11 +93,7 @@ export async function submitReview(
 
     const parsed = submitReviewSchema.safeParse(rawData)
     if (!parsed.success) {
-      const firstError = parsed.error.issues[0]
-      return {
-        success: false,
-        error: `Validation error: ${firstError.path.join('.')} — ${firstError.message}`,
-      }
+      return { success: false, error: formatZodError(parsed.error) }
     }
 
     const { labelId, overrides } = parsed.data

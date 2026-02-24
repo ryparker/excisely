@@ -8,8 +8,9 @@ import { PageShell } from '@/components/layout/page-shell'
 interface DashboardAnimatedShellProps {
   header: ReactNode
   stats: ReactNode
+  /** Search + filters + table, grouped as one section for tighter spacing. */
   filters: ReactNode
-  table: ReactNode
+  table?: ReactNode
 }
 
 export function DashboardAnimatedShell({

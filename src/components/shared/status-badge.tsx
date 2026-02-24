@@ -8,7 +8,10 @@ import {
 } from '@/components/ui/hover-card'
 import { cn } from '@/lib/utils'
 
-const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+export const STATUS_CONFIG: Record<
+  string,
+  { label: string; className: string }
+> = {
   approved: {
     label: 'Approved',
     className:
@@ -61,6 +64,10 @@ const STATUS_DESCRIPTIONS: Record<string, string> = {
   rejected:
     'This label application has been rejected. The applicant has been notified with the reasons.',
 }
+
+export const STATUS_LABELS: Record<string, string> = Object.fromEntries(
+  Object.entries(STATUS_CONFIG).map(([k, v]) => [k, v.label]),
+)
 
 interface StatusBadgeProps {
   status: string

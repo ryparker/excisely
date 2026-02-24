@@ -54,3 +54,42 @@ export function confidenceColor(value: number | string | null): string {
   if (num >= 70) return 'text-amber-600 dark:text-amber-400'
   return 'text-red-600 dark:text-red-400'
 }
+
+/** Format a date as "Jan 1, 2026". */
+export function formatDate(date: Date): string {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date)
+}
+
+/** Format a date as "January 1, 2026". */
+export function formatDateLong(date: Date): string {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date)
+}
+
+/** Format a confidence score as "XX%" or "--" when null. */
+export function formatConfidence(value: string | number | null): string {
+  if (value === null || value === undefined) return '--'
+  const num = typeof value === 'string' ? Number(value) : value
+  if (Number.isNaN(num)) return '--'
+  return `${Math.round(num)}%`
+}
+
+/** Format processing time in milliseconds as "X.Xs" or "--" when null. */
+export function formatProcessingTime(ms: number | null): string {
+  if (ms === null || ms === undefined) return '--'
+  return `${(ms / 1000).toFixed(1)}s`
+}
+
+/** Format a number with compact k/M suffixes. */
+export function formatNumber(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
+  return n.toLocaleString()
+}

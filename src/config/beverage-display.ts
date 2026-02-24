@@ -25,3 +25,10 @@ export const BEVERAGE_ICON: Record<string, typeof Wine> = {
   wine: Wine,
   malt_beverage: Beer,
 }
+
+export const BEVERAGE_OPTIONS = [
+  { label: 'All Types', value: '' },
+  { label: 'Spirits', value: 'distilled_spirits' },
+  { label: 'Wine', value: 'wine' },
+  { label: 'Malt Beverage', value: 'malt_beverage' },
+] as const

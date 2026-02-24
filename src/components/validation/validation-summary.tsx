@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
+import { formatConfidence, formatProcessingTime } from '@/lib/utils'
 
 interface FieldCounts {
   match: number
@@ -28,16 +29,6 @@ interface ValidationSummaryProps {
   inputTokens?: number | null
   outputTokens?: number | null
   totalTokens?: number | null
-}
-
-function formatConfidence(value: number | null): string {
-  if (value === null) return '--'
-  return `${Math.round(value)}%`
-}
-
-function formatProcessingTime(ms: number | null): string {
-  if (ms === null) return '--'
-  return `${(ms / 1000).toFixed(1)}s`
 }
 
 const AI_STATUS_LABELS: Record<string, string> = {

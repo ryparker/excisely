@@ -1,7 +1,10 @@
 'use client'
 
-import { useCallback, useState, useTransition } from 'react'
+import { useCallback, useState } from 'react'
 
+import { useSettingsSave } from '@/hooks/use-settings-save'
+import { SaveFeedback } from '@/components/shared/save-feedback'
+import { cn } from '@/lib/utils'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import {
@@ -19,27 +22,20 @@ interface AutoApprovalToggleProps {
 
 export function AutoApprovalToggle({ defaultValue }: AutoApprovalToggleProps) {
   const [enabled, setEnabled] = useState(defaultValue)
-  const [isPending, startTransition] = useTransition()
-  const [saved, setSaved] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { isPending, saved, error, save } = useSettingsSave({ debounceMs: 0 })
 
   const handleToggle = useCallback(
     (checked: boolean) => {
       setEnabled(checked)
-      startTransition(async () => {
-        setError(null)
-        setSaved(false)
+      save(async () => {
         const result = await updateAutoApproval(checked)
-        if (result.success) {
-          setSaved(true)
-          setTimeout(() => setSaved(false), 2000)
-        } else {
-          setError(result.error)
-          setEnabled(!checked)
+        if (!result.success) {
+          setEnabled(!checked) // revert on error
         }
+        return result
       })
     },
-    [startTransition],
+    [save],
   )
 
   return (
@@ -53,39 +49,34 @@ export function AutoApprovalToggle({ defaultValue }: AutoApprovalToggleProps) {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between gap-4">
             <Label htmlFor="auto-approval" className="flex-1 cursor-pointer">
-              <span className="font-medium">
-                {enabled ? 'Enabled' : 'Disabled'}
-              </span>
-              <p className="mt-1 text-sm font-normal text-muted-foreground">
+              <span className="text-sm font-normal text-muted-foreground">
                 {enabled
                   ? 'Labels where AI finds all fields matching will be automatically approved without specialist review.'
                   : 'All labels will be routed to a specialist for review, regardless of AI assessment.'}
-              </p>
+              </span>
             </Label>
-            <Switch
-              id="auto-approval"
-              checked={enabled}
-              onCheckedChange={handleToggle}
-              disabled={isPending}
-            />
+            <div className="flex shrink-0 items-center gap-2.5">
+              <span
+                className={cn(
+                  'text-xs font-medium',
+                  enabled
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-muted-foreground',
+                )}
+              >
+                {enabled ? 'On' : 'Off'}
+              </span>
+              <Switch
+                id="auto-approval"
+                checked={enabled}
+                onCheckedChange={handleToggle}
+                disabled={isPending}
+              />
+            </div>
           </div>
-          {enabled && (
-            <p className="text-sm text-amber-600 dark:text-amber-400">
-              When enabled, labels where AI finds all fields matching will be
-              automatically approved without specialist review.
-            </p>
-          )}
-          <div className="h-5 text-sm">
-            {isPending && (
-              <span className="text-muted-foreground">Saving...</span>
-            )}
-            {saved && (
-              <span className="text-green-600 dark:text-green-400">Saved</span>
-            )}
-            {error && <span className="text-destructive">{error}</span>}
-          </div>
+          <SaveFeedback isPending={isPending} saved={saved} error={error} />
         </div>
       </CardContent>
     </Card>

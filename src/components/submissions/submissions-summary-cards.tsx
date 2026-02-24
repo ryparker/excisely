@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useTransition } from 'react'
 import {
   AlertTriangle,
   CheckCircle2,
@@ -11,7 +11,9 @@ import {
 import { motion, useReducedMotion } from 'motion/react'
 import { useQueryStates, parseAsString } from 'nuqs'
 
+import { useCountUp } from '@/hooks/use-count-up'
 import { cn } from '@/lib/utils'
+import { StatCardContent, STAT_CARD_BASE } from '@/components/shared/stat-card'
 
 interface SummaryCard {
   icon: LucideIcon
@@ -33,31 +35,8 @@ interface SubmissionsSummaryCardsProps {
   nearestDeadline: string | null
 }
 
-function useCountUp(end: number, duration = 600) {
-  const shouldReduceMotion = useReducedMotion()
-  const skip = shouldReduceMotion || end === 0
-  const [display, setDisplay] = useState(() => (skip ? end : 0))
-  const raf = useRef(0)
-
-  useEffect(() => {
-    if (skip) return
-    const start = performance.now()
-    function tick(now: number) {
-      const elapsed = now - start
-      const t = Math.min(elapsed / duration, 1)
-      const eased = 1 - Math.pow(1 - t, 3)
-      setDisplay(Math.round(eased * end))
-      if (t < 1) raf.current = requestAnimationFrame(tick)
-    }
-    raf.current = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf.current)
-  }, [end, duration, skip])
-
-  return skip ? end : display
-}
-
 function SummaryCardValue({ value }: { value: number }) {
-  const display = useCountUp(value)
+  const display = useCountUp(value) ?? value
   return <>{display}</>
 }
 
@@ -140,7 +119,8 @@ export function SubmissionsSummaryCards({
             type="button"
             onClick={() => handleCardClick(card.filterValue)}
             className={cn(
-              'cursor-pointer rounded-xl border bg-card p-4 text-left shadow-sm transition-[box-shadow,border-color] hover:shadow-md',
+              STAT_CARD_BASE,
+              'cursor-pointer text-left transition-[box-shadow,border-color] hover:shadow-md',
               isActive &&
                 card.filterValue !== '' &&
                 'border-primary/40 ring-1 ring-primary/20',
@@ -159,25 +139,14 @@ export function SubmissionsSummaryCards({
                   }
             }
           >
-            <div className="flex items-center gap-3">
-              <span
-                className={cn(
-                  'inline-flex size-9 items-center justify-center rounded-xl',
-                  card.iconBg,
-                )}
-              >
-                <Icon className={cn('size-[18px]', card.tint)} />
-              </span>
-              <span className="text-[13px] font-medium text-muted-foreground">
-                {card.label}
-              </span>
-            </div>
-            <div className="mt-3 font-heading text-2xl font-bold tracking-tight tabular-nums">
-              <SummaryCardValue value={card.value} />
-            </div>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {card.subtext}
-            </p>
+            <StatCardContent
+              icon={Icon}
+              iconBg={card.iconBg}
+              iconColor={card.tint}
+              label={card.label}
+              value={<SummaryCardValue value={card.value} />}
+              description={card.subtext}
+            />
           </motion.button>
         )
       })}

@@ -3,7 +3,14 @@ import {
   isValidSize,
   type BeverageType,
 } from '@/config/beverage-types'
+import {
+  CONDITIONAL_DEADLINE_DAYS,
+  CORRECTION_DEADLINE_DAYS,
+} from '@/config/constants'
 import { HEALTH_WARNING_FULL } from '@/config/health-warning'
+
+// Re-export so existing consumers don't break
+export { CONDITIONAL_DEADLINE_DAYS, CORRECTION_DEADLINE_DAYS }
 
 // ---------------------------------------------------------------------------
 // Types
@@ -40,9 +47,6 @@ export const MINOR_DISCREPANCY_FIELDS = new Set([
  * Fields where a missing or mismatched value triggers immediate rejection.
  */
 export const REJECTION_FIELDS = new Set(['health_warning'])
-
-export const CONDITIONAL_DEADLINE_DAYS = 7
-export const CORRECTION_DEADLINE_DAYS = 30
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -11,7 +11,7 @@ import {
   validationItems,
   validationResults,
 } from '@/db/schema'
-import { getSession } from '@/lib/auth/get-session'
+import { guardSpecialist } from '@/lib/auth/action-guards'
 import { getApprovalThreshold } from '@/lib/settings/get-settings'
 
 // ---------------------------------------------------------------------------
@@ -33,23 +33,9 @@ export async function batchApprove(
   labelIds: string[],
 ): Promise<BatchApproveResult> {
   // 1. Auth — specialist only
-  const session = await getSession()
-  if (!session?.user) {
-    return {
-      success: false,
-      approvedCount: 0,
-      failedIds: [],
-      error: 'Authentication required',
-    }
-  }
-  if (session.user.role === 'applicant') {
-    return {
-      success: false,
-      approvedCount: 0,
-      failedIds: [],
-      error: 'Specialist access required',
-    }
-  }
+  const guard = await guardSpecialist()
+  if (!guard.success) return { ...guard, approvedCount: 0, failedIds: [] }
+  const { session } = guard
 
   // 2. Validate input
   if (!Array.isArray(labelIds) || labelIds.length === 0) {

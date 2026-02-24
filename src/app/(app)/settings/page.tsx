@@ -160,6 +160,25 @@ async function SLASectionData() {
 // Page
 // ---------------------------------------------------------------------------
 
+function SectionHeading({
+  title,
+  description,
+  first,
+}: {
+  title: string
+  description: string
+  first?: boolean
+}) {
+  return (
+    <div className={first ? '' : 'border-t pt-6'}>
+      <h2 className="font-heading text-lg font-semibold tracking-tight">
+        {title}
+      </h2>
+      <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
+    </div>
+  )
+}
+
 export default async function SettingsPage() {
   await requireSpecialist()
 
@@ -170,18 +189,42 @@ export default async function SettingsPage() {
         description="Configure AI verification thresholds and field comparison rules."
       />
 
+      {/* --- AI Thresholds --- */}
+      <SectionHeading
+        title="AI Thresholds"
+        description="Control how the AI pipeline scores and routes labels."
+        first
+      />
+
       <Suspense fallback={<SettingsSkeleton />}>
         <ConfidenceSectionData />
       </Suspense>
-      <Suspense fallback={<SettingsSkeleton />}>
-        <AutoApprovalSectionData />
-      </Suspense>
-      <Suspense fallback={<SettingsSkeleton />}>
-        <ApprovalThresholdSectionData />
-      </Suspense>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Suspense fallback={<SettingsSkeleton />}>
+          <AutoApprovalSectionData />
+        </Suspense>
+        <Suspense fallback={<SettingsSkeleton />}>
+          <ApprovalThresholdSectionData />
+        </Suspense>
+      </div>
+
+      {/* --- Field Comparison --- */}
+      <SectionHeading
+        title="Field Comparison"
+        description="Fine-tune how strictly each field is matched between application data and extracted label text."
+      />
+
       <Suspense fallback={<SettingsSkeleton height="h-[400px]" />}>
         <FieldStrictnessSectionData />
       </Suspense>
+
+      {/* --- Operations --- */}
+      <SectionHeading
+        title="Operations"
+        description="Service level targets for review turnaround."
+      />
+
       <Suspense fallback={<SettingsSkeleton />}>
         <SLASectionData />
       </Suspense>

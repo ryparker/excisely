@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import { Clock, Gauge, Zap, Inbox, Info, type LucideIcon } from 'lucide-react'
 
@@ -9,6 +8,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from '@/components/ui/hover-card'
+import { useCountUp } from '@/hooks/use-count-up'
 import {
   type SLAStatus,
   STATUS_BAR_COLORS,
@@ -35,34 +35,6 @@ interface SLAMetricCardProps {
   unit: string
   status: SLAStatus
   index: number
-}
-
-/** Animate a number from 0 to `end` over `duration` ms with ease-out. */
-function useCountUp(end: number | null, duration = 600) {
-  const shouldReduceMotion = useReducedMotion()
-  const [display, setDisplay] = useState(() =>
-    shouldReduceMotion ? (end ?? 0) : 0,
-  )
-  const raf = useRef(0)
-
-  useEffect(() => {
-    if (end === null || shouldReduceMotion) return
-    const start = performance.now()
-    function tick(now: number) {
-      const elapsed = now - start
-      const t = Math.min(elapsed / duration, 1)
-      // ease-out cubic
-      const eased = 1 - Math.pow(1 - t, 3)
-      setDisplay(Math.round(eased * end!))
-      if (t < 1) raf.current = requestAnimationFrame(tick)
-    }
-    raf.current = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf.current)
-  }, [end, duration, shouldReduceMotion])
-
-  if (end === null) return null
-  if (shouldReduceMotion) return end
-  return display
 }
 
 export function SLAMetricCard({
@@ -101,12 +73,12 @@ export function SLAMetricCard({
       {/* Label row */}
       <div className="flex items-center gap-2 text-muted-foreground">
         <Icon className="size-3.5" strokeWidth={1.75} />
-        <span className="text-[13px] font-medium">{label}</span>
+        <span className="truncate text-[13px] font-medium">{label}</span>
         <HoverCard openDelay={200} closeDelay={100}>
           <HoverCardTrigger asChild>
             <button
               type="button"
-              className="ml-auto flex size-4 items-center justify-center rounded-full text-muted-foreground/40 transition-colors hover:text-muted-foreground"
+              className="ml-auto flex size-6 items-center justify-center rounded-full text-muted-foreground/40 transition-colors hover:bg-muted hover:text-muted-foreground"
               aria-label={`About ${label}`}
             >
               <Info className="size-3" />
