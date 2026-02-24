@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   AlertTriangle,
@@ -9,19 +9,17 @@ import {
   SearchX,
   Loader2,
   Send,
-  Crosshair,
-  MapPin,
-  Pencil,
-  X,
   Flag,
 } from 'lucide-react'
 
 import { routes } from '@/config/routes'
 import { submitReview } from '@/app/actions/submit-review'
-import { FieldComparisonRow } from '@/components/shared/FieldComparisonRow'
-import { Badge } from '@/components/ui/Badge'
+import type { ApplicantCorrection } from '@/components/shared/ApplicantCorrectionBadge'
+import {
+  ReviewFieldItem,
+  type ResolveOption,
+} from '@/components/review/ReviewFieldItem'
 import { Button } from '@/components/ui/Button'
-import { Textarea } from '@/components/ui/Textarea'
 import {
   HoverCard,
   HoverCardContent,
@@ -59,12 +57,6 @@ interface FieldOverride {
   reviewerNotes: string
 }
 
-interface ApplicantCorrection {
-  fieldName: string
-  aiExtractedValue: string
-  applicantSubmittedValue: string
-}
-
 interface ReviewFieldListProps {
   labelId: string
   validationItems: ValidationItemData[]
@@ -86,13 +78,7 @@ interface ReviewFieldListProps {
 
 const FLAGGED_STATUSES = new Set(['needs_correction', 'mismatch', 'not_found'])
 
-const RESOLVE_OPTIONS: Array<{
-  status: ResolvedStatus
-  label: string
-  icon: React.ReactNode
-  className: string
-  activeClassName: string
-}> = [
+const RESOLVE_OPTIONS: ResolveOption[] = [
   {
     status: 'match',
     label: 'Confirm Match',
@@ -121,52 +107,10 @@ const RESOLVE_OPTIONS: Array<{
   },
 ]
 
-// ---------------------------------------------------------------------------
-// Applicant Correction Badge
-// ---------------------------------------------------------------------------
-
-function ApplicantCorrectionBadge({
-  correction,
-}: {
-  correction: ApplicantCorrection
-}) {
-  return (
-    <HoverCard>
-      <HoverCardTrigger asChild>
-        <Badge
-          variant="outline"
-          className="ml-1 h-5 cursor-help gap-1 border-amber-200 px-1.5 text-[10px] text-amber-700 dark:border-amber-800 dark:text-amber-400"
-        >
-          <Pencil className="size-2.5" />
-          Applicant edited
-        </Badge>
-      </HoverCardTrigger>
-      <HoverCardContent side="top" className="w-72">
-        <div className="space-y-2 text-xs">
-          <p className="font-medium">
-            The applicant changed the AI-extracted value for this field.
-          </p>
-          <div className="space-y-1">
-            <div>
-              <span className="text-muted-foreground">AI extracted: </span>
-              <span className="font-mono">
-                {correction.aiExtractedValue || '(empty)'}
-              </span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">
-                Applicant submitted:{' '}
-              </span>
-              <span className="font-mono">
-                {correction.applicantSubmittedValue || '(empty)'}
-              </span>
-            </div>
-          </div>
-        </div>
-      </HoverCardContent>
-    </HoverCard>
-  )
-}
+/** Matched fields show only mismatch + not_found (no "confirm match") */
+const MATCHED_RESOLVE_OPTIONS = RESOLVE_OPTIONS.filter(
+  (o) => o.status !== 'match',
+)
 
 // ---------------------------------------------------------------------------
 // Component
@@ -194,13 +138,16 @@ export function ReviewFieldList({
     }
   }, [error])
 
-  // Build corrections map: fieldName → correction details
-  const correctionsMap = new Map<string, ApplicantCorrection>()
-  if (applicantCorrections) {
-    for (const c of applicantCorrections) {
-      correctionsMap.set(c.fieldName, c)
+  // Build corrections map: fieldName -> correction details
+  const correctionsMap = useMemo(() => {
+    const map = new Map<string, ApplicantCorrection>()
+    if (applicantCorrections) {
+      for (const c of applicantCorrections) {
+        map.set(c.fieldName, c)
+      }
     }
-  }
+    return map
+  }, [applicantCorrections])
 
   // Track overrides for flagged fields and manually flagged matched fields
   const [overrides, setOverrides] = useState<Record<string, FieldOverride>>({})
@@ -330,7 +277,7 @@ export function ReviewFieldList({
 
   return (
     <div className="space-y-6">
-      {/* Flagged fields — require resolution */}
+      {/* Flagged fields -- require resolution */}
       {flaggedItems.length > 0 && (
         <div className="space-y-3">
           <div>
@@ -347,119 +294,40 @@ export function ReviewFieldList({
           </div>
           {flaggedItems.map((item) => {
             const override = overrides[item.id]
-            const correction = correctionsMap.get(item.fieldName)
 
             return (
-              <div key={item.id} className="space-y-3">
-                <div className="space-y-1.5">
-                  <FieldComparisonRow
-                    fieldName={item.fieldName}
-                    expectedValue={item.expectedValue}
-                    extractedValue={
-                      item.status === 'not_found' ? null : item.extractedValue
-                    }
-                    status={override?.resolvedStatus ?? item.status}
-                    confidence={Number(item.confidence)}
-                    reasoning={item.matchReasoning}
-                    isActive={activeField === item.fieldName}
-                    onClick={() => onFieldClick(item.fieldName)}
-                  />
-                  {correction && (
-                    <ApplicantCorrectionBadge correction={correction} />
-                  )}
-                </div>
-
-                {/* Override controls */}
-                <div className="mt-1 ml-1 space-y-2.5 border-l-2 border-muted pl-4">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {RESOLVE_OPTIONS.map((option) => {
-                      const isSelected =
-                        override?.resolvedStatus === option.status
-
-                      return (
-                        <Button
-                          key={option.status}
-                          variant="outline"
-                          size="sm"
-                          className={cn(
-                            'h-8 gap-1.5 text-xs',
-                            isSelected
-                              ? option.activeClassName
-                              : option.className,
-                          )}
-                          onClick={() =>
-                            handleOverrideStatus(item.id, option.status)
-                          }
-                        >
-                          {option.icon}
-                          {option.label}
-                        </Button>
-                      )
-                    })}
-
-                    {/* Mark Location on Image — inline */}
-                    {onMarkLocation && (
-                      <>
-                        <div className="mx-1 h-5 w-px bg-border" />
-                        {annotations?.[item.fieldName] ? (
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 gap-1.5 border-indigo-200 text-xs text-indigo-700 dark:border-indigo-800 dark:text-indigo-400"
-                              onClick={() => onMarkLocation(item.fieldName)}
-                            >
-                              <MapPin className="size-3.5" />
-                              Redo
-                            </Button>
-                            {onClearAnnotation && (
-                              <Button
-                                variant="ghost"
-                                className="size-7 p-0 text-muted-foreground hover:text-destructive"
-                                onClick={() =>
-                                  onClearAnnotation(item.fieldName)
-                                }
-                                aria-label="Clear annotation"
-                                title="Remove marker"
-                              >
-                                <X className="size-3.5" />
-                              </Button>
-                            )}
-                          </div>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 gap-1.5 text-xs text-muted-foreground"
-                            onClick={() => onMarkLocation(item.fieldName)}
-                          >
-                            <Crosshair className="size-3.5" />
-                            Mark Location
-                          </Button>
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  {override?.resolvedStatus !== undefined && (
-                    <Textarea
-                      placeholder="Optional reviewer notes..."
-                      value={override.reviewerNotes}
-                      onChange={(e) =>
-                        handleOverrideNotes(item.id, e.target.value)
-                      }
-                      rows={2}
-                      className="text-sm"
-                    />
-                  )}
-                </div>
-              </div>
+              <ReviewFieldItem
+                key={item.id}
+                variant="flagged"
+                itemId={item.id}
+                fieldName={item.fieldName}
+                expectedValue={item.expectedValue}
+                extractedValue={item.extractedValue}
+                status={item.status}
+                confidence={item.confidence}
+                matchReasoning={item.matchReasoning}
+                displayStatus={override?.resolvedStatus ?? item.status}
+                isActive={activeField === item.fieldName}
+                correction={correctionsMap.get(item.fieldName)}
+                resolvedStatus={override?.resolvedStatus}
+                reviewerNotes={override?.reviewerNotes ?? ''}
+                resolveOptions={RESOLVE_OPTIONS}
+                showOverrides
+                annotations={annotations}
+                onFieldClick={() => onFieldClick(item.fieldName)}
+                onOverrideStatus={(status) =>
+                  handleOverrideStatus(item.id, status as ResolvedStatus)
+                }
+                onOverrideNotes={(notes) => handleOverrideNotes(item.id, notes)}
+                onMarkLocation={onMarkLocation}
+                onClearAnnotation={onClearAnnotation}
+              />
             )
           })}
         </div>
       )}
 
-      {/* Matched fields — flaggable by specialist */}
+      {/* Matched fields -- flaggable by specialist */}
       {matchedItems.length > 0 && (
         <div className="space-y-2.5">
           <h2 className="font-heading text-base font-semibold text-muted-foreground">
@@ -471,7 +339,6 @@ export function ReviewFieldList({
           {matchedItems.map((item) => {
             const isFlagged = flaggedMatchIds.has(item.id)
             const override = overrides[item.id]
-            const correction = correctionsMap.get(item.fieldName)
 
             const flagAction = (
               <HoverCard openDelay={300}>
@@ -509,117 +376,37 @@ export function ReviewFieldList({
             )
 
             return (
-              <div key={item.id} className="space-y-3">
-                <div className="space-y-1.5">
-                  <FieldComparisonRow
-                    fieldName={item.fieldName}
-                    expectedValue={item.expectedValue}
-                    extractedValue={
-                      item.status === 'not_found' ? null : item.extractedValue
-                    }
-                    status={
-                      isFlagged
-                        ? (override?.resolvedStatus ?? item.status)
-                        : item.status
-                    }
-                    confidence={Number(item.confidence)}
-                    reasoning={item.matchReasoning}
-                    isActive={activeField === item.fieldName}
-                    onClick={() => onFieldClick(item.fieldName)}
-                    headerAction={flagAction}
-                  />
-                  {correction && (
-                    <ApplicantCorrectionBadge correction={correction} />
-                  )}
-                </div>
-
-                {/* Override controls for flagged matched fields */}
-                {isFlagged && (
-                  <div className="mt-1 ml-1 space-y-2.5 bg-amber-50/50 pl-4 dark:bg-amber-950/20">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {RESOLVE_OPTIONS.filter((o) => o.status !== 'match').map(
-                        (option) => {
-                          const isSelected =
-                            override?.resolvedStatus === option.status
-
-                          return (
-                            <Button
-                              key={option.status}
-                              variant="outline"
-                              size="sm"
-                              className={cn(
-                                'h-8 gap-1.5 text-xs',
-                                isSelected
-                                  ? option.activeClassName
-                                  : option.className,
-                              )}
-                              onClick={() =>
-                                handleOverrideStatus(item.id, option.status)
-                              }
-                            >
-                              {option.icon}
-                              {option.label}
-                            </Button>
-                          )
-                        },
-                      )}
-
-                      {/* Mark Location on Image — inline */}
-                      {onMarkLocation && (
-                        <>
-                          <div className="mx-1 h-5 w-px bg-border" />
-                          {annotations?.[item.fieldName] ? (
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 gap-1.5 border-indigo-200 text-xs text-indigo-700 dark:border-indigo-800 dark:text-indigo-400"
-                                onClick={() => onMarkLocation(item.fieldName)}
-                              >
-                                <MapPin className="size-3.5" />
-                                Redo
-                              </Button>
-                              {onClearAnnotation && (
-                                <Button
-                                  variant="ghost"
-                                  className="size-7 p-0 text-muted-foreground hover:text-destructive"
-                                  onClick={() =>
-                                    onClearAnnotation(item.fieldName)
-                                  }
-                                  aria-label="Clear annotation"
-                                  title="Remove marker"
-                                >
-                                  <X className="size-3.5" />
-                                </Button>
-                              )}
-                            </div>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 gap-1.5 text-xs text-muted-foreground"
-                              onClick={() => onMarkLocation(item.fieldName)}
-                            >
-                              <Crosshair className="size-3.5" />
-                              Mark Location
-                            </Button>
-                          )}
-                        </>
-                      )}
-                    </div>
-
-                    <Textarea
-                      placeholder="Why is this AI match incorrect?"
-                      value={override?.reviewerNotes ?? ''}
-                      onChange={(e) =>
-                        handleOverrideNotes(item.id, e.target.value)
-                      }
-                      rows={2}
-                      className="text-sm"
-                    />
-                  </div>
-                )}
-              </div>
+              <ReviewFieldItem
+                key={item.id}
+                variant="matched"
+                itemId={item.id}
+                fieldName={item.fieldName}
+                expectedValue={item.expectedValue}
+                extractedValue={item.extractedValue}
+                status={item.status}
+                confidence={item.confidence}
+                matchReasoning={item.matchReasoning}
+                displayStatus={
+                  isFlagged
+                    ? (override?.resolvedStatus ?? item.status)
+                    : item.status
+                }
+                isActive={activeField === item.fieldName}
+                correction={correctionsMap.get(item.fieldName)}
+                resolvedStatus={override?.resolvedStatus}
+                reviewerNotes={override?.reviewerNotes ?? ''}
+                resolveOptions={MATCHED_RESOLVE_OPTIONS}
+                showOverrides={isFlagged}
+                annotations={annotations}
+                headerAction={flagAction}
+                onFieldClick={() => onFieldClick(item.fieldName)}
+                onOverrideStatus={(status) =>
+                  handleOverrideStatus(item.id, status as ResolvedStatus)
+                }
+                onOverrideNotes={(notes) => handleOverrideNotes(item.id, notes)}
+                onMarkLocation={onMarkLocation}
+                onClearAnnotation={onClearAnnotation}
+              />
             )
           })}
         </div>

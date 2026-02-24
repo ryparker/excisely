@@ -14,6 +14,7 @@ import { useQueryStates } from 'nuqs'
 import { searchParamParsers } from '@/lib/search-params'
 
 import { useCountUp } from '@/hooks/useCountUp'
+import { staggerInitial, staggerTransitionSafe } from '@/lib/motion-presets'
 import { cn } from '@/lib/utils'
 import { StatCardContent, STAT_CARD_BASE } from '@/components/shared/StatCard'
 
@@ -128,18 +129,9 @@ export function SubmissionsSummaryCards({
                 'border-primary/40 ring-1 ring-primary/20',
               isPending && 'opacity-80',
             )}
-            initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
+            initial={staggerInitial(shouldReduceMotion)}
             animate={{ opacity: 1, y: 0 }}
-            transition={
-              shouldReduceMotion
-                ? { duration: 0 }
-                : {
-                    type: 'tween',
-                    duration: 0.35,
-                    delay: i * 0.06,
-                    ease: [0.25, 0.46, 0.45, 0.94],
-                  }
-            }
+            transition={staggerTransitionSafe(shouldReduceMotion, i)}
           >
             <StatCardContent
               icon={Icon}

@@ -13,138 +13,48 @@ import {
 
 const mocks = vi.hoisted(() => ({
   updateTag: vi.fn(),
-  getSession: vi.fn(),
-  extractLabelFieldsForSubmission: vi.fn(),
-  compareField: vi.fn(),
-  getAutoApprovalEnabled: vi.fn(),
-  db: {} as Record<string, unknown>,
+  guardSpecialist: vi.fn(),
+  getLabelById: vi.fn(),
+  getLabelAppData: vi.fn(),
+  getLabelImages: vi.fn(),
+  getCurrentValidationResult: vi.fn(),
+  updateLabelStatus: vi.fn(),
+  supersedeValidationResult: vi.fn(),
+  runValidationPipeline: vi.fn(),
 }))
 
 vi.mock('next/cache', () => ({ updateTag: mocks.updateTag }))
-vi.mock('@/lib/auth/get-session', () => ({ getSession: mocks.getSession }))
-vi.mock('@/lib/ai/extract-label', () => ({
-  extractLabelFieldsForSubmission: mocks.extractLabelFieldsForSubmission,
+vi.mock('@/lib/auth/action-guards', () => ({
+  guardSpecialist: mocks.guardSpecialist,
 }))
-vi.mock('@/lib/ai/compare-fields', () => ({ compareField: mocks.compareField }))
-vi.mock('@/lib/settings/get-settings', () => ({
-  getAutoApprovalEnabled: mocks.getAutoApprovalEnabled,
+vi.mock('@/db/queries/labels', () => ({
+  getLabelById: mocks.getLabelById,
+  getLabelAppData: mocks.getLabelAppData,
+  getLabelImages: mocks.getLabelImages,
 }))
-vi.mock('@/db', () => ({ db: mocks.db }))
+vi.mock('@/db/queries/validation', () => ({
+  getCurrentValidationResult: mocks.getCurrentValidationResult,
+}))
+vi.mock('@/db/mutations/labels', () => ({
+  updateLabelStatus: mocks.updateLabelStatus,
+}))
+vi.mock('@/db/mutations/validation', () => ({
+  supersedeValidationResult: mocks.supersedeValidationResult,
+}))
+vi.mock('@/lib/actions/validation-pipeline', () => ({
+  runValidationPipeline: mocks.runValidationPipeline,
+}))
 
 // ---------------------------------------------------------------------------
 // Import after mocks
 // ---------------------------------------------------------------------------
 
 import { reanalyzeLabel } from './reanalyze-label'
-import type { ExtractionResult } from '@/lib/ai/extract-label'
 
 // ---------------------------------------------------------------------------
-// Chain + DB helpers
+// Fixtures
 // ---------------------------------------------------------------------------
 
-function makeChain(rows: unknown[] = []) {
-  const self: Record<string, ReturnType<typeof vi.fn>> = {}
-  for (const m of [
-    'select',
-    'from',
-    'where',
-    'limit',
-    'into',
-    'set',
-    'values',
-    'returning',
-    'orderBy',
-  ]) {
-    self[m] = vi.fn().mockReturnValue(self)
-  }
-  self.then = vi
-    .fn()
-    .mockImplementation((resolve: (v: unknown) => unknown) =>
-      Promise.resolve(rows).then(resolve),
-    )
-  return self
-}
-
-let updateChain: ReturnType<typeof makeChain>
-
-/**
- * Sets up mocks.db with fresh chains.
- *
- * `selectResponses` provides sequential return values for db.select() calls:
- *   [0] = label query
- *   [1] = applicationData query (via Promise.all)
- *   [2] = labelImages query (via Promise.all)
- *   [3] = currentResult query (for superseding)
- *
- * `insertResponses` provides sequential return values for db.insert() calls:
- *   [0] = new validationResult (needs returning { id })
- *   [1] = validationItems (return value unused)
- */
-function setupDb(
-  selectResponses: unknown[][] = [],
-  insertResponses: unknown[][] = [[{ id: nanoid() }], []],
-) {
-  updateChain = makeChain([])
-
-  let selectCallIndex = 0
-  mocks.db.select = vi.fn().mockImplementation(() => {
-    const rows = selectResponses[selectCallIndex] ?? []
-    selectCallIndex++
-    return makeChain(rows)
-  })
-
-  let insertCallIndex = 0
-  mocks.db.insert = vi.fn().mockImplementation(() => {
-    const rows = insertResponses[insertCallIndex] ?? []
-    insertCallIndex++
-    return makeChain(rows)
-  })
-
-  mocks.db.update = vi.fn().mockReturnValue(updateChain)
-}
-
-// ---------------------------------------------------------------------------
-// Default AI extraction result
-// ---------------------------------------------------------------------------
-
-function defaultExtraction(
-  overrides?: Partial<ExtractionResult>,
-): ExtractionResult {
-  return {
-    fields: [
-      {
-        fieldName: 'brand_name',
-        value: 'Old Tom Reserve',
-        confidence: 95,
-        reasoning: 'Clearly visible',
-        boundingBox: { x: 0.1, y: 0.1, width: 0.3, height: 0.05, angle: 0 },
-        imageIndex: 0,
-      },
-    ],
-    imageClassifications: [
-      { imageIndex: 0, imageType: 'front', confidence: 98 },
-    ],
-    processingTimeMs: 2500,
-    modelUsed: 'gpt-5-mini',
-    rawResponse: {},
-    detectedBeverageType: null,
-    metrics: {
-      fetchTimeMs: 200,
-      ocrTimeMs: 800,
-      classificationTimeMs: 1200,
-      mergeTimeMs: 50,
-      totalTimeMs: 2500,
-      wordCount: 120,
-      imageCount: 1,
-      inputTokens: 500,
-      outputTokens: 300,
-      totalTokens: 800,
-    },
-    ...overrides,
-  }
-}
-
-// Label image fixture
 const labelImageId = nanoid()
 const labelImage = {
   id: labelImageId,
@@ -157,18 +67,64 @@ const labelImage = {
   updatedAt: new Date(),
 }
 
+function defaultPipelineOutput(overrides?: Record<string, unknown>) {
+  return {
+    validationResultId: nanoid(),
+    overallStatus: 'approved',
+    overallConfidence: 95,
+    deadlineDays: null,
+    autoApproved: false,
+    extraction: {
+      fields: [
+        {
+          fieldName: 'brand_name',
+          value: 'Old Tom Reserve',
+          confidence: 95,
+          reasoning: 'Clearly visible',
+          boundingBox: { x: 0.1, y: 0.1, width: 0.3, height: 0.05, angle: 0 },
+          imageIndex: 0,
+        },
+      ],
+      imageClassifications: [
+        { imageIndex: 0, imageType: 'front', confidence: 98 },
+      ],
+      processingTimeMs: 2500,
+      modelUsed: 'gpt-5-mini',
+      rawResponse: {},
+      detectedBeverageType: null,
+      metrics: {
+        fetchTimeMs: 200,
+        ocrTimeMs: 800,
+        classificationTimeMs: 1200,
+        mergeTimeMs: 50,
+        totalTimeMs: 2500,
+        wordCount: 120,
+        imageCount: 1,
+        inputTokens: 500,
+        outputTokens: 300,
+        totalTokens: 800,
+      },
+    },
+    ...overrides,
+  }
+}
+
+function mockSpecialist() {
+  const session = createSession()
+  mocks.guardSpecialist.mockResolvedValue({ success: true, session })
+  return session
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 describe('reanalyzeLabel', () => {
   beforeEach(() => {
-    mocks.compareField.mockReturnValue({
-      status: 'match',
-      confidence: 95,
-      reasoning: 'Exact match',
-    })
-    mocks.getAutoApprovalEnabled.mockResolvedValue(false)
+    mocks.updateLabelStatus.mockResolvedValue(undefined)
+    mocks.supersedeValidationResult.mockResolvedValue(undefined)
+    mocks.getCurrentValidationResult.mockResolvedValue(null)
+    mocks.runValidationPipeline.mockResolvedValue(defaultPipelineOutput())
   })
 
   // -------------------------------------------------------------------------
@@ -176,13 +132,19 @@ describe('reanalyzeLabel', () => {
   // -------------------------------------------------------------------------
 
   it('returns error when unauthenticated', async () => {
-    mocks.getSession.mockResolvedValue(null)
+    mocks.guardSpecialist.mockResolvedValue({
+      success: false,
+      error: 'Authentication required',
+    })
     const result = await reanalyzeLabel('lbl_test')
     expect(result).toEqual({ success: false, error: 'Authentication required' })
   })
 
   it('returns error when user is an applicant', async () => {
-    mocks.getSession.mockResolvedValue(createSession({ role: 'applicant' }))
+    mocks.guardSpecialist.mockResolvedValue({
+      success: false,
+      error: 'Only specialists can perform this action',
+    })
     const result = await reanalyzeLabel('lbl_test')
     expect(result).toEqual({
       success: false,
@@ -195,16 +157,18 @@ describe('reanalyzeLabel', () => {
   // -------------------------------------------------------------------------
 
   it('returns error when label not found', async () => {
-    mocks.getSession.mockResolvedValue(createSession())
-    setupDb([[]]) // label query returns empty
+    mockSpecialist()
+    mocks.getLabelById.mockResolvedValue(null)
 
     const result = await reanalyzeLabel('lbl_nonexistent')
     expect(result).toEqual({ success: false, error: 'Label not found' })
   })
 
   it('returns error when label is already processing', async () => {
-    mocks.getSession.mockResolvedValue(createSession())
-    setupDb([[createLabel({ id: 'lbl_test', status: 'processing' })]])
+    mockSpecialist()
+    mocks.getLabelById.mockResolvedValue(
+      createLabel({ id: 'lbl_test', status: 'processing' }),
+    )
 
     const result = await reanalyzeLabel('lbl_test')
     expect(result).toEqual({
@@ -218,17 +182,14 @@ describe('reanalyzeLabel', () => {
   // -------------------------------------------------------------------------
 
   it('restores original status on AI pipeline failure', async () => {
-    mocks.getSession.mockResolvedValue(createSession())
+    mockSpecialist()
     const label = createLabel({ id: 'lbl_test', status: 'approved' })
     const appData = createApplicationData({ labelId: 'lbl_test' })
 
-    setupDb([
-      [label], // label query
-      [appData], // applicationData query
-      [labelImage], // labelImages query
-    ])
-
-    mocks.extractLabelFieldsForSubmission.mockRejectedValue(
+    mocks.getLabelById.mockResolvedValue(label)
+    mocks.getLabelAppData.mockResolvedValue(appData)
+    mocks.getLabelImages.mockResolvedValue([labelImage])
+    mocks.runValidationPipeline.mockRejectedValue(
       new Error('AI service unavailable'),
     )
 
@@ -240,16 +201,21 @@ describe('reanalyzeLabel', () => {
     )
 
     // Verify status was set to 'processing' first, then restored to 'approved'
-    const updateCalls = (mocks.db.update as ReturnType<typeof vi.fn>).mock.calls
-    expect(updateCalls.length).toBeGreaterThanOrEqual(2)
+    expect(mocks.updateLabelStatus).toHaveBeenCalledTimes(2)
+    expect(mocks.updateLabelStatus).toHaveBeenNthCalledWith(1, 'lbl_test', {
+      status: 'processing',
+    })
+    expect(mocks.updateLabelStatus).toHaveBeenNthCalledWith(2, 'lbl_test', {
+      status: 'approved',
+    })
   })
 
   // -------------------------------------------------------------------------
   // Success flow
   // -------------------------------------------------------------------------
 
-  it('calls extractLabelFieldsForSubmission with correct arguments', async () => {
-    mocks.getSession.mockResolvedValue(createSession())
+  it('calls runValidationPipeline with correct arguments', async () => {
+    mockSpecialist()
     const label = createLabel({
       id: 'lbl_test',
       status: 'approved',
@@ -260,26 +226,24 @@ describe('reanalyzeLabel', () => {
       brandName: 'Test Brand',
     })
 
-    setupDb([
-      [label], // label query
-      [appData], // applicationData query
-      [labelImage], // labelImages query
-      [], // currentResult query (none)
-    ])
-
-    mocks.extractLabelFieldsForSubmission.mockResolvedValue(defaultExtraction())
+    mocks.getLabelById.mockResolvedValue(label)
+    mocks.getLabelAppData.mockResolvedValue(appData)
+    mocks.getLabelImages.mockResolvedValue([labelImage])
 
     await reanalyzeLabel('lbl_test')
 
-    expect(mocks.extractLabelFieldsForSubmission).toHaveBeenCalledWith(
-      [labelImage.imageUrl],
-      'distilled_spirits',
-      expect.any(Object),
+    expect(mocks.runValidationPipeline).toHaveBeenCalledWith(
+      expect.objectContaining({
+        labelId: 'lbl_test',
+        imageUrls: [labelImage.imageUrl],
+        imageRecordIds: [labelImage.id],
+        beverageType: 'distilled_spirits',
+      }),
     )
   })
 
   it('supersedes previous validation result (isCurrent -> false)', async () => {
-    mocks.getSession.mockResolvedValue(createSession())
+    mockSpecialist()
     const label = createLabel({ id: 'lbl_test', status: 'approved' })
     const appData = createApplicationData({ labelId: 'lbl_test' })
     const prevResult = createValidationResult({
@@ -289,59 +253,42 @@ describe('reanalyzeLabel', () => {
 
     const newResultId = nanoid()
 
-    setupDb(
-      [
-        [label], // label query
-        [appData], // applicationData query
-        [labelImage], // labelImages query
-        [prevResult], // currentResult query returns previous result
-      ],
-      [
-        [{ id: newResultId }], // new validationResult insert
-        [], // validationItems insert
-      ],
+    mocks.getLabelById.mockResolvedValue(label)
+    mocks.getLabelAppData.mockResolvedValue(appData)
+    mocks.getLabelImages.mockResolvedValue([labelImage])
+    mocks.getCurrentValidationResult.mockResolvedValue(prevResult)
+    mocks.runValidationPipeline.mockResolvedValue(
+      defaultPipelineOutput({ validationResultId: newResultId }),
     )
-
-    mocks.extractLabelFieldsForSubmission.mockResolvedValue(defaultExtraction())
 
     const result = await reanalyzeLabel('lbl_test')
     expect(result).toEqual({ success: true, labelId: 'lbl_test' })
 
-    // Verify db.update was called to supersede old result
-    expect(mocks.db.update).toHaveBeenCalled()
+    // Verify supersedeValidationResult was called
+    expect(mocks.supersedeValidationResult).toHaveBeenCalledWith(
+      prevResult.id,
+      newResultId,
+    )
   })
 
-  it('creates new validation items from field comparisons', async () => {
-    mocks.getSession.mockResolvedValue(createSession())
+  it('creates new validation result via pipeline', async () => {
+    mockSpecialist()
     const label = createLabel({ id: 'lbl_test', status: 'pending_review' })
     const appData = createApplicationData({ labelId: 'lbl_test' })
 
-    const newResultId = nanoid()
-
-    setupDb(
-      [
-        [label], // label query
-        [appData], // applicationData query
-        [labelImage], // labelImages query
-        [], // currentResult query (none)
-      ],
-      [
-        [{ id: newResultId }], // new validationResult insert
-        [], // validationItems insert
-      ],
-    )
-
-    mocks.extractLabelFieldsForSubmission.mockResolvedValue(defaultExtraction())
+    mocks.getLabelById.mockResolvedValue(label)
+    mocks.getLabelAppData.mockResolvedValue(appData)
+    mocks.getLabelImages.mockResolvedValue([labelImage])
 
     const result = await reanalyzeLabel('lbl_test')
     expect(result).toEqual({ success: true, labelId: 'lbl_test' })
 
-    // Verify db.insert was called (once for result, once for items)
-    expect(mocks.db.insert).toHaveBeenCalled()
+    // Verify pipeline was called
+    expect(mocks.runValidationPipeline).toHaveBeenCalled()
   })
 
-  it('routes to pending_review when mismatches found', async () => {
-    mocks.getSession.mockResolvedValue(createSession())
+  it('routes to pending_review when not auto-approved', async () => {
+    mockSpecialist()
     const label = createLabel({
       id: 'lbl_test',
       status: 'approved',
@@ -350,62 +297,34 @@ describe('reanalyzeLabel', () => {
     })
     const appData = createApplicationData({ labelId: 'lbl_test' })
 
-    const newResultId = nanoid()
-
-    setupDb(
-      [
-        [label], // label query
-        [appData], // applicationData query
-        [labelImage], // labelImages query
-        [], // currentResult query (none)
-      ],
-      [
-        [{ id: newResultId }], // new validationResult insert
-        [], // validationItems insert
-      ],
+    mocks.getLabelById.mockResolvedValue(label)
+    mocks.getLabelAppData.mockResolvedValue(appData)
+    mocks.getLabelImages.mockResolvedValue([labelImage])
+    mocks.runValidationPipeline.mockResolvedValue(
+      defaultPipelineOutput({
+        overallStatus: 'pending_review',
+        autoApproved: false,
+        deadlineDays: null,
+      }),
     )
-
-    // Make compareField return a mismatch for mandatory field
-    mocks.compareField.mockReturnValue({
-      status: 'mismatch',
-      confidence: 30,
-      reasoning: 'Values differ significantly',
-    })
-
-    mocks.extractLabelFieldsForSubmission.mockResolvedValue(defaultExtraction())
 
     const result = await reanalyzeLabel('lbl_test')
     expect(result).toEqual({ success: true, labelId: 'lbl_test' })
 
-    // Verify the label was updated to pending_review (via db.update)
-    const updateSetCalls = updateChain.set.mock.calls
-    const lastSetCall = updateSetCalls[updateSetCalls.length - 1]?.[0]
-    expect(lastSetCall).toBeDefined()
-    // The status should be pending_review since auto-approval is disabled
-    expect(lastSetCall.status).toBe('pending_review')
+    // Last updateLabelStatus call should set pending_review
+    const calls = mocks.updateLabelStatus.mock.calls
+    const lastCall = calls[calls.length - 1]
+    expect(lastCall[1].status).toBe('pending_review')
   })
 
   it('calls updateTag after successful reanalysis', async () => {
-    mocks.getSession.mockResolvedValue(createSession())
+    mockSpecialist()
     const label = createLabel({ id: 'lbl_test', status: 'approved' })
     const appData = createApplicationData({ labelId: 'lbl_test' })
 
-    const newResultId = nanoid()
-
-    setupDb(
-      [
-        [label], // label query
-        [appData], // applicationData query
-        [labelImage], // labelImages query
-        [], // currentResult query (none)
-      ],
-      [
-        [{ id: newResultId }], // new validationResult insert
-        [], // validationItems insert
-      ],
-    )
-
-    mocks.extractLabelFieldsForSubmission.mockResolvedValue(defaultExtraction())
+    mocks.getLabelById.mockResolvedValue(label)
+    mocks.getLabelAppData.mockResolvedValue(appData)
+    mocks.getLabelImages.mockResolvedValue([labelImage])
 
     await reanalyzeLabel('lbl_test')
 

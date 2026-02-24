@@ -1,3 +1,5 @@
+import { humanizeEnum } from '@/lib/utils'
+
 export const FIELD_DISPLAY_NAMES: Record<string, string> = {
   brand_name: 'Brand Name',
   fanciful_name: 'Fanciful Name',
@@ -19,7 +21,7 @@ export const FIELD_DISPLAY_NAMES: Record<string, string> = {
 
 /** Look up the human-readable display name for a field key, falling back to title-cased snake_case. */
 export function formatFieldName(name: string): string {
-  return FIELD_DISPLAY_NAMES[name] ?? name.replace(/_/g, ' ')
+  return FIELD_DISPLAY_NAMES[name] ?? humanizeEnum(name)
 }
 
 /** Pre-built filter options derived from FIELD_DISPLAY_NAMES, with an "All Fields" entry. */

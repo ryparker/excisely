@@ -9,6 +9,7 @@ import {
   HoverCardTrigger,
 } from '@/components/ui/HoverCard'
 import type { TokenUsageMetrics } from '@/db/queries/sla'
+import { staggerInitial, staggerTransitionSafe } from '@/lib/motion-presets'
 import { formatNumber } from '@/lib/utils'
 
 export function TokenUsageSummary({
@@ -23,18 +24,9 @@ export function TokenUsageSummary({
   return (
     <motion.div
       className="relative overflow-hidden rounded-xl border bg-card p-5 text-card-foreground shadow-sm"
-      initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
+      initial={staggerInitial(shouldReduceMotion)}
       animate={{ opacity: 1, y: 0 }}
-      transition={
-        shouldReduceMotion
-          ? { duration: 0 }
-          : {
-              type: 'tween',
-              duration: 0.35,
-              delay: index * 0.06,
-              ease: [0.25, 0.46, 0.45, 0.94],
-            }
-      }
+      transition={staggerTransitionSafe(shouldReduceMotion, index)}
     >
       {/* Label row */}
       <div className="flex items-center gap-2 text-muted-foreground">

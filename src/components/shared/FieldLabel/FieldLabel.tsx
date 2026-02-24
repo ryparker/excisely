@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/Popover'
 import { RegulationQuickView } from '@/components/shared/RegulationQuickView'
 import { formatFieldName } from '@/config/field-display-names'
+import { humanizeEnum } from '@/lib/utils'
 import { FIELD_TOOLTIPS } from '@/config/field-tooltips'
 import { getSection } from '@/lib/regulations/lookup'
 
@@ -28,7 +29,7 @@ export function FieldLabel({
   className,
 }: FieldLabelProps) {
   const tooltip = FIELD_TOOLTIPS[fieldName]
-  const displayText = children ?? fieldName.replace(/_/g, ' ')
+  const displayText = children ?? humanizeEnum(fieldName)
 
   if (!tooltip) {
     return <span className={className}>{displayText}</span>

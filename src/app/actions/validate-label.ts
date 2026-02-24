@@ -4,35 +4,15 @@ import {
   insertLabel,
   insertApplicationData,
   insertLabelImages,
-  updateImageTypes,
   updateLabelStatus,
 } from '@/db/mutations/labels'
-import {
-  insertValidationResult,
-  insertValidationItems,
-} from '@/db/mutations/validation'
-import { type NewValidationItem } from '@/db/schema'
-import { extractLabelFieldsForSubmission } from '@/lib/ai/extract-label'
-import { compareField } from '@/lib/ai/compare-fields'
 import { guardSpecialist } from '@/lib/auth/action-guards'
 import { formatZodError } from '@/lib/actions/parse-zod-error'
 import { parseImageUrls } from '@/lib/actions/parse-image-urls'
 import { validateLabelSchema } from '@/lib/validators/label-schema'
-import {
-  buildExpectedFields,
-  determineOverallStatus,
-  MINOR_DISCREPANCY_FIELDS,
-  type ValidationItemStatus,
-} from '@/lib/labels/validation-helpers'
-import { getAutoApprovalEnabled } from '@/db/queries/settings'
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-type ValidateLabelResult =
-  | { success: true; labelId: string }
-  | { success: false; error: string }
+import { buildExpectedFields } from '@/lib/labels/validation-helpers'
+import { runValidationPipeline } from '@/lib/actions/validation-pipeline'
+import type { ActionResult } from '@/lib/actions/result-types'
 
 // ---------------------------------------------------------------------------
 // Server Action
@@ -40,7 +20,7 @@ type ValidateLabelResult =
 
 export async function validateLabel(
   formData: FormData,
-): Promise<ValidateLabelResult> {
+): Promise<ActionResult<{ labelId: string }>> {
   // 1. Authenticate
   const guard = await guardSpecialist()
   if (!guard.success) return guard
@@ -131,156 +111,28 @@ export async function validateLabel(
       })),
     )
 
-    // 7. Build expected fields from application data (needed for AI pipeline + comparison)
+    // 7. Run shared AI validation pipeline
     const expectedFields = buildExpectedFields(input, input.beverageType)
-
-    // 8. Run AI pipeline with application data for disambiguation
-    const appDataForAI = Object.fromEntries(expectedFields)
-    const extraction = await extractLabelFieldsForSubmission(
-      imageUrls,
-      input.beverageType,
-      appDataForAI,
-    )
-
-    // 8b. Update image types from AI classification
-    if (extraction.imageClassifications.length > 0) {
-      const imageTypeUpdates = extraction.imageClassifications
-        .filter((ic) => imageRecords[ic.imageIndex] && ic.confidence >= 60)
-        .map((ic) => ({
-          id: imageRecords[ic.imageIndex].id,
-          imageType: ic.imageType,
-        }))
-      if (imageTypeUpdates.length > 0) {
-        await updateImageTypes(imageTypeUpdates)
-      }
-    }
-
-    // 9. Compare each extracted field against application data
-    const fieldComparisons: Array<{
-      fieldName: string
-      expectedValue: string
-      extractedValue: string
-      status: ValidationItemStatus
-      confidence: number
-      reasoning: string
-      boundingBox: {
-        x: number
-        y: number
-        width: number
-        height: number
-        angle: number
-      } | null
-      imageIndex: number
-    }> = []
-
-    // Build a lookup from extracted fields by field name
-    const extractedByName = new Map(
-      extraction.fields.map((f) => [f.fieldName, f]),
-    )
-
-    for (const [fieldName, expectedValue] of expectedFields) {
-      const extracted = extractedByName.get(fieldName)
-      const extractedValue = extracted?.value ?? null
-
-      const comparison = compareField(fieldName, expectedValue, extractedValue)
-
-      // Map comparison status to validation item status
-      let itemStatus: ValidationItemStatus = comparison.status
-      if (
-        comparison.status === 'mismatch' &&
-        MINOR_DISCREPANCY_FIELDS.has(fieldName)
-      ) {
-        itemStatus = 'needs_correction'
-      }
-
-      fieldComparisons.push({
-        fieldName,
-        expectedValue,
-        extractedValue: extractedValue ?? '',
-        status: itemStatus,
-        confidence: comparison.confidence,
-        reasoning: comparison.reasoning,
-        boundingBox: extracted?.boundingBox ?? null,
-        imageIndex: extracted?.imageIndex ?? 0,
-      })
-    }
-
-    // 10. Create validation result record
-    const validationResult = await insertValidationResult({
+    const result = await runValidationPipeline({
       labelId: label.id,
-      aiRawResponse: extraction.rawResponse,
-      processingTimeMs: extraction.processingTimeMs,
-      modelUsed: extraction.modelUsed,
-      inputTokens: extraction.metrics.inputTokens,
-      outputTokens: extraction.metrics.outputTokens,
-      totalTokens: extraction.metrics.totalTokens,
-      isCurrent: true,
+      imageUrls,
+      imageRecordIds: imageRecords.map((r) => r.id),
+      beverageType: input.beverageType,
+      containerSizeMl: input.containerSizeMl,
+      expectedFields,
     })
 
-    // 11. Create validation item records
-    if (fieldComparisons.length > 0) {
-      await insertValidationItems(
-        fieldComparisons.map((comp) => {
-          // Find the label image record for this comparison's image index
-          const labelImageId =
-            imageRecords[comp.imageIndex]?.id ?? imageRecords[0]?.id ?? null
-
-          return {
-            validationResultId: validationResult.id,
-            labelImageId: labelImageId,
-            fieldName: comp.fieldName as NewValidationItem['fieldName'],
-            expectedValue: comp.expectedValue,
-            extractedValue: comp.extractedValue,
-            status: comp.status,
-            confidence: String(comp.confidence),
-            matchReasoning: comp.reasoning,
-            bboxX: comp.boundingBox ? String(comp.boundingBox.x) : null,
-            bboxY: comp.boundingBox ? String(comp.boundingBox.y) : null,
-            bboxWidth: comp.boundingBox ? String(comp.boundingBox.width) : null,
-            bboxHeight: comp.boundingBox
-              ? String(comp.boundingBox.height)
-              : null,
-            bboxAngle: comp.boundingBox ? String(comp.boundingBox.angle) : null,
-          }
-        }),
-      )
-    }
-
-    // 12. Determine overall status
-    const itemStatuses = fieldComparisons.map((comp) => ({
-      fieldName: comp.fieldName,
-      status: comp.status,
-    }))
-
-    const { status: overallStatus } = determineOverallStatus(
-      itemStatuses,
-      input.beverageType,
-      input.containerSizeMl,
-    )
-
-    // 13. Calculate overall confidence
-    const confidences = fieldComparisons.map((c) => c.confidence)
-    const overallConfidence =
-      confidences.length > 0
-        ? Math.round(
-            confidences.reduce((sum, c) => sum + c, 0) / confidences.length,
-          )
-        : 0
-
-    // 14. Update label with final status and confidence
-    // Only auto-approve when the setting is enabled; otherwise route all labels through specialist review
-    const autoApprovalEnabled = await getAutoApprovalEnabled()
-
-    if (autoApprovalEnabled && overallStatus === 'approved') {
+    // 8. Update label with final status
+    if (result.autoApproved) {
       await updateLabelStatus(label.id, {
         status: 'approved',
-        overallConfidence: String(overallConfidence),
+        overallConfidence: String(result.overallConfidence),
       })
     } else {
       await updateLabelStatus(label.id, {
         status: 'pending_review',
-        aiProposedStatus: overallStatus,
-        overallConfidence: String(overallConfidence),
+        aiProposedStatus: result.overallStatus,
+        overallConfidence: String(result.overallConfidence),
       })
     }
 

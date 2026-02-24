@@ -6,6 +6,7 @@ import { updateTag } from 'next/cache'
 import { upsertSetting } from '@/db/mutations/settings'
 import { guardSpecialist } from '@/lib/auth/action-guards'
 import type { StrictnessLevel } from '@/db/queries/settings'
+import type { ActionResult } from '@/lib/actions/result-types'
 
 const updateAutoApprovalSchema = z.object({
   enabled: z.boolean(),
@@ -33,13 +34,9 @@ const updateSLASchema = z.object({
   maxQueueDepth: z.number().min(1).max(1000),
 })
 
-type UpdateSettingsResult =
-  | { success: true }
-  | { success: false; error: string }
-
 export async function updateAutoApproval(
   enabled: boolean,
-): Promise<UpdateSettingsResult> {
+): Promise<ActionResult> {
   const guard = await guardSpecialist()
   if (!guard.success) return guard
 
@@ -60,7 +57,7 @@ export async function updateAutoApproval(
 
 export async function updateConfidenceThreshold(
   threshold: number,
-): Promise<UpdateSettingsResult> {
+): Promise<ActionResult> {
   const guard = await guardSpecialist()
   if (!guard.success) return guard
 
@@ -83,7 +80,7 @@ export async function updateConfidenceThreshold(
 
 export async function updateApprovalThreshold(
   threshold: number,
-): Promise<UpdateSettingsResult> {
+): Promise<ActionResult> {
   const guard = await guardSpecialist()
   if (!guard.success) return guard
 
@@ -107,7 +104,7 @@ export async function updateApprovalThreshold(
 
 export async function updateFieldStrictness(
   fieldStrictness: Record<string, StrictnessLevel>,
-): Promise<UpdateSettingsResult> {
+): Promise<ActionResult> {
   const guard = await guardSpecialist()
   if (!guard.success) return guard
 
@@ -134,7 +131,7 @@ export async function updateSLATargets(targets: {
   totalTurnaroundHours: number
   autoApprovalRateTarget: number
   maxQueueDepth: number
-}): Promise<UpdateSettingsResult> {
+}): Promise<ActionResult> {
   const guard = await guardSpecialist()
   if (!guard.success) return guard
 

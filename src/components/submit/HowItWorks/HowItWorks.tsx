@@ -18,6 +18,11 @@ import {
   HoverCardTrigger,
 } from '@/components/ui/HoverCard'
 import { Separator } from '@/components/ui/Separator'
+import {
+  staggerInitial,
+  staggerInitialCompact,
+  staggerTransitionSafe,
+} from '@/lib/motion-presets'
 import { cn } from '@/lib/utils'
 import {
   useExtractionStore,
@@ -153,18 +158,9 @@ function ProcessStep({
         <motion.button
           type="button"
           className="group flex flex-col items-center gap-1.5 focus-visible:outline-none"
-          initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
+          initial={staggerInitial(shouldReduceMotion)}
           animate={{ opacity: 1, y: 0 }}
-          transition={
-            shouldReduceMotion
-              ? { duration: 0 }
-              : {
-                  type: 'tween',
-                  duration: 0.35,
-                  delay: index * 0.06,
-                  ease: [0.25, 0.46, 0.45, 0.94],
-                }
-          }
+          transition={staggerTransitionSafe(shouldReduceMotion, index)}
         >
           <div className="relative">
             {/* Step circle */}
@@ -353,18 +349,12 @@ function MobileStep({
             'group flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
             state === 'active' && 'bg-muted/30',
           )}
-          initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
+          initial={staggerInitialCompact(shouldReduceMotion)}
           animate={{ opacity: 1, y: 0 }}
-          transition={
-            shouldReduceMotion
-              ? { duration: 0 }
-              : {
-                  type: 'tween',
-                  duration: 0.3,
-                  delay: index * 0.05,
-                  ease: [0.25, 0.46, 0.45, 0.94],
-                }
-          }
+          transition={staggerTransitionSafe(shouldReduceMotion, index, {
+            duration: 0.3,
+            delay: 0.05,
+          })}
         >
           <div className="relative shrink-0">
             <div

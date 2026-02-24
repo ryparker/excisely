@@ -13,6 +13,8 @@ import {
 import { guardSpecialist } from '@/lib/auth/action-guards'
 import { formatZodError } from '@/lib/actions/parse-zod-error'
 import { addDays } from '@/lib/labels/validation-helpers'
+import type { ActionResult } from '@/lib/actions/result-types'
+import { humanizeEnum } from '@/lib/utils'
 
 // ---------------------------------------------------------------------------
 // Schema
@@ -33,20 +35,12 @@ const overrideStatusSchema = z.object({
 })
 
 // ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-type OverrideStatusResult =
-  | { success: true }
-  | { success: false; error: string }
-
-// ---------------------------------------------------------------------------
 // Server Action
 // ---------------------------------------------------------------------------
 
 export async function overrideStatus(
   input: z.infer<typeof overrideStatusSchema>,
-): Promise<OverrideStatusResult> {
+): Promise<ActionResult> {
   const guard = await guardSpecialist()
   if (!guard.success) return guard
   const { session } = guard
@@ -78,7 +72,7 @@ export async function overrideStatus(
     if (label.status === newStatus) {
       return {
         success: false,
-        error: `Label is already "${newStatus.replace(/_/g, ' ')}"`,
+        error: `Label is already "${humanizeEnum(newStatus)}"`,
       }
     }
 

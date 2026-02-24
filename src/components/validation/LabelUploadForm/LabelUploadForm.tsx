@@ -2,23 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { useForm } from 'react-hook-form'
+import { FormProvider, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
-  Camera,
-  CheckCircle,
-  ChevronLeft,
-  ChevronRight,
-  ImagePlus,
-  Loader2,
-  Pencil,
-  ScanText,
-  Smartphone,
-  Sparkles,
-  Upload,
-  XCircle,
-  X,
   AlertTriangle,
+  CheckCircle,
+  ImagePlus,
+  Camera,
+  Loader2,
+  ScanText,
+  Sparkles,
+  X,
   Wine,
   Beer,
   Martini,
@@ -41,7 +35,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/Card'
-import { Checkbox } from '@/components/ui/Checkbox'
 import {
   Dialog,
   DialogContent,
@@ -49,7 +42,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog'
-import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/RadioGroup'
 import {
@@ -59,19 +51,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select'
+import { Input } from '@/components/ui/Input'
 import { Separator } from '@/components/ui/Separator'
-import { Textarea } from '@/components/ui/Textarea'
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from '@/components/ui/HoverCard'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/Tooltip'
 import {
   BEVERAGE_TYPES,
   isValidSize,
@@ -86,11 +67,7 @@ import {
 } from '@/lib/validators/label-schema'
 import { MAX_FILE_SIZE } from '@/lib/validators/file-schema'
 import { decodeImageDimensions } from '@/lib/validators/decode-image-dimensions'
-import {
-  assessImageQuality,
-  type ImageQualityResult,
-} from '@/lib/validators/image-quality'
-import { FieldLabel } from '@/components/shared/FieldLabel'
+import { assessImageQuality } from '@/lib/validators/image-quality'
 import { ProcessingProgress } from '@/components/validation/ProcessingProgress'
 import type { ImageInfo } from '@/components/validation/ImageProcessingSummary'
 import {
@@ -98,26 +75,16 @@ import {
   getStageCumulativeDelays,
 } from '@/lib/processing-stages'
 import { ApplicantImageViewer } from '@/components/validation/ApplicantImageViewer'
+import { ScanStatusTicker } from '@/components/validation/ScanAnimation'
+import { AiFieldIndicator } from '@/components/validation/AiFieldIndicator'
 import {
-  ScanAnimation,
-  ScanStatusTicker,
-  FieldShimmer,
-} from '@/components/validation/ScanAnimation'
+  ImageUploadCarousel,
+  type FileWithPreview,
+} from '@/components/validation/ImageUploadCarousel'
+import { LabelFormFields } from '@/components/validation/LabelFormFields'
 import { useExtractionStore } from '@/stores/useExtractionStore'
 import { cn } from '@/lib/utils'
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface FileWithPreview {
-  file: File
-  preview: string
-  status: 'pending' | 'uploading' | 'uploaded' | 'error'
-  url?: string
-  error?: string
-  quality?: ImageQualityResult
-}
+import { parseNetContentsToMl } from '@/lib/labels/parse-net-contents'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -153,41 +120,6 @@ const ACCEPT_MAP = {
   'image/jpeg': ['.jpg', '.jpeg'],
   'image/png': ['.png'],
   'image/webp': ['.webp'],
-}
-
-/** Parse a net contents string (e.g. "750 mL", "25.4 FL OZ", "1 L") to mL */
-function parseNetContentsToMl(text: string): number | null {
-  const cleaned = text.trim().toLowerCase()
-
-  // Try "NNN mL" or "NNN ml"
-  const mlMatch = cleaned.match(/([\d,.]+)\s*ml/)
-  if (mlMatch) {
-    const val = parseFloat(mlMatch[1].replace(',', ''))
-    return Number.isFinite(val) && val > 0 ? Math.round(val) : null
-  }
-
-  // Try "N L" or "N liter(s)"
-  const literMatch = cleaned.match(/([\d,.]+)\s*(?:l(?:iter)?s?\b)/)
-  if (literMatch) {
-    const val = parseFloat(literMatch[1].replace(',', ''))
-    return Number.isFinite(val) && val > 0 ? Math.round(val * 1000) : null
-  }
-
-  // Try "N FL OZ" or "N fl. oz."
-  const ozMatch = cleaned.match(/([\d,.]+)\s*(?:fl\.?\s*oz\.?)/)
-  if (ozMatch) {
-    const val = parseFloat(ozMatch[1].replace(',', ''))
-    return Number.isFinite(val) && val > 0 ? Math.round(val * 29.5735) : null
-  }
-
-  // Try bare number (assume mL)
-  const bareMatch = cleaned.match(/^([\d,.]+)$/)
-  if (bareMatch) {
-    const val = parseFloat(bareMatch[1].replace(',', ''))
-    return Number.isFinite(val) && val > 0 ? Math.round(val) : null
-  }
-
-  return null
 }
 
 /** Reverse mapping: snake_case extracted field -> camelCase form field */
@@ -302,15 +234,7 @@ export function LabelUploadForm({
     setProcessingStage(null)
   }
 
-  const {
-    register,
-    handleSubmit,
-    watch,
-    setValue,
-    getValues,
-    reset,
-    formState: { errors },
-  } = useForm<ValidateLabelInput>({
+  const methods = useForm<ValidateLabelInput>({
     resolver: zodResolver(validateLabelSchema),
     defaultValues: {
       beverageType: undefined,
@@ -335,13 +259,20 @@ export function LabelUploadForm({
     },
   })
 
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    getValues,
+    reset,
+    formState: { errors },
+  } = methods
+
   const beverageType = watch('beverageType')
   const containerSizeMl = watch('containerSizeMl')
 
-  // -------------------------------------------------------------------------
-  // Derived state
-  // -------------------------------------------------------------------------
-
+  // Derived state for validate mode's inline product info card
   const filteredCodes = useMemo(() => {
     if (!beverageType) return []
     return getCodesByBeverageType(beverageType)
@@ -1013,68 +944,6 @@ export function LabelUploadForm({
   }
 
   // -------------------------------------------------------------------------
-  // Helper: AI pre-fill indicator
-  // -------------------------------------------------------------------------
-
-  function AiFieldIndicator({ fieldName }: { fieldName: string }) {
-    const isPreFilled = extraction.aiOriginalValues.has(fieldName)
-    const isModified = extraction.modifiedFields.has(fieldName)
-    const hasBbox =
-      showSplitPane &&
-      extraction.fields.some((f) => f.fieldName === fieldName && f.boundingBox)
-
-    if (!isPreFilled) return null
-
-    const icon = isModified ? (
-      <Pencil className="inline size-3.5" />
-    ) : (
-      <Sparkles className="inline size-3.5" />
-    )
-
-    const tooltipText = isModified
-      ? 'You edited the AI value'
-      : hasBbox
-        ? 'AI-detected — click to show on image'
-        : 'Pre-filled from label image'
-
-    return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            {hasBbox ? (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  handleFieldFocus(fieldName)
-                }}
-                className={cn(
-                  'inline-flex size-4 items-center justify-center rounded transition-colors',
-                  isModified
-                    ? 'text-muted-foreground hover:text-foreground'
-                    : 'text-indigo-500 hover:text-indigo-700 dark:hover:text-indigo-300',
-                )}
-              >
-                {icon}
-              </button>
-            ) : (
-              <span
-                className={
-                  isModified ? 'text-muted-foreground' : 'text-indigo-500'
-                }
-              >
-                {icon}
-              </span>
-            )}
-          </TooltipTrigger>
-          <TooltipContent side="top">{tooltipText}</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    )
-  }
-
-  // -------------------------------------------------------------------------
   // Helper: get uploaded image URLs for the viewer
   // -------------------------------------------------------------------------
 
@@ -1086,1104 +955,38 @@ export function LabelUploadForm({
   const allPreviewUrls = files.map((f) => f.preview)
 
   // -------------------------------------------------------------------------
-  // Shared: Dropzone component
+  // Shared props for ImageUploadCarousel
   // -------------------------------------------------------------------------
 
-  const cameraInput = isTouchDevice ? (
-    <input
-      ref={cameraInputRef}
-      type="file"
-      accept="image/jpeg,image/png,image/webp"
-      capture="environment"
-      className="hidden"
-      onChange={handleCameraCapture}
-    />
-  ) : null
-
-  const dropzone = (
-    <div
-      {...getRootProps()}
-      onClick={openFileDialog}
-      className={cn(
-        'cursor-pointer rounded-lg border-2 border-dashed p-8 text-center transition-colors',
-        mode === 'submit' && 'p-6',
-        isDragActive
-          ? 'border-primary bg-primary/5'
-          : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-accent/30',
-      )}
-    >
-      <input {...getInputProps()} />
-      {cameraInput}
-      <Upload
-        className={cn(
-          'mx-auto mb-3 text-muted-foreground',
-          mode === 'submit' ? 'size-8' : 'size-10',
-        )}
-      />
-      <p className="text-sm font-medium">
-        {isDragActive
-          ? 'Drop images here...'
-          : 'Drag and drop label images, or click to browse'}
-      </p>
-      <p className="mt-1 text-xs text-muted-foreground">
-        JPEG, PNG, or WebP up to 10 MB
-      </p>
-      {isTouchDevice ? (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            openCamera()
-          }}
-          className="mx-auto mt-3 flex items-center gap-1.5 rounded-md bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-        >
-          <Camera className="size-3.5" />
-          Take a photo
-        </button>
-      ) : (
-        origin && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              setShowQrDialog(true)
-            }}
-            className="mx-auto mt-3 flex items-center gap-1.5 rounded-md bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-          >
-            <Smartphone className="size-3.5" />
-            Take a photo with your phone
-          </button>
-        )
-      )}
-    </div>
-  )
-
-  // -------------------------------------------------------------------------
-  // Shared: Image carousel (horizontal scroll-snap for submit, grid for validate)
-  // -------------------------------------------------------------------------
-
-  const imageCarousel = files.length > 0 && (
-    <div className="relative">
-      <div
-        ref={carouselRef}
-        onScroll={updateScrollButtons}
-        className={cn(
-          mode === 'submit'
-            ? 'scrollbar-none flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2'
-            : 'grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4',
-        )}
-      >
-        {files.map((fileEntry, index) => (
-          <motion.div
-            key={`${fileEntry.file.name}-${index}`}
-            layout
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className={cn(
-              'group relative overflow-hidden rounded-xl border',
-              mode === 'submit'
-                ? 'w-[80%] shrink-0 snap-center sm:w-[calc(50%-0.5rem)] md:w-[calc(33.333%-0.75rem)]'
-                : '',
-            )}
-          >
-            {extraction.status === 'extracting' && <ScanAnimation />}
-            <Image
-              src={fileEntry.preview}
-              alt={fileEntry.file.name}
-              width={400}
-              height={mode === 'submit' ? 267 : 200}
-              className={cn(
-                'w-full object-cover',
-                mode === 'submit' ? 'aspect-[3/2]' : 'aspect-square',
-              )}
-              unoptimized
-            />
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent px-2.5 pt-5 pb-2">
-              <p className="truncate text-xs font-medium text-white">
-                {fileEntry.file.name}
-              </p>
-              <div className="flex items-center gap-1 text-xs">
-                {fileEntry.status === 'pending' && (
-                  <span className="text-white/70">Ready to upload</span>
-                )}
-                {fileEntry.status === 'uploading' && (
-                  <span className="flex items-center gap-1 text-white/70">
-                    <Loader2 className="size-3 animate-spin" />
-                    Uploading...
-                  </span>
-                )}
-                {fileEntry.status === 'uploaded' && (
-                  <span className="flex items-center gap-1 text-emerald-300">
-                    <CheckCircle className="size-3" />
-                    Uploaded
-                  </span>
-                )}
-                {fileEntry.status === 'error' && (
-                  <span className="flex items-center gap-1 text-red-300">
-                    <XCircle className="size-3" />
-                    {fileEntry.error || 'Failed'}
-                  </span>
-                )}
-              </div>
-            </div>
-            {fileEntry.quality?.level === 'warning' && (
-              <HoverCard openDelay={200} closeDelay={100}>
-                <HoverCardTrigger asChild>
-                  <div className="absolute top-1.5 left-1.5 flex size-6 cursor-help items-center justify-center rounded-full bg-amber-500/90 text-white shadow-sm">
-                    <AlertTriangle className="size-3.5" />
-                  </div>
-                </HoverCardTrigger>
-                <HoverCardContent
-                  side="bottom"
-                  align="start"
-                  className="w-64 p-3"
-                >
-                  <p className="text-[13px] leading-tight font-semibold">
-                    Image Quality Warning
-                  </p>
-                  <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                    {fileEntry.quality.issues[0]?.message ||
-                      'This image may be too small for accurate text detection.'}
-                  </p>
-                  <p className="mt-2 border-t pt-2 text-[11px] leading-relaxed text-muted-foreground/70">
-                    For best results, use images at least 500px wide with clear,
-                    legible text.
-                  </p>
-                </HoverCardContent>
-              </HoverCard>
-            )}
-            <button
-              type="button"
-              onClick={() => removeFile(index)}
-              className="hover:text-destructive-foreground absolute top-1 right-1 rounded-full bg-black/50 p-1.5 text-white/80 backdrop-blur-sm transition-colors hover:bg-destructive active:scale-95"
-              aria-label={`Remove ${fileEntry.file.name}`}
-            >
-              <X className="size-3.5" />
-            </button>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Carousel navigation arrows (submit mode only) */}
-      {mode === 'submit' && files.length > 1 && (
-        <>
-          {canScrollLeft && (
-            <button
-              type="button"
-              onClick={() => scrollCarousel('left')}
-              className="absolute top-1/2 left-0 -translate-y-1/2 rounded-full bg-background/90 p-1.5 shadow-md transition-colors hover:bg-accent"
-              aria-label="Scroll left"
-            >
-              <ChevronLeft className="size-4" />
-            </button>
-          )}
-          {canScrollRight && (
-            <button
-              type="button"
-              onClick={() => scrollCarousel('right')}
-              className="absolute top-1/2 right-0 -translate-y-1/2 rounded-full bg-background/90 p-1.5 shadow-md transition-colors hover:bg-accent"
-              aria-label="Scroll right"
-            >
-              <ChevronRight className="size-4" />
-            </button>
-          )}
-        </>
-      )}
-    </div>
-  )
-
-  // -------------------------------------------------------------------------
-  // Submit mode: Unified upload area (dropzone + carousel merged)
-  // -------------------------------------------------------------------------
-
-  const unifiedUploadArea = (
-    <div
-      {...getRootProps()}
-      className={cn(
-        'rounded-xl border-2 border-dashed transition-all',
-        isDragActive
-          ? 'scale-[1.01] border-primary bg-primary/5'
-          : files.length === 0
-            ? 'border-muted-foreground/30 hover:border-primary/50 hover:bg-accent/30'
-            : 'border-muted-foreground/25',
-        files.length === 0 && 'cursor-pointer',
-      )}
-      onClick={files.length === 0 ? openFileDialog : undefined}
-    >
-      <input {...getInputProps()} />
-      {cameraInput}
-      {files.length === 0 ? (
-        <div className="flex min-h-[34rem] flex-col gap-5 p-5">
-          {/* Ghost placeholder cards */}
-          <div className="flex flex-1 gap-3">
-            <div className="group/front flex w-full flex-1 flex-col pb-1 sm:w-1/2 md:w-1/3 md:flex-none">
-              <div className="flex min-h-44 flex-1 flex-col items-center justify-center gap-2.5 rounded-xl border-2 border-dashed border-muted-foreground/20 bg-muted/5 transition-[transform,border-color,background-color,box-shadow] duration-200 ease-out group-hover/front:-translate-y-1 group-hover/front:border-primary/40 group-hover/front:bg-primary/[0.04] group-hover/front:shadow-md">
-                <div className="flex size-10 items-center justify-center rounded-lg bg-muted/60 transition-[background-color] duration-200 ease-out group-hover/front:bg-primary/15">
-                  <ImagePlus className="size-5 text-muted-foreground/40 transition-[color] duration-200 ease-out group-hover/front:text-primary/70" />
-                </div>
-                <span className="text-xs font-medium text-muted-foreground/40 transition-[color] duration-200 ease-out group-hover/front:text-primary/70">
-                  Front label
-                </span>
-              </div>
-            </div>
-            <div className="group/back hidden flex-1 flex-col pb-1 sm:flex sm:w-1/2 md:w-1/3 md:flex-none">
-              <div className="flex min-h-44 flex-1 flex-col items-center justify-center gap-2.5 rounded-xl border-2 border-dashed border-muted-foreground/15 bg-muted/5 transition-[transform,border-color,background-color,box-shadow] duration-200 ease-out group-hover/back:-translate-y-1 group-hover/back:border-primary/40 group-hover/back:bg-primary/[0.04] group-hover/back:shadow-md">
-                <div className="flex size-10 items-center justify-center rounded-lg bg-muted/40 transition-[background-color] duration-200 ease-out group-hover/back:bg-primary/15">
-                  <ImagePlus className="size-5 text-muted-foreground/25 transition-[color] duration-200 ease-out group-hover/back:text-primary/70" />
-                </div>
-                <span className="text-xs font-medium text-muted-foreground/25 transition-[color] duration-200 ease-out group-hover/back:text-primary/70">
-                  Back label
-                </span>
-              </div>
-            </div>
-          </div>
-          {/* Upload instructions */}
-          <div className="flex flex-col items-center gap-2 text-center">
-            <p className="text-sm font-medium">
-              {isDragActive
-                ? 'Drop images here...'
-                : 'Drag and drop label images, or click to browse'}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              JPEG, PNG, or WebP up to 10 MB
-            </p>
-            {isTouchDevice ? (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  openCamera()
-                }}
-                className="mt-1 flex items-center gap-1.5 rounded-md bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-              >
-                <Camera className="size-3.5" />
-                Take a photo
-              </button>
-            ) : (
-              origin && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setShowQrDialog(true)
-                  }}
-                  className="mt-1 flex items-center gap-1.5 rounded-md bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                >
-                  <Smartphone className="size-3.5" />
-                  Take a photo with your phone
-                </button>
-              )
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="p-3">
-          <div className="relative">
-            <div
-              ref={carouselRef}
-              onScroll={updateScrollButtons}
-              className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth pb-1"
-            >
-              <AnimatePresence>
-                {files.map((fileEntry, index) => (
-                  <motion.div
-                    key={`${fileEntry.file.name}-${index}`}
-                    layout
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    className="group relative h-[31rem] w-[75%] shrink-0 snap-center overflow-hidden rounded-xl border bg-muted/20 sm:w-[calc(50%-0.375rem)] md:w-[calc(33.333%-0.5rem)]"
-                  >
-                    {extraction.status === 'extracting' && <ScanAnimation />}
-                    <Image
-                      src={fileEntry.preview}
-                      alt={fileEntry.file.name}
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent px-2.5 pt-5 pb-2">
-                      <p className="truncate text-xs font-medium text-white">
-                        {fileEntry.file.name}
-                      </p>
-                      <div className="flex items-center gap-1 text-xs">
-                        {fileEntry.status === 'pending' && (
-                          <span className="text-white/70">Ready</span>
-                        )}
-                        {fileEntry.status === 'uploading' && (
-                          <span className="flex items-center gap-1 text-white/70">
-                            <Loader2 className="size-3 animate-spin" />
-                            Uploading...
-                          </span>
-                        )}
-                        {fileEntry.status === 'uploaded' && (
-                          <span className="flex items-center gap-1 text-emerald-300">
-                            <CheckCircle className="size-3" />
-                            Uploaded
-                          </span>
-                        )}
-                        {fileEntry.status === 'error' && (
-                          <span className="flex items-center gap-1 text-red-300">
-                            <XCircle className="size-3" />
-                            {fileEntry.error || 'Failed'}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    {fileEntry.quality?.level === 'warning' && (
-                      <HoverCard openDelay={200} closeDelay={100}>
-                        <HoverCardTrigger asChild>
-                          <div className="absolute top-1.5 left-1.5 flex size-6 cursor-help items-center justify-center rounded-full bg-amber-500/90 text-white shadow-sm">
-                            <AlertTriangle className="size-3.5" />
-                          </div>
-                        </HoverCardTrigger>
-                        <HoverCardContent
-                          side="bottom"
-                          align="start"
-                          className="w-64 p-3"
-                        >
-                          <p className="text-[13px] leading-tight font-semibold">
-                            Image Quality Warning
-                          </p>
-                          <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                            {fileEntry.quality.issues[0]?.message ||
-                              'This image may be too small for accurate text detection.'}
-                          </p>
-                          <p className="mt-2 border-t pt-2 text-[11px] leading-relaxed text-muted-foreground/70">
-                            For best results, use images at least 500px wide
-                            with clear, legible text.
-                          </p>
-                        </HoverCardContent>
-                      </HoverCard>
-                    )}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        removeFile(index)
-                      }}
-                      className="hover:text-destructive-foreground absolute top-1.5 right-1.5 rounded-full bg-black/50 p-1.5 text-white/80 backdrop-blur-sm transition-colors hover:bg-destructive active:scale-95"
-                      aria-label={`Remove ${fileEntry.file.name}`}
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-
-              {/* Add more card */}
-              <div className="flex h-[31rem] w-[75%] shrink-0 snap-center flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-muted-foreground/25 bg-muted/10 sm:w-[calc(50%-0.375rem)] md:w-[calc(33.333%-0.5rem)]">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    openFileDialog()
-                  }}
-                  className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                >
-                  <Upload className="size-4" />
-                  {isTouchDevice ? 'Browse files' : 'Add more'}
-                </button>
-                {isTouchDevice ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      openCamera()
-                    }}
-                    className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                  >
-                    <Camera className="size-4" />
-                    Take a photo
-                  </button>
-                ) : (
-                  origin && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setShowQrDialog(true)
-                      }}
-                      className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                    >
-                      <Smartphone className="size-4" />
-                      Use your phone
-                    </button>
-                  )
-                )}
-              </div>
-            </div>
-
-            {/* Carousel arrows */}
-            {files.length > 1 && (
-              <>
-                {canScrollLeft && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      scrollCarousel('left')
-                    }}
-                    className="absolute top-1/2 left-1 -translate-y-1/2 rounded-full bg-background/90 p-1.5 shadow-md transition-colors hover:bg-accent"
-                    aria-label="Scroll left"
-                  >
-                    <ChevronLeft className="size-4" />
-                  </button>
-                )}
-                {canScrollRight && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      scrollCarousel('right')
-                    }}
-                    className="absolute top-1/2 right-1 -translate-y-1/2 rounded-full bg-background/90 p-1.5 shadow-md transition-colors hover:bg-accent"
-                    aria-label="Scroll right"
-                  >
-                    <ChevronRight className="size-4" />
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-
-  // -------------------------------------------------------------------------
-  // Shared: Form fields (used by both modes)
-  // -------------------------------------------------------------------------
+  const carouselProps = {
+    files,
+    mode,
+    isExtracting: extraction.status === 'extracting',
+    getRootProps,
+    getInputProps,
+    isDragActive,
+    openFileDialog,
+    carouselRef,
+    canScrollLeft,
+    canScrollRight,
+    onScroll: updateScrollButtons,
+    onScrollCarousel: scrollCarousel,
+    onRemoveFile: removeFile,
+    isTouchDevice,
+    cameraInputRef,
+    onOpenCamera: openCamera,
+    onCameraCapture: handleCameraCapture,
+    origin,
+    onShowQrDialog: () => setShowQrDialog(true),
+  } as const
 
   const formFields = (
-    <>
-      {extraction.status === 'extracting' ? (
-        <div className="space-y-6">
-          {/* Class/Type Code + Container Size skeleton */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <div className="h-4 w-28 animate-pulse rounded bg-muted/60" />
-              <FieldShimmer />
-            </div>
-            <div className="space-y-2">
-              <div className="h-4 w-36 animate-pulse rounded bg-muted/60" />
-              <FieldShimmer />
-            </div>
-          </div>
-          {/* Serial + Brand skeleton */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <div className="h-4 w-32 animate-pulse rounded bg-muted/60" />
-              <FieldShimmer />
-            </div>
-            <div className="space-y-2">
-              <div className="h-4 w-24 animate-pulse rounded bg-muted/60" />
-              <FieldShimmer />
-            </div>
-          </div>
-          {/* Fanciful + Class/Type skeleton */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <div className="h-4 w-28 animate-pulse rounded bg-muted/60" />
-              <FieldShimmer />
-            </div>
-            <div className="space-y-2">
-              <div className="h-4 w-36 animate-pulse rounded bg-muted/60" />
-              <FieldShimmer />
-            </div>
-          </div>
-          {/* Alcohol + Net Contents skeleton */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <div className="h-4 w-28 animate-pulse rounded bg-muted/60" />
-              <FieldShimmer />
-            </div>
-            <div className="space-y-2">
-              <div className="h-4 w-24 animate-pulse rounded bg-muted/60" />
-              <FieldShimmer />
-            </div>
-          </div>
-          <div className="h-px animate-pulse bg-muted/40" />
-          {/* Name/Address + Qualifying Phrase skeleton */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <div className="h-4 w-36 animate-pulse rounded bg-muted/60" />
-              <FieldShimmer className="h-20" />
-            </div>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="h-4 w-28 animate-pulse rounded bg-muted/60" />
-                <FieldShimmer />
-              </div>
-              <div className="space-y-2">
-                <div className="h-4 w-28 animate-pulse rounded bg-muted/60" />
-                <FieldShimmer />
-              </div>
-            </div>
-          </div>
-          {/* Beverage-specific section skeleton */}
-          {beverageType && (
-            <>
-              <div className="h-px animate-pulse bg-muted/40" />
-              <div className="space-y-4">
-                <div className="h-4 w-32 animate-pulse rounded bg-muted/60" />
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <div className="h-4 w-28 animate-pulse rounded bg-muted/60" />
-                    <FieldShimmer />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="h-4 w-28 animate-pulse rounded bg-muted/60" />
-                    <FieldShimmer />
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      ) : (
-        <>
-          {/* Brand Name + Serial Number — primary identifiers */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="brandName" className="flex items-center gap-1.5">
-                <FieldLabel fieldName="brand_name">
-                  Brand Name (Item 6)
-                </FieldLabel>{' '}
-                <span className="text-destructive">*</span>
-                <AiFieldIndicator fieldName="brand_name" />
-              </Label>
-              <Input
-                id="brandName"
-                placeholder="e.g., Maker's Mark"
-                className={cn(
-                  extraction.aiOriginalValues.has('brand_name') &&
-                    !extraction.modifiedFields.has('brand_name') &&
-                    'bg-indigo-50/50 dark:bg-indigo-950/20',
-                )}
-                {...register('brandName')}
-                onFocus={() => handleFieldFocus('brand_name')}
-                onChange={(e) => {
-                  register('brandName').onChange(e)
-                  handleFieldChange('brand_name')
-                }}
-                aria-invalid={!!errors.brandName}
-              />
-              {errors.brandName && (
-                <p className="text-sm text-destructive">
-                  {errors.brandName.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label
-                htmlFor="fancifulName"
-                className="flex items-center gap-1.5"
-              >
-                <FieldLabel fieldName="fanciful_name">
-                  Fanciful Name (Item 7)
-                </FieldLabel>
-                <AiFieldIndicator fieldName="fanciful_name" />
-              </Label>
-              <Input
-                id="fancifulName"
-                placeholder="Optional"
-                className={cn(
-                  extraction.aiOriginalValues.has('fanciful_name') &&
-                    !extraction.modifiedFields.has('fanciful_name') &&
-                    'bg-indigo-50/50 dark:bg-indigo-950/20',
-                )}
-                {...register('fancifulName')}
-                onFocus={() => handleFieldFocus('fanciful_name')}
-                onChange={(e) => {
-                  register('fancifulName').onChange(e)
-                  handleFieldChange('fanciful_name')
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Serial Number + Class/Type Designation */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="serialNumber">Serial Number (Item 4)</Label>
-              <Input
-                id="serialNumber"
-                placeholder="e.g., 12345678"
-                {...register('serialNumber')}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="classType" className="flex items-center gap-1.5">
-                <FieldLabel fieldName="class_type">
-                  Class/Type Designation
-                </FieldLabel>
-                <AiFieldIndicator fieldName="class_type" />
-              </Label>
-              <Input
-                id="classType"
-                placeholder="e.g., Kentucky Straight Bourbon Whisky"
-                className={cn(
-                  extraction.aiOriginalValues.has('class_type') &&
-                    !extraction.modifiedFields.has('class_type') &&
-                    'bg-indigo-50/50 dark:bg-indigo-950/20',
-                )}
-                {...register('classType')}
-                onFocus={() => handleFieldFocus('class_type')}
-                onChange={(e) => {
-                  register('classType').onChange(e)
-                  handleFieldChange('class_type')
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Class/Type Code + Total Bottle Capacity */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="classTypeCode">
-                <FieldLabel fieldName="class_type">Class/Type Code</FieldLabel>
-              </Label>
-              <Select
-                value={watch('classTypeCode') || ''}
-                onValueChange={(value) =>
-                  setValue('classTypeCode', value, { shouldValidate: true })
-                }
-                disabled={!beverageType}
-              >
-                <SelectTrigger id="classTypeCode" className="w-full">
-                  <SelectValue
-                    placeholder={
-                      beverageType
-                        ? 'Select a code'
-                        : 'Select a beverage type first'
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredCodes.map((code) => (
-                    <SelectItem key={code.code} value={code.code}>
-                      {code.code} — {code.description}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label
-                htmlFor="containerSizeMl"
-                className="flex items-center gap-1.5"
-              >
-                <FieldLabel fieldName="standards_of_fill">
-                  Total Bottle Capacity (mL)
-                </FieldLabel>
-                <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="containerSizeMl"
-                type="number"
-                min={1}
-                placeholder="e.g., 750"
-                {...register('containerSizeMl', { valueAsNumber: true })}
-              />
-              {errors.containerSizeMl && (
-                <p className="text-sm text-destructive">
-                  {errors.containerSizeMl.message}
-                </p>
-              )}
-              {standardsOfFillStatus && (
-                <p
-                  className={cn(
-                    'flex items-center gap-1.5 text-sm',
-                    standardsOfFillStatus.valid
-                      ? 'text-green-600 dark:text-green-400'
-                      : 'text-red-600 dark:text-red-400',
-                  )}
-                >
-                  {standardsOfFillStatus.valid ? (
-                    <CheckCircle className="size-4" />
-                  ) : (
-                    <AlertTriangle className="size-4" />
-                  )}
-                  {standardsOfFillStatus.message}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Alcohol Content + Net Contents */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label
-                htmlFor="alcoholContent"
-                className="flex items-center gap-1.5"
-              >
-                <FieldLabel fieldName="alcohol_content">
-                  Alcohol Content
-                </FieldLabel>
-                <AiFieldIndicator fieldName="alcohol_content" />
-              </Label>
-              <Input
-                id="alcoholContent"
-                placeholder="e.g., 45% Alc./Vol."
-                className={cn(
-                  extraction.aiOriginalValues.has('alcohol_content') &&
-                    !extraction.modifiedFields.has('alcohol_content') &&
-                    'bg-indigo-50/50 dark:bg-indigo-950/20',
-                )}
-                {...register('alcoholContent')}
-                onFocus={() => handleFieldFocus('alcohol_content')}
-                onChange={(e) => {
-                  register('alcoholContent').onChange(e)
-                  handleFieldChange('alcohol_content')
-                }}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label
-                htmlFor="netContents"
-                className="flex items-center gap-1.5"
-              >
-                <FieldLabel fieldName="net_contents">Net Contents</FieldLabel>
-                <AiFieldIndicator fieldName="net_contents" />
-              </Label>
-              <Input
-                id="netContents"
-                placeholder="e.g., 750 mL"
-                className={cn(
-                  extraction.aiOriginalValues.has('net_contents') &&
-                    !extraction.modifiedFields.has('net_contents') &&
-                    'bg-indigo-50/50 dark:bg-indigo-950/20',
-                )}
-                {...register('netContents')}
-                onFocus={() => handleFieldFocus('net_contents')}
-                onChange={(e) => {
-                  register('netContents').onChange(e)
-                  handleFieldChange('net_contents')
-                }}
-              />
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Name, Address, and Qualifying Phrase */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label
-                htmlFor="nameAndAddress"
-                className="flex items-center gap-1.5"
-              >
-                <FieldLabel fieldName="name_and_address">
-                  Name and Address (Item 8)
-                </FieldLabel>
-                <AiFieldIndicator fieldName="name_and_address" />
-              </Label>
-              <Textarea
-                id="nameAndAddress"
-                rows={3}
-                placeholder="e.g., Beam Suntory, Clermont, KY"
-                className={cn(
-                  extraction.aiOriginalValues.has('name_and_address') &&
-                    !extraction.modifiedFields.has('name_and_address') &&
-                    'bg-indigo-50/50 dark:bg-indigo-950/20',
-                )}
-                {...register('nameAndAddress')}
-                onFocus={() => handleFieldFocus('name_and_address')}
-                onChange={(e) => {
-                  register('nameAndAddress').onChange(e)
-                  handleFieldChange('name_and_address')
-                }}
-              />
-            </div>
-
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label
-                  htmlFor="qualifyingPhrase"
-                  className="flex items-center gap-1.5"
-                >
-                  <FieldLabel fieldName="qualifying_phrase">
-                    Qualifying Phrase
-                  </FieldLabel>
-                  <AiFieldIndicator fieldName="qualifying_phrase" />
-                </Label>
-                <Select
-                  value={watch('qualifyingPhrase') || ''}
-                  onValueChange={(value) => {
-                    setValue('qualifyingPhrase', value, {
-                      shouldValidate: true,
-                    })
-                    handleFieldChange('qualifying_phrase')
-                  }}
-                >
-                  <SelectTrigger
-                    id="qualifyingPhrase"
-                    className="w-full"
-                    onFocus={() => handleFieldFocus('qualifying_phrase')}
-                  >
-                    <SelectValue placeholder="Select a phrase" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {QUALIFYING_PHRASES.map((phrase) => (
-                      <SelectItem key={phrase} value={phrase}>
-                        {phrase}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label
-                  htmlFor="countryOfOrigin"
-                  className="flex items-center gap-1.5"
-                >
-                  <FieldLabel fieldName="country_of_origin">
-                    Country of Origin
-                  </FieldLabel>
-                  <AiFieldIndicator fieldName="country_of_origin" />
-                </Label>
-                <Input
-                  id="countryOfOrigin"
-                  placeholder="e.g., United States"
-                  className={cn(
-                    extraction.aiOriginalValues.has('country_of_origin') &&
-                      !extraction.modifiedFields.has('country_of_origin') &&
-                      'bg-indigo-50/50 dark:bg-indigo-950/20',
-                  )}
-                  {...register('countryOfOrigin')}
-                  onFocus={() => handleFieldFocus('country_of_origin')}
-                  onChange={(e) => {
-                    register('countryOfOrigin').onChange(e)
-                    handleFieldChange('country_of_origin')
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Health Warning Statement (validate mode only — submit auto-submits default) */}
-          {mode === 'validate' && (
-            <>
-              <Separator />
-              <div className="space-y-2">
-                <Label htmlFor="healthWarning">
-                  <FieldLabel fieldName="health_warning">
-                    Health Warning Statement
-                  </FieldLabel>
-                </Label>
-                <Textarea
-                  id="healthWarning"
-                  rows={4}
-                  className="font-mono text-xs"
-                  {...register('healthWarning')}
-                  onFocus={() => handleFieldFocus('health_warning')}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Pre-filled with the standard GOVERNMENT WARNING per 27 CFR
-                  Part 16.
-                </p>
-              </div>
-            </>
-          )}
-
-          {/* Wine-specific fields */}
-          {beverageType === 'wine' && (
-            <>
-              <Separator />
-              <div>
-                <h3 className="mb-4 font-heading text-sm font-semibold tracking-tight">
-                  Wine-Specific Fields
-                </h3>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="grapeVarietal"
-                      className="flex items-center gap-1.5"
-                    >
-                      <FieldLabel fieldName="grape_varietal">
-                        Grape Varietal (Item 10)
-                      </FieldLabel>
-                      <AiFieldIndicator fieldName="grape_varietal" />
-                    </Label>
-                    <Input
-                      id="grapeVarietal"
-                      placeholder="e.g., Cabernet Sauvignon"
-                      className={cn(
-                        extraction.aiOriginalValues.has('grape_varietal') &&
-                          !extraction.modifiedFields.has('grape_varietal') &&
-                          'bg-indigo-50/50 dark:bg-indigo-950/20',
-                      )}
-                      {...register('grapeVarietal')}
-                      onFocus={() => handleFieldFocus('grape_varietal')}
-                      onChange={(e) => {
-                        register('grapeVarietal').onChange(e)
-                        handleFieldChange('grape_varietal')
-                      }}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="appellationOfOrigin"
-                      className="flex items-center gap-1.5"
-                    >
-                      <FieldLabel fieldName="appellation_of_origin">
-                        Appellation of Origin (Item 14)
-                      </FieldLabel>
-                      <AiFieldIndicator fieldName="appellation_of_origin" />
-                    </Label>
-                    <Input
-                      id="appellationOfOrigin"
-                      placeholder="e.g., Napa Valley"
-                      className={cn(
-                        extraction.aiOriginalValues.has(
-                          'appellation_of_origin',
-                        ) &&
-                          !extraction.modifiedFields.has(
-                            'appellation_of_origin',
-                          ) &&
-                          'bg-indigo-50/50 dark:bg-indigo-950/20',
-                      )}
-                      {...register('appellationOfOrigin')}
-                      onFocus={() => handleFieldFocus('appellation_of_origin')}
-                      onChange={(e) => {
-                        register('appellationOfOrigin').onChange(e)
-                        handleFieldChange('appellation_of_origin')
-                      }}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="vintageYear"
-                      className="flex items-center gap-1.5"
-                    >
-                      <FieldLabel fieldName="vintage_year">
-                        Vintage Year (Item 15)
-                      </FieldLabel>
-                      <AiFieldIndicator fieldName="vintage_year" />
-                    </Label>
-                    <Input
-                      id="vintageYear"
-                      placeholder="e.g., 2022"
-                      className={cn(
-                        extraction.aiOriginalValues.has('vintage_year') &&
-                          !extraction.modifiedFields.has('vintage_year') &&
-                          'bg-indigo-50/50 dark:bg-indigo-950/20',
-                      )}
-                      {...register('vintageYear')}
-                      onFocus={() => handleFieldFocus('vintage_year')}
-                      onChange={(e) => {
-                        register('vintageYear').onChange(e)
-                        handleFieldChange('vintage_year')
-                      }}
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-3 pt-6">
-                    <Checkbox
-                      id="sulfiteDeclaration"
-                      checked={watch('sulfiteDeclaration') || false}
-                      onCheckedChange={(checked) =>
-                        setValue('sulfiteDeclaration', checked === true, {
-                          shouldValidate: true,
-                        })
-                      }
-                    />
-                    <Label
-                      htmlFor="sulfiteDeclaration"
-                      className="cursor-pointer"
-                    >
-                      <FieldLabel fieldName="sulfite_declaration">
-                        Contains Sulfites
-                      </FieldLabel>
-                    </Label>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Spirits-specific fields */}
-          {beverageType === 'distilled_spirits' && (
-            <>
-              <Separator />
-              <div>
-                <h3 className="mb-4 font-heading text-sm font-semibold tracking-tight">
-                  Spirits-Specific Fields
-                </h3>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="ageStatement"
-                      className="flex items-center gap-1.5"
-                    >
-                      <FieldLabel fieldName="age_statement">
-                        Age Statement
-                      </FieldLabel>
-                      <AiFieldIndicator fieldName="age_statement" />
-                    </Label>
-                    <Input
-                      id="ageStatement"
-                      placeholder="e.g., Aged 12 Years"
-                      className={cn(
-                        extraction.aiOriginalValues.has('age_statement') &&
-                          !extraction.modifiedFields.has('age_statement') &&
-                          'bg-indigo-50/50 dark:bg-indigo-950/20',
-                      )}
-                      {...register('ageStatement')}
-                      onFocus={() => handleFieldFocus('age_statement')}
-                      onChange={(e) => {
-                        register('ageStatement').onChange(e)
-                        handleFieldChange('age_statement')
-                      }}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="stateOfDistillation"
-                      className="flex items-center gap-1.5"
-                    >
-                      <FieldLabel fieldName="state_of_distillation">
-                        State of Distillation
-                      </FieldLabel>
-                      <AiFieldIndicator fieldName="state_of_distillation" />
-                    </Label>
-                    <Input
-                      id="stateOfDistillation"
-                      placeholder="e.g., Kentucky"
-                      className={cn(
-                        extraction.aiOriginalValues.has(
-                          'state_of_distillation',
-                        ) &&
-                          !extraction.modifiedFields.has(
-                            'state_of_distillation',
-                          ) &&
-                          'bg-indigo-50/50 dark:bg-indigo-950/20',
-                      )}
-                      {...register('stateOfDistillation')}
-                      onFocus={() => handleFieldFocus('state_of_distillation')}
-                      onChange={(e) => {
-                        register('stateOfDistillation').onChange(e)
-                        handleFieldChange('state_of_distillation')
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </>
-      )}
-    </>
+    <LabelFormFields
+      mode={mode}
+      showSplitPane={showSplitPane}
+      onFieldFocus={handleFieldFocus}
+      onFieldChange={handleFieldChange}
+    />
   )
 
   // -------------------------------------------------------------------------
@@ -2238,8 +1041,7 @@ export function LabelUploadForm({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {dropzone}
-            {imageCarousel}
+            <ImageUploadCarousel {...carouselProps} layout="separate" />
           </CardContent>
         </Card>
 
@@ -2259,7 +1061,11 @@ export function LabelUploadForm({
               <Label className="flex items-center gap-1.5">
                 Type of Product
                 <span className="text-destructive">*</span>
-                <AiFieldIndicator fieldName="beverage_type" />
+                <AiFieldIndicator
+                  showSplitPane={showSplitPane}
+                  onFieldFocus={handleFieldFocus}
+                  fieldName="beverage_type"
+                />
               </Label>
               <RadioGroup
                 value={beverageType}
@@ -2391,24 +1197,26 @@ export function LabelUploadForm({
     )
 
     return (
-      <form onSubmit={handleSubmit(onSubmit)}>
-        {validateFormContent}
+      <FormProvider {...methods}>
+        <form onSubmit={handleSubmit(onSubmit)}>
+          {validateFormContent}
 
-        {processingStage && (
-          <ProcessingProgress
-            stage={processingStage}
-            imageCount={files.length}
-            images={files.map(
-              (f): ImageInfo => ({
-                name: f.file.name,
-                thumbnailUrl: f.preview,
-              }),
-            )}
-            uploadingIndex={uploadingFileIndex}
-            onDismiss={handleDismiss}
-          />
-        )}
-      </form>
+          {processingStage && (
+            <ProcessingProgress
+              stage={processingStage}
+              imageCount={files.length}
+              images={files.map(
+                (f): ImageInfo => ({
+                  name: f.file.name,
+                  thumbnailUrl: f.preview,
+                }),
+              )}
+              uploadingIndex={uploadingFileIndex}
+              onDismiss={handleDismiss}
+            />
+          )}
+        </form>
+      </FormProvider>
     )
   }
 
@@ -2448,7 +1256,7 @@ export function LabelUploadForm({
                     </p>
                   </div>
 
-                  {unifiedUploadArea}
+                  <ImageUploadCarousel {...carouselProps} layout="unified" />
 
                   {/* Scan / Skip controls */}
                   {files.length > 0 && (
@@ -2726,221 +1534,232 @@ export function LabelUploadForm({
   )
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
-      {/* Hidden file inputs — always in DOM for add-photos-in-review */}
-      {showSplitPane && (
-        <div className="hidden">
-          <input {...getInputProps()} />
-          {cameraInput}
-        </div>
-      )}
+    <FormProvider {...methods}>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        {/* Hidden file inputs — always in DOM for add-photos-in-review */}
+        {showSplitPane && (
+          <div className="hidden">
+            <input {...getInputProps()} />
+            {isTouchDevice && (
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                capture="environment"
+                className="hidden"
+                onChange={handleCameraCapture}
+              />
+            )}
+          </div>
+        )}
 
-      {/* QR code dialog — desktop camera access via phone */}
-      {origin && (
-        <Dialog open={showQrDialog} onOpenChange={setShowQrDialog}>
-          <DialogContent className="sm:max-w-sm">
+        {/* QR code dialog — desktop camera access via phone */}
+        {origin && (
+          <Dialog open={showQrDialog} onOpenChange={setShowQrDialog}>
+            <DialogContent className="sm:max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Take a photo with your phone</DialogTitle>
+                <DialogDescription>
+                  Scan this QR code to open the submission page on your phone.
+                  You&apos;ll need to sign in.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex justify-center py-4">
+                <QRCodeSVG
+                  value={`${origin}/submit`}
+                  size={200}
+                  level="M"
+                  className="rounded-lg"
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* Photo review dialog — auto-opens when photos are added during review */}
+        <Dialog
+          open={photoReviewOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              // Closing without action — revert newly added photos
+              setFiles((prev) => prev.slice(0, imageCountAtLastScan))
+              setPhotoReviewOpen(false)
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Take a photo with your phone</DialogTitle>
+              <DialogTitle>
+                {files.length - imageCountAtLastScan} new photo
+                {files.length - imageCountAtLastScan !== 1 ? 's' : ''} added
+              </DialogTitle>
               <DialogDescription>
-                Scan this QR code to open the submission page on your phone.
-                You&apos;ll need to sign in.
+                Re-scan to include the new images in your verification, or add
+                more.
               </DialogDescription>
             </DialogHeader>
-            <div className="flex justify-center py-4">
-              <QRCodeSVG
-                value={`${origin}/submit`}
-                size={200}
-                level="M"
-                className="rounded-lg"
-              />
+
+            {/* All images with remove buttons */}
+            <div className="flex flex-wrap gap-2 py-2">
+              {files.map((fileEntry, index) => (
+                <div
+                  key={`review-${fileEntry.file.name}-${index}`}
+                  className="group relative size-16 shrink-0 overflow-hidden rounded-lg border bg-muted/20"
+                >
+                  <Image
+                    src={fileEntry.preview}
+                    alt={fileEntry.file.name}
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                  {index >= imageCountAtLastScan && (
+                    <span className="absolute top-0.5 left-0.5 rounded bg-primary px-1 text-[9px] font-bold text-primary-foreground">
+                      NEW
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      removeFile(index)
+                      // Close dialog if all new photos removed
+                      if (files.length - 1 <= imageCountAtLastScan) {
+                        setPhotoReviewOpen(false)
+                      }
+                    }}
+                    className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/40 group-hover:opacity-100"
+                    aria-label={`Remove ${fileEntry.file.name}`}
+                  >
+                    <X className="size-4 text-white" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setFiles((prev) => prev.slice(0, imageCountAtLastScan))
+                  setPhotoReviewOpen(false)
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setPhotoReviewOpen(false)
+                  // Keep photos, let user add more — dialog will reopen on next add
+                }}
+              >
+                <ImagePlus className="size-3.5" />
+                Add more
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  setPhotoReviewOpen(false)
+                  handleScanLabels()
+                }}
+              >
+                <ScanText className="size-3.5" />
+                Re-scan with {files.length} image
+                {files.length !== 1 ? 's' : ''}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
-      )}
 
-      {/* Photo review dialog — auto-opens when photos are added during review */}
-      <Dialog
-        open={photoReviewOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            // Closing without action — revert newly added photos
-            setFiles((prev) => prev.slice(0, imageCountAtLastScan))
-            setPhotoReviewOpen(false)
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {files.length - imageCountAtLastScan} new photo
-              {files.length - imageCountAtLastScan !== 1 ? 's' : ''} added
-            </DialogTitle>
-            <DialogDescription>
-              Re-scan to include the new images in your verification, or add
-              more.
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* All images with remove buttons */}
-          <div className="flex flex-wrap gap-2 py-2">
-            {files.map((fileEntry, index) => (
-              <div
-                key={`review-${fileEntry.file.name}-${index}`}
-                className="group relative size-16 shrink-0 overflow-hidden rounded-lg border bg-muted/20"
-              >
-                <Image
-                  src={fileEntry.preview}
-                  alt={fileEntry.file.name}
-                  fill
-                  className="object-cover"
-                  unoptimized
-                />
-                {index >= imageCountAtLastScan && (
-                  <span className="absolute top-0.5 left-0.5 rounded bg-primary px-1 text-[9px] font-bold text-primary-foreground">
-                    NEW
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    removeFile(index)
-                    // Close dialog if all new photos removed
-                    if (files.length - 1 <= imageCountAtLastScan) {
-                      setPhotoReviewOpen(false)
-                    }
-                  }}
-                  className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/40 group-hover:opacity-100"
-                  aria-label={`Remove ${fileEntry.file.name}`}
-                >
-                  <X className="size-4 text-white" />
-                </button>
-              </div>
-            ))}
-          </div>
-
-          {/* Actions */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setFiles((prev) => prev.slice(0, imageCountAtLastScan))
-                setPhotoReviewOpen(false)
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setPhotoReviewOpen(false)
-                // Keep photos, let user add more — dialog will reopen on next add
-              }}
-            >
-              <ImagePlus className="size-3.5" />
-              Add more
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => {
-                setPhotoReviewOpen(false)
-                handleScanLabels()
-              }}
-            >
-              <ScanText className="size-3.5" />
-              Re-scan with {files.length} image
-              {files.length !== 1 ? 's' : ''}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {showSplitPane ? (
-        <motion.div
-          initial={prefersReducedMotion ? false : { opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.4 }}
-          className="flex gap-6"
-        >
-          {/* Left: Sticky image viewer — always renders ApplicantImageViewer.
+        {showSplitPane ? (
+          <motion.div
+            initial={prefersReducedMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.4 }}
+            className="flex gap-6"
+          >
+            {/* Left: Sticky image viewer — always renders ApplicantImageViewer.
               During extraction: shows local previews with scan overlay via placeholder.
               After extraction: cross-fades to annotated remote images. */}
-          <div className="hidden w-[40%] shrink-0 lg:block">
-            <div className="sticky top-20 h-[calc(100dvh-12rem)]">
-              <ApplicantImageViewer
-                imageUrls={
-                  extraction.status === 'extracting'
-                    ? allPreviewUrls
-                    : uploadedImageUrls
-                }
-                fields={
-                  extraction.status === 'extracting' ? [] : extraction.fields
-                }
-                onFieldClick={
-                  extraction.status === 'extracting'
-                    ? undefined
-                    : handleBboxClick
-                }
-                placeholderUrls={
-                  extraction.status === 'extracting'
-                    ? allPreviewUrls
-                    : localPreviewUrls
-                }
-                isScanning={extraction.status === 'extracting'}
-                action={
-                  extraction.status === 'success' ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={openFileDialog}
-                    >
-                      <ImagePlus className="size-3.5" />
-                      Add photos
-                    </Button>
-                  ) : undefined
-                }
-              />
+            <div className="hidden w-[40%] shrink-0 lg:block">
+              <div className="sticky top-20 h-[calc(100dvh-12rem)]">
+                <ApplicantImageViewer
+                  imageUrls={
+                    extraction.status === 'extracting'
+                      ? allPreviewUrls
+                      : uploadedImageUrls
+                  }
+                  fields={
+                    extraction.status === 'extracting' ? [] : extraction.fields
+                  }
+                  onFieldClick={
+                    extraction.status === 'extracting'
+                      ? undefined
+                      : handleBboxClick
+                  }
+                  placeholderUrls={
+                    extraction.status === 'extracting'
+                      ? allPreviewUrls
+                      : localPreviewUrls
+                  }
+                  isScanning={extraction.status === 'extracting'}
+                  action={
+                    extraction.status === 'success' ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={openFileDialog}
+                      >
+                        <ImagePlus className="size-3.5" />
+                        Add photos
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Right: Scrollable form (slides in from right) */}
-          <motion.div
-            initial={prefersReducedMotion ? false : { opacity: 0, x: 40 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{
-              duration: 0.4,
-              delay: 0.1,
-              ease: [0.25, 0.46, 0.45, 0.94],
-            }}
-            className="min-w-0 flex-1"
-          >
-            {submitFormContent}
+            {/* Right: Scrollable form (slides in from right) */}
+            <motion.div
+              initial={prefersReducedMotion ? false : { opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{
+                duration: 0.4,
+                delay: 0.1,
+                ease: [0.25, 0.46, 0.45, 0.94],
+              }}
+              className="min-w-0 flex-1"
+            >
+              {submitFormContent}
+            </motion.div>
           </motion.div>
-        </motion.div>
-      ) : (
-        submitFormContent
-      )}
+        ) : (
+          submitFormContent
+        )}
 
-      {/* Multi-stage processing progress overlay */}
-      {processingStage && (
-        <ProcessingProgress
-          stage={processingStage}
-          imageCount={files.length}
-          images={files.map(
-            (f): ImageInfo => ({
-              name: f.file.name,
-              thumbnailUrl: f.preview,
-            }),
-          )}
-          uploadingIndex={uploadingFileIndex}
-          onDismiss={handleDismiss}
-        />
-      )}
-    </form>
+        {/* Multi-stage processing progress overlay */}
+        {processingStage && (
+          <ProcessingProgress
+            stage={processingStage}
+            imageCount={files.length}
+            images={files.map(
+              (f): ImageInfo => ({
+                name: f.file.name,
+                thumbnailUrl: f.preview,
+              }),
+            )}
+            uploadingIndex={uploadingFileIndex}
+            onDismiss={handleDismiss}
+          />
+        )}
+      </form>
+    </FormProvider>
   )
 }

@@ -8,32 +8,12 @@ import {
   getLabelImages,
 } from '@/db/queries/labels'
 import { getCurrentValidationResult } from '@/db/queries/validation'
-import { updateImageTypes, updateLabelStatus } from '@/db/mutations/labels'
-import {
-  insertValidationResult,
-  insertValidationItems,
-  supersedeValidationResult,
-} from '@/db/mutations/validation'
-import { type NewValidationItem } from '@/db/schema'
-import { extractLabelFieldsForSubmission } from '@/lib/ai/extract-label'
-import { compareField } from '@/lib/ai/compare-fields'
+import { updateLabelStatus } from '@/db/mutations/labels'
+import { supersedeValidationResult } from '@/db/mutations/validation'
 import { guardSpecialist } from '@/lib/auth/action-guards'
-import {
-  addDays,
-  buildExpectedFields,
-  determineOverallStatus,
-  MINOR_DISCREPANCY_FIELDS,
-  type ValidationItemStatus,
-} from '@/lib/labels/validation-helpers'
-import { getAutoApprovalEnabled } from '@/db/queries/settings'
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-type ReanalyzeLabelResult =
-  | { success: true; labelId: string }
-  | { success: false; error: string }
+import { addDays, buildExpectedFields } from '@/lib/labels/validation-helpers'
+import { runValidationPipeline } from '@/lib/actions/validation-pipeline'
+import type { ActionResult } from '@/lib/actions/result-types'
 
 // ---------------------------------------------------------------------------
 // Server Action
@@ -41,7 +21,7 @@ type ReanalyzeLabelResult =
 
 export async function reanalyzeLabel(
   labelId: string,
-): Promise<ReanalyzeLabelResult> {
+): Promise<ActionResult<{ labelId: string }>> {
   // 1. Auth check — specialist only
   const guard = await guardSpecialist()
   if (!guard.success) return guard
@@ -79,149 +59,31 @@ export async function reanalyzeLabel(
 
     const imageUrls = images.map((img) => img.imageUrl)
 
-    // 6. Build expected fields
+    // 6. Run shared AI validation pipeline
     const expectedFields = buildExpectedFields(appData, label.beverageType)
-
-    // 7. Run AI pipeline (outside transaction — external API call)
-    const appDataForAI = Object.fromEntries(expectedFields)
-    const extraction = await extractLabelFieldsForSubmission(
-      imageUrls,
-      label.beverageType,
-      appDataForAI,
-    )
-
-    // 7b. Update image types from AI classification
-    if (extraction.imageClassifications.length > 0) {
-      const imageTypeUpdates = extraction.imageClassifications
-        .filter((ic) => images[ic.imageIndex] && ic.confidence >= 60)
-        .map((ic) => ({
-          id: images[ic.imageIndex].id,
-          imageType: ic.imageType,
-        }))
-      if (imageTypeUpdates.length > 0) {
-        await updateImageTypes(imageTypeUpdates)
-      }
-    }
-
-    // 8. Compare each extracted field against application data
-    const fieldComparisons: Array<{
-      fieldName: string
-      expectedValue: string
-      extractedValue: string
-      status: ValidationItemStatus
-      confidence: number
-      reasoning: string
-      boundingBox: {
-        x: number
-        y: number
-        width: number
-        height: number
-        angle: number
-      } | null
-      imageIndex: number
-    }> = []
-
-    const extractedByName = new Map(
-      extraction.fields.map((f) => [f.fieldName, f]),
-    )
-
-    for (const [fieldName, expectedValue] of expectedFields) {
-      const extracted = extractedByName.get(fieldName)
-      const extractedValue = extracted?.value ?? null
-
-      const comparison = compareField(fieldName, expectedValue, extractedValue)
-
-      let itemStatus: ValidationItemStatus = comparison.status
-      if (
-        comparison.status === 'mismatch' &&
-        MINOR_DISCREPANCY_FIELDS.has(fieldName)
-      ) {
-        itemStatus = 'needs_correction'
-      }
-
-      fieldComparisons.push({
-        fieldName,
-        expectedValue,
-        extractedValue: extractedValue ?? '',
-        status: itemStatus,
-        confidence: comparison.confidence,
-        reasoning: comparison.reasoning,
-        boundingBox: extracted?.boundingBox ?? null,
-        imageIndex: extracted?.imageIndex ?? 0,
-      })
-    }
-
-    // 9. Create new result, supersede old, insert items, update label
-    // (No transaction — neon-http driver doesn't support them)
-    const currentResult = await getCurrentValidationResult(labelId)
-
-    const newResult = await insertValidationResult({
+    const result = await runValidationPipeline({
       labelId,
-      aiRawResponse: extraction.rawResponse,
-      processingTimeMs: extraction.processingTimeMs,
-      modelUsed: extraction.modelUsed,
-      inputTokens: extraction.metrics.inputTokens,
-      outputTokens: extraction.metrics.outputTokens,
-      totalTokens: extraction.metrics.totalTokens,
-      isCurrent: true,
+      imageUrls,
+      imageRecordIds: images.map((img) => img.id),
+      beverageType: label.beverageType,
+      containerSizeMl: label.containerSizeMl,
+      expectedFields,
     })
 
+    // 7. Supersede old validation result
+    const currentResult = await getCurrentValidationResult(labelId)
     if (currentResult) {
-      await supersedeValidationResult(currentResult.id, newResult.id)
-    }
-
-    if (fieldComparisons.length > 0) {
-      await insertValidationItems(
-        fieldComparisons.map((comp) => {
-          const labelImageId =
-            images[comp.imageIndex]?.id ?? images[0]?.id ?? null
-
-          return {
-            validationResultId: newResult.id,
-            labelImageId,
-            fieldName: comp.fieldName as NewValidationItem['fieldName'],
-            expectedValue: comp.expectedValue,
-            extractedValue: comp.extractedValue,
-            status: comp.status,
-            confidence: String(comp.confidence),
-            matchReasoning: comp.reasoning,
-            bboxX: comp.boundingBox ? String(comp.boundingBox.x) : null,
-            bboxY: comp.boundingBox ? String(comp.boundingBox.y) : null,
-            bboxWidth: comp.boundingBox ? String(comp.boundingBox.width) : null,
-            bboxHeight: comp.boundingBox
-              ? String(comp.boundingBox.height)
-              : null,
-            bboxAngle: comp.boundingBox ? String(comp.boundingBox.angle) : null,
-          }
-        }),
+      await supersedeValidationResult(
+        currentResult.id,
+        result.validationResultId,
       )
     }
 
-    const itemStatuses = fieldComparisons.map((comp) => ({
-      fieldName: comp.fieldName,
-      status: comp.status,
-    }))
-
-    const { status: overallStatus, deadlineDays } = determineOverallStatus(
-      itemStatuses,
-      label.beverageType,
-      label.containerSizeMl,
-    )
-
-    const confidences = fieldComparisons.map((c) => c.confidence)
-    const overallConfidence =
-      confidences.length > 0
-        ? Math.round(
-            confidences.reduce((sum, c) => sum + c, 0) / confidences.length,
-          )
-        : 0
-
-    const autoApprovalEnabled = await getAutoApprovalEnabled()
-
-    if (autoApprovalEnabled && overallStatus === 'approved') {
+    // 8. Update label with final status (includes deadline computation)
+    if (result.autoApproved) {
       await updateLabelStatus(labelId, {
         status: 'approved',
-        overallConfidence: String(overallConfidence),
+        overallConfidence: String(result.overallConfidence),
         aiProposedStatus: null,
         correctionDeadline: null,
         deadlineExpired: false,
@@ -229,10 +91,10 @@ export async function reanalyzeLabel(
     } else {
       await updateLabelStatus(labelId, {
         status: 'pending_review',
-        aiProposedStatus: overallStatus,
-        overallConfidence: String(overallConfidence),
-        correctionDeadline: deadlineDays
-          ? addDays(new Date(), deadlineDays)
+        aiProposedStatus: result.overallStatus,
+        overallConfidence: String(result.overallConfidence),
+        correctionDeadline: result.deadlineDays
+          ? addDays(new Date(), result.deadlineDays)
           : null,
         deadlineExpired: false,
       })

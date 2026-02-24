@@ -13,8 +13,14 @@ import {
 } from 'lucide-react'
 import { motion, useReducedMotion } from 'motion/react'
 
+import { STATUS_CONFIG } from '@/config/status-config'
+import {
+  staggerInitial,
+  staggerInitialCompact,
+  staggerTransitionSafe,
+} from '@/lib/motion-presets'
 import type { TimelineEvent } from '@/lib/timeline/types'
-import { cn } from '@/lib/utils'
+import { cn, formatDateTimeFull, formatTimeAgoShort } from '@/lib/utils'
 import {
   HoverCard,
   HoverCardContent,
@@ -33,78 +39,24 @@ const ICON_MAP: Record<string, typeof Mail> = {
   deadline_warning: Clock,
 }
 
+/** Amber class overrides for the deadline_warning event type. */
+const DEADLINE_WARNING_ICON_CLASS =
+  'bg-amber-100 text-amber-600 dark:bg-amber-900 dark:text-amber-400'
+const DEADLINE_WARNING_PULSE_CLASS = 'bg-amber-400'
+
 function getIconColor(event: TimelineEvent): string {
-  if (event.type === 'deadline_warning') {
-    return 'bg-amber-100 text-amber-600 dark:bg-amber-900 dark:text-amber-400'
-  }
-  switch (event.status) {
-    case 'approved':
-      return 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900 dark:text-emerald-400'
-    case 'conditionally_approved':
-      return 'bg-amber-100 text-amber-600 dark:bg-amber-900 dark:text-amber-400'
-    case 'needs_correction':
-      return 'bg-orange-100 text-orange-600 dark:bg-orange-900 dark:text-orange-400'
-    case 'rejected':
-      return 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-400'
-    case 'pending_review':
-      return 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900 dark:text-indigo-400'
-    case 'processing':
-      return 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-400'
-    default:
-      return 'bg-muted text-muted-foreground'
-  }
+  if (event.type === 'deadline_warning') return DEADLINE_WARNING_ICON_CLASS
+  return (
+    STATUS_CONFIG[event.status ?? '']?.iconClassName ??
+    'bg-muted text-muted-foreground'
+  )
 }
 
 function getPulseColor(event: TimelineEvent): string {
-  if (event.type === 'deadline_warning') return 'bg-amber-400'
-  switch (event.status) {
-    case 'approved':
-      return 'bg-emerald-400'
-    case 'conditionally_approved':
-      return 'bg-amber-400'
-    case 'needs_correction':
-      return 'bg-orange-400'
-    case 'rejected':
-      return 'bg-red-400'
-    case 'pending_review':
-      return 'bg-indigo-400'
-    case 'processing':
-      return 'bg-blue-400'
-    default:
-      return 'bg-muted-foreground'
-  }
-}
-
-function formatShortTime(date: Date): string {
-  const now = new Date()
-  const diffMs = Math.abs(date.getTime() - now.getTime())
-  const isFuture = date.getTime() > now.getTime()
-
-  if (diffMs < 60_000) return 'just now'
-
-  const minutes = Math.floor(diffMs / 60_000)
-  if (minutes < 60) return isFuture ? `in ${minutes}m` : `${minutes}m ago`
-
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return isFuture ? `in ${hours}h` : `${hours}h ago`
-
-  const days = Math.floor(hours / 24)
-  if (days < 30) return isFuture ? `in ${days}d` : `${days}d ago`
-
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  })
-}
-
-function formatFullTime(date: Date): string {
-  return date.toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
+  if (event.type === 'deadline_warning') return DEADLINE_WARNING_PULSE_CLASS
+  return (
+    STATUS_CONFIG[event.status ?? '']?.pulseClassName ?? 'bg-muted-foreground'
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -117,7 +69,7 @@ function EventHoverContent({ event }: { event: TimelineEvent }) {
       <p className="font-medium">{event.title}</p>
       <p className="text-muted-foreground">{event.description}</p>
       <div className="flex items-center gap-2 text-xs text-muted-foreground/70">
-        <time>{formatFullTime(event.timestamp)}</time>
+        <time>{formatDateTimeFull(event.timestamp)}</time>
         {event.actorName && (
           <>
             <span>·</span>
@@ -183,18 +135,9 @@ function DesktopStep({
             'group flex flex-col items-center gap-1.5 focus-visible:outline-none',
             isFuture && 'opacity-50',
           )}
-          initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
+          initial={staggerInitial(shouldReduceMotion)}
           animate={{ opacity: isFuture ? 0.5 : 1, y: 0 }}
-          transition={
-            shouldReduceMotion
-              ? { duration: 0 }
-              : {
-                  type: 'tween',
-                  duration: 0.35,
-                  delay: index * 0.06,
-                  ease: [0.25, 0.46, 0.45, 0.94],
-                }
-          }
+          transition={staggerTransitionSafe(shouldReduceMotion, index)}
         >
           <div className="relative">
             {/* Pulse ring on last (current) event */}
@@ -230,7 +173,7 @@ function DesktopStep({
           <div className="flex flex-col items-center gap-0.5">
             <span className="text-xs font-semibold">{event.title}</span>
             <span className="max-w-28 text-center text-[11px] leading-tight text-muted-foreground">
-              {formatShortTime(event.timestamp)}
+              {formatTimeAgoShort(event.timestamp)}
             </span>
           </div>
         </motion.button>
@@ -268,18 +211,12 @@ function MobileStep({
             'group flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
             isFuture && 'opacity-50',
           )}
-          initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
+          initial={staggerInitialCompact(shouldReduceMotion)}
           animate={{ opacity: isFuture ? 0.5 : 1, y: 0 }}
-          transition={
-            shouldReduceMotion
-              ? { duration: 0 }
-              : {
-                  type: 'tween',
-                  duration: 0.3,
-                  delay: index * 0.05,
-                  ease: [0.25, 0.46, 0.45, 0.94],
-                }
-          }
+          transition={staggerTransitionSafe(shouldReduceMotion, index, {
+            duration: 0.3,
+            delay: 0.05,
+          })}
         >
           <div className="relative shrink-0">
             {isLast && !isFuture && !shouldReduceMotion && (

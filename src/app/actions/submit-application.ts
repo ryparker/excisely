@@ -8,30 +8,15 @@ import {
   insertLabel,
   insertApplicationData,
   insertLabelImages,
-  updateImageTypes,
   updateLabelStatus,
 } from '@/db/mutations/labels'
-import {
-  insertValidationResult,
-  insertValidationItems,
-} from '@/db/mutations/validation'
-import { type NewValidationItem } from '@/db/schema'
-import {
-  extractLabelFieldsForSubmission,
-  PipelineTimeoutError,
-} from '@/lib/ai/extract-label'
-import { compareField } from '@/lib/ai/compare-fields'
+import { PipelineTimeoutError } from '@/lib/ai/extract-label'
 import { guardApplicant } from '@/lib/auth/action-guards'
 import { formatZodError } from '@/lib/actions/parse-zod-error'
 import { parseImageUrls } from '@/lib/actions/parse-image-urls'
 import { validateLabelSchema } from '@/lib/validators/label-schema'
-import {
-  buildExpectedFields,
-  determineOverallStatus,
-  MINOR_DISCREPANCY_FIELDS,
-  type ValidationItemStatus,
-} from '@/lib/labels/validation-helpers'
-import { getAutoApprovalEnabled } from '@/db/queries/settings'
+import { buildExpectedFields } from '@/lib/labels/validation-helpers'
+import { runValidationPipeline } from '@/lib/actions/validation-pipeline'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -142,219 +127,44 @@ export async function submitApplication(
       })),
     )
 
-    // 8. Build expected fields from application data (needed for AI pipeline + comparison)
+    // 8. Build applicant corrections transform for rawResponse
+    const rawResponseTransform = buildApplicantCorrectionsTransform(
+      formData,
+      input,
+    )
+
+    // 9. Run shared AI validation pipeline
     const expectedFields = buildExpectedFields(input, input.beverageType)
-
-    // 9. Run AI pipeline with application data for disambiguation
-    const appDataForAI = Object.fromEntries(expectedFields)
-    const extraction = await extractLabelFieldsForSubmission(
-      imageUrls,
-      input.beverageType,
-      appDataForAI,
-    )
-
-    // 9b. Update image types from AI classification
-    if (extraction.imageClassifications.length > 0) {
-      const imageTypeUpdates = extraction.imageClassifications
-        .filter((ic) => imageRecords[ic.imageIndex] && ic.confidence >= 60)
-        .map((ic) => ({
-          id: imageRecords[ic.imageIndex].id,
-          imageType: ic.imageType,
-        }))
-      if (imageTypeUpdates.length > 0) {
-        await updateImageTypes(imageTypeUpdates)
-      }
-    }
-
-    // 10. Compare each extracted field against application data
-    const fieldComparisons: Array<{
-      fieldName: string
-      expectedValue: string
-      extractedValue: string
-      status: ValidationItemStatus
-      confidence: number
-      reasoning: string
-      boundingBox: {
-        x: number
-        y: number
-        width: number
-        height: number
-      } | null
-      imageIndex: number
-    }> = []
-
-    const extractedByName = new Map(
-      extraction.fields.map((f) => [f.fieldName, f]),
-    )
-
-    for (const [fieldName, expectedValue] of expectedFields) {
-      const extracted = extractedByName.get(fieldName)
-      const extractedValue = extracted?.value ?? null
-
-      const comparison = compareField(fieldName, expectedValue, extractedValue)
-
-      let itemStatus: ValidationItemStatus = comparison.status
-      if (
-        comparison.status === 'mismatch' &&
-        MINOR_DISCREPANCY_FIELDS.has(fieldName)
-      ) {
-        itemStatus = 'needs_correction'
-      }
-
-      fieldComparisons.push({
-        fieldName,
-        expectedValue,
-        extractedValue: extractedValue ?? '',
-        status: itemStatus,
-        confidence: comparison.confidence,
-        reasoning: comparison.reasoning,
-        boundingBox: extracted?.boundingBox ?? null,
-        imageIndex: extracted?.imageIndex ?? 0,
-      })
-    }
-
-    // 10b. Compute correction delta from applicant's AI extraction edits
-    let aiRawResponseWithCorrections = extraction.rawResponse as Record<
-      string,
-      unknown
-    >
-    const aiExtractedFieldsRaw = formData.get('aiExtractedFields')
-    if (aiExtractedFieldsRaw && typeof aiExtractedFieldsRaw === 'string') {
-      try {
-        const aiExtractedFields: Record<string, string> =
-          JSON.parse(aiExtractedFieldsRaw)
-        const applicantCorrections: Array<{
-          fieldName: string
-          aiExtractedValue: string
-          applicantSubmittedValue: string
-        }> = []
-
-        const camelToSnake: Record<string, string> = {
-          brandName: 'brand_name',
-          fancifulName: 'fanciful_name',
-          classType: 'class_type',
-          alcoholContent: 'alcohol_content',
-          netContents: 'net_contents',
-          nameAndAddress: 'name_and_address',
-          qualifyingPhrase: 'qualifying_phrase',
-          countryOfOrigin: 'country_of_origin',
-          grapeVarietal: 'grape_varietal',
-          appellationOfOrigin: 'appellation_of_origin',
-          vintageYear: 'vintage_year',
-          ageStatement: 'age_statement',
-          stateOfDistillation: 'state_of_distillation',
-        }
-
-        for (const [camelKey, snakeKey] of Object.entries(camelToSnake)) {
-          const aiValue = aiExtractedFields[snakeKey]
-          if (!aiValue) continue
-          const submittedValue =
-            (input[camelKey as keyof typeof input] as string) ?? ''
-          if (submittedValue && submittedValue.trim() !== aiValue.trim()) {
-            applicantCorrections.push({
-              fieldName: snakeKey,
-              aiExtractedValue: aiValue,
-              applicantSubmittedValue: submittedValue.trim(),
-            })
-          }
-        }
-
-        if (applicantCorrections.length > 0) {
-          aiRawResponseWithCorrections = {
-            ...aiRawResponseWithCorrections,
-            applicantCorrections,
-          }
-        }
-      } catch {
-        // Invalid JSON — skip correction delta
-      }
-    }
-
-    // 11. Create validation result record
-    const validationResult = await insertValidationResult({
+    const result = await runValidationPipeline({
       labelId: label.id,
-      aiRawResponse: aiRawResponseWithCorrections,
-      processingTimeMs: extraction.processingTimeMs,
-      modelUsed: extraction.modelUsed,
-      inputTokens: extraction.metrics.inputTokens,
-      outputTokens: extraction.metrics.outputTokens,
-      totalTokens: extraction.metrics.totalTokens,
-      isCurrent: true,
+      imageUrls,
+      imageRecordIds: imageRecords.map((r) => r.id),
+      beverageType: input.beverageType,
+      containerSizeMl: input.containerSizeMl,
+      expectedFields,
+      rawResponseTransform,
     })
 
-    // 12. Create validation item records
-    if (fieldComparisons.length > 0) {
-      await insertValidationItems(
-        fieldComparisons.map((comp) => {
-          const labelImageId =
-            imageRecords[comp.imageIndex]?.id ?? imageRecords[0]?.id ?? null
-
-          return {
-            validationResultId: validationResult.id,
-            labelImageId: labelImageId,
-            fieldName: comp.fieldName as NewValidationItem['fieldName'],
-            expectedValue: comp.expectedValue,
-            extractedValue: comp.extractedValue,
-            status: comp.status,
-            confidence: String(comp.confidence),
-            matchReasoning: comp.reasoning,
-            bboxX: comp.boundingBox ? String(comp.boundingBox.x) : null,
-            bboxY: comp.boundingBox ? String(comp.boundingBox.y) : null,
-            bboxWidth: comp.boundingBox ? String(comp.boundingBox.width) : null,
-            bboxHeight: comp.boundingBox
-              ? String(comp.boundingBox.height)
-              : null,
-          }
-        }),
-      )
-    }
-
-    // 13. Determine overall status
-    const itemStatuses = fieldComparisons.map((comp) => ({
-      fieldName: comp.fieldName,
-      status: comp.status,
-    }))
-
-    const { status: overallStatus } = determineOverallStatus(
-      itemStatuses,
-      input.beverageType,
-      input.containerSizeMl,
-    )
-
-    // 14. Calculate overall confidence
-    const confidences = fieldComparisons.map((c) => c.confidence)
-    const overallConfidence =
-      confidences.length > 0
-        ? Math.round(
-            confidences.reduce((sum, c) => sum + c, 0) / confidences.length,
-          )
-        : 0
-
-    // 15. Update label with final status and confidence
-    // Only auto-approve when the setting is enabled; otherwise route all labels through specialist review
-    const autoApprovalEnabled = await getAutoApprovalEnabled()
-
-    if (autoApprovalEnabled && overallStatus === 'approved') {
+    // 10. Update label with final status
+    if (result.autoApproved) {
       await updateLabelStatus(label.id, {
         status: 'approved',
-        overallConfidence: String(overallConfidence),
+        overallConfidence: String(result.overallConfidence),
       })
     } else {
       await updateLabelStatus(label.id, {
         status: 'pending_review',
-        aiProposedStatus: overallStatus,
-        overallConfidence: String(overallConfidence),
+        aiProposedStatus: result.overallStatus,
+        overallConfidence: String(result.overallConfidence),
       })
     }
 
-    const finalStatus =
-      autoApprovalEnabled && overallStatus === 'approved'
-        ? ('approved' as const)
-        : ('pending_review' as const)
+    const finalStatus = result.autoApproved
+      ? ('approved' as const)
+      : ('pending_review' as const)
 
     updateTag('labels')
     updateTag('sla-metrics')
-    // PRODUCTION: after(() => { notifyApplicant(label.id); trackAnalytics('label_submitted') })
 
     return { success: true, labelId: label.id, status: finalStatus }
   } catch (error) {
@@ -386,4 +196,71 @@ export async function submitApplication(
       error: 'An unexpected error occurred during submission',
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a rawResponse transform that appends applicant correction deltas.
+ * Returns undefined if no corrections were made.
+ */
+function buildApplicantCorrectionsTransform(
+  formData: FormData,
+  input: Record<string, unknown>,
+): ((raw: unknown) => unknown) | undefined {
+  const aiExtractedFieldsRaw = formData.get('aiExtractedFields')
+  if (!aiExtractedFieldsRaw || typeof aiExtractedFieldsRaw !== 'string') {
+    return undefined
+  }
+
+  let aiExtractedFields: Record<string, string>
+  try {
+    aiExtractedFields = JSON.parse(aiExtractedFieldsRaw)
+  } catch {
+    return undefined
+  }
+
+  const camelToSnake: Record<string, string> = {
+    brandName: 'brand_name',
+    fancifulName: 'fanciful_name',
+    classType: 'class_type',
+    alcoholContent: 'alcohol_content',
+    netContents: 'net_contents',
+    nameAndAddress: 'name_and_address',
+    qualifyingPhrase: 'qualifying_phrase',
+    countryOfOrigin: 'country_of_origin',
+    grapeVarietal: 'grape_varietal',
+    appellationOfOrigin: 'appellation_of_origin',
+    vintageYear: 'vintage_year',
+    ageStatement: 'age_statement',
+    stateOfDistillation: 'state_of_distillation',
+  }
+
+  const applicantCorrections: Array<{
+    fieldName: string
+    aiExtractedValue: string
+    applicantSubmittedValue: string
+  }> = []
+
+  for (const [camelKey, snakeKey] of Object.entries(camelToSnake)) {
+    const aiValue = aiExtractedFields[snakeKey]
+    if (!aiValue) continue
+    const submittedValue = (input[camelKey] as string) ?? ''
+    if (submittedValue && submittedValue.trim() !== aiValue.trim()) {
+      applicantCorrections.push({
+        fieldName: snakeKey,
+        aiExtractedValue: aiValue,
+        applicantSubmittedValue: submittedValue.trim(),
+      })
+    }
+  }
+
+  if (applicantCorrections.length === 0) return undefined
+
+  return (raw: unknown) => ({
+    ...(raw as Record<string, unknown>),
+    applicantCorrections,
+  })
 }

@@ -94,6 +94,11 @@ export function formatNumber(n: number): string {
   return n.toLocaleString()
 }
 
+/** Convert a snake_case enum key to a human-readable string, e.g. "needs_correction" → "needs correction". */
+export function humanizeEnum(key: string): string {
+  return key.replace(/_/g, ' ')
+}
+
 /** Format a review date: "Jan 1" (same year) or "Jan 1, 2025" (different year). */
 export function formatReviewDate(date: Date): string {
   const now = new Date()
@@ -103,4 +108,41 @@ export function formatReviewDate(date: Date): string {
     day: 'numeric',
     ...(sameYear ? {} : { year: 'numeric' }),
   }).format(date)
+}
+
+/**
+ * Compact relative time: "3m ago", "2h ago", "5d ago", or "Jan 1" for older dates.
+ * Handles future dates with "in" prefix.
+ */
+export function formatTimeAgoShort(date: Date): string {
+  const now = new Date()
+  const diffMs = Math.abs(date.getTime() - now.getTime())
+  const isFuture = date.getTime() > now.getTime()
+
+  if (diffMs < 60_000) return 'just now'
+
+  const minutes = Math.floor(diffMs / 60_000)
+  if (minutes < 60) return isFuture ? `in ${minutes}m` : `${minutes}m ago`
+
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return isFuture ? `in ${hours}h` : `${hours}h ago`
+
+  const days = Math.floor(hours / 24)
+  if (days < 30) return isFuture ? `in ${days}d` : `${days}d ago`
+
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
+/** Full datetime: "Jan 1, 2026, 3:45 PM". */
+export function formatDateTimeFull(date: Date): string {
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
 }
