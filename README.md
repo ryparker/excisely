@@ -1,4 +1,4 @@
-# Excisely
+# <img src="src/app/icon.svg" width="28" height="28" alt="Excisely icon" /> Excisely
 
 **Label verification, precisely.**
 
