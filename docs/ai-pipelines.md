@@ -535,4 +535,4 @@ The 5-second usability threshold demanded a non-reasoning model. gpt-5-mini (rea
 
 **Why local bounding box matching?**
 
-When the model doesn't receive images, it can't return word indices (it doesn't know the word positions). Rather than asking the model to guess indices from the word list, we match extracted values against OCR words locally using CPU fuzzy matching. This is both faster (~1ms vs additional LLM tokens) and more reliable (deterministic matching vs probabilistic index prediction).
+When the model doesn't receive images, it can't return word indices (it doesn't know the word positions). Rather than asking the model to guess indices from the word list, the system matches extracted values against OCR words locally using CPU fuzzy matching. This is both faster (~1ms vs additional LLM tokens) and more reliable (deterministic matching vs probabilistic index prediction).

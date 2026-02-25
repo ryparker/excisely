@@ -131,6 +131,12 @@ Labels with "Needs Correction" get a 30-day deadline. Labels with "Conditionally
 
 ![Deadline enforcement](docs/screenshots/specialist/needs-correction-table.png)
 
+### 7. Regulation Tooltips
+
+Hover over any field label in the form or review page to see a tooltip with the relevant CFR citation. Click through to a built-in regulations reference page with plain-English summaries of each TTB requirement, with links to the official eCFR text. Both Applicants and Specialists can quickly verify why a field matters without leaving the app.
+
+![Regulation tooltips](docs/screenshots/specialist/regulation-tooltip-links.gif)
+
 ---
 
 ## Architecture at a Glance

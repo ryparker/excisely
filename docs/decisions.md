@@ -2,7 +2,7 @@
 
 A living record of the major engineering decisions, pivots, and trade-offs behind this project. Decisions are documented as they happen — newer entries appear at the top of each section. When a decision is revised, the original stays with a note explaining what changed and why.
 
-The goal is to show iterative, thoughtful engineering judgment — not just what we built, but how our thinking evolved.
+The goal is to show iterative, thoughtful engineering judgment — not just what I built, but how my thinking evolved.
 
 ---
 
@@ -14,7 +14,7 @@ The goal is to show iterative, thoughtful engineering judgment — not just what
 
 **What changed:** The `local-pipeline` branch attempted to eliminate all outbound API calls by replacing Cloud Vision with Tesseract.js v7 (WASM OCR) and replacing OpenAI classification with an 8-tier rule-based matching waterfall (`ruleClassify()` — fuzzy text search with Dice coefficient, ampersand normalization, punctuation stripping, token overlap scoring, regex patterns, and dictionary lookups). Despite significant engineering effort, the local pipeline consistently produced garbled OCR output: "BOUREON" for BOURBON, "LONSVILLE" for Louisville, "00m" for "100 mL", and similar errors across every test label.
 
-**Why we reverted:** Cloud Vision produces dramatically better OCR text — it handles embossed, curved, and low-contrast label text that Tesseract.js simply cannot. GPT-4.1 understands context to match fields even with minor OCR imperfections (e.g., inferring "bourbon whiskey" from partially garbled text). The user's strength is building excellent products that integrate AI services — compensating for poor OCR with increasingly complex matching heuristics was not the right use of time for a take-home assignment.
+**Why I reverted:** Cloud Vision produces dramatically better OCR text — it handles embossed, curved, and low-contrast label text that Tesseract.js simply cannot. GPT-4.1 understands context to match fields even with minor OCR imperfections (e.g., inferring "bourbon whiskey" from partially garbled text). My strength is building excellent products that integrate AI services — compensating for poor OCR with increasingly complex matching heuristics was not the right use of time for a take-home assignment.
 
 **Alternatives considered:**
 
@@ -69,7 +69,7 @@ The Tesseract.js + rule-based code is preserved on the `local-pipeline` branch f
 - **`cacheComponents: true`** — Next.js 16's full Partial Prerendering mode. Tried this first but it requires ALL dynamic data access to be inside `<Suspense>` boundaries, which is incompatible with auth-gated layouts that check session cookies at the top level. Would have required a massive refactoring of every route. Replaced with `experimental: { useCache: true }` which enables the `use cache` directive without the strict Suspense enforcement.
 - **`useLinkStatus`** from `next/navigation` for nav loading indicators — does not exist in Next.js 16.1.6. Dropped entirely.
 - **`useActionState`** — Current `useTransition` + React Hook Form pattern works well. `useActionState` requires a `(prevState, formData)` signature that doesn't pair cleanly with RHF's `handleSubmit`. Not worth the refactor.
-- **Custom `cacheLife` profiles** — Built-in profiles (`'seconds'`, `'minutes'`, `'hours'`) map cleanly to our three data categories. Custom profiles would be premature optimization.
+- **Custom `cacheLife` profiles** — Built-in profiles (`'seconds'`, `'minutes'`, `'hours'`) map cleanly to our three data categories. Custom profiles would be premature optimization for this prototype.
 - **Full PPR per-route** — Would require removing `force-dynamic` from all pages and adding fine-grained Suspense everywhere. Settings + SLA + labels caching captures most of the value.
 - **AI pipeline caching** — Extraction results are per-label with unique images. The database is the cache — once a label is processed, results are stored in `validation_items` and never recomputed (unless explicitly re-analyzed).
 
@@ -96,7 +96,7 @@ The Tesseract.js + rule-based code is preserved on the `local-pipeline` branch f
 - **Link out only** — zero maintenance, always authoritative, but users lose context when jumping to dense legal text on a government website
 - **Full in-app eCFR content** (~536KB XML) — best UX with full searchability, but over-engineered for a prototype (requires XML parsing pipeline, maintenance burden, potential licensing/compliance questions)
 
-**Reasoning:** The hybrid approach follows the existing config-file pattern (`field-tooltips.ts`, `health-warning.ts`, `beverage-types.ts`) — evaluators see architectural consistency. Curated summaries in plain English demonstrate domain understanding and show we read the CFR. eCFR deep links (`https://www.ecfr.gov/current/title-27/section-5.63`) work perfectly for authoritative full text when users want depth. No build-time API calls, no XML parsing, no external runtime dependency. The eCFR API is free with a search endpoint — we could add live search as a future enhancement.
+**Reasoning:** The hybrid approach follows the existing config-file pattern (`field-tooltips.ts`, `health-warning.ts`, `beverage-types.ts`) — evaluators see architectural consistency. Curated summaries in plain English demonstrate domain understanding and show I read the CFR. eCFR deep links (`https://www.ecfr.gov/current/title-27/section-5.63`) work perfectly for authoritative full text when users want depth. No build-time API calls, no XML parsing, no external runtime dependency. The eCFR API is free with a search endpoint — I could add live search as a future enhancement.
 
 **UX principle:** Progressive disclosure. Field tooltips show a citation badge → click takes you to the regulations page with the section anchored → "View on eCFR" links out to the full legal text. Users choose their depth of engagement at every step.
 
@@ -112,14 +112,14 @@ The Tesseract.js + rule-based code is preserved on the `local-pipeline` branch f
 
 **Reasoning:** This is a deliberate security-through-architecture decision. With traditional API routes, every endpoint is visible in the browser's Network tab — an attacker (or curious user) can see the URL patterns, request payloads, and response shapes, then replay or modify those requests outside the application. For a government regulatory tool processing COLA application data, minimizing the API surface area reduces the attack surface. Server Components fetch data entirely on the server — the client receives rendered HTML, not raw JSON. Server Actions are invoked as form submissions to a single generic Next.js endpoint with an encrypted action ID — an observer sees `POST /` with an opaque payload, not `POST /api/labels/abc123/approve`.
 
-**Trade-offs we're aware of:**
+**Trade-offs I'm aware of:**
 
 - **RSC and Server Actions are not inherently secure.** They still execute user-provided input on the server, so every Server Action validates input with Zod and checks authentication via `getSession()` before any logic runs. The abstraction reduces exposure but does not replace proper authorization.
-- **Recent vulnerabilities.** React Server Components and Server Actions have had security issues — including a 2024 Server Action encryption key exposure (CVE-2024-34351) where the action ID encryption could be bypassed. These were patched quickly by the Next.js team, but it demonstrates that this is not a "set and forget" security boundary. We'd need to stay current on Next.js security patches in production.
-- **Debugging is harder.** When the API isn't visible in the Network tab, debugging data flow requires server-side logging rather than browser DevTools inspection. This is a trade-off we accept — the convenience of visible APIs benefits attackers more than it benefits our team, and server-side observability (structured logging, error tracking) is a better practice for production anyway.
+- **Recent vulnerabilities.** React Server Components and Server Actions have had security issues — including a 2024 Server Action encryption key exposure (CVE-2024-34351) where the action ID encryption could be bypassed. These were patched quickly by the Next.js team, but it demonstrates that this is not a "set and forget" security boundary. You'd need to stay current on Next.js security patches in production.
+- **Debugging is harder.** When the API isn't visible in the Network tab, debugging data flow requires server-side logging rather than browser DevTools inspection. This is a trade-off I accept — the convenience of visible APIs benefits attackers more than it benefits the development team, and server-side observability (structured logging, error tracking) is a better practice for production anyway.
 - **Not a substitute for defense in depth.** Even though API routes aren't exposed, every Server Action still implements: (1) session validation, (2) role-based authorization, (3) Zod input validation, and (4) parameterized queries via Drizzle. If the RSC/Server Action layer were compromised, these inner defenses still apply.
 
-The bottom line: hiding the API surface from casual observation is a meaningful security layer for a government tool, but we treat it as one layer in a defense-in-depth strategy — not the only layer.
+The bottom line: hiding the API surface from casual observation is a meaningful security layer for a government tool, but I treat it as one layer in a defense-in-depth strategy — not the only layer.
 
 ### Specialist Bulk Approval Queue _(Feb 23, 2026)_
 
@@ -185,7 +185,7 @@ The bottom line: hiding the API surface from casual observation is a meaningful 
 
 The breakthrough insight: the AI runs twice but serves two different purposes. The first pass is **transcription** -- help the applicant by extracting what the label says. The second pass is **verification** -- help the specialist by comparing what the applicant confirmed against what the AI independently reads. Same pipeline, two jobs. The first pass is collaborative (applicant fixes AI errors), the second pass is adversarial (AI flags discrepancies the applicant might have missed or introduced).
 
-What we explicitly chose NOT to show applicants: confidence scores, match results, system thresholds. The principle is straightforward -- show them what the AI sees, not what the AI thinks. Applicants see extracted text values and correct them. They never see "87% confidence" or "partial match" because that information is for specialist decision-making, not applicant data entry. Leaking internal scoring to applicants would create anxiety ("why is my label only 87%?") and potential gaming ("if I adjust this field the confidence goes up").
+What I explicitly chose NOT to show applicants: confidence scores, match results, system thresholds. The principle is straightforward -- show them what the AI sees, not what the AI thinks. Applicants see extracted text values and correct them. They never see "87% confidence" or "partial match" because that information is for specialist decision-making, not applicant data entry. Leaking internal scoring to applicants would create anxiety ("why is my label only 87%?") and potential gaming ("if I adjust this field the confidence goes up").
 
 ### Hybrid AI Pipeline: Google Cloud Vision + GPT-5 Mini _(Feb 21, 2026)_
 
@@ -225,7 +225,7 @@ What we explicitly chose NOT to show applicants: confidence scores, match result
 - Raw SQL with `pg` driver
 - Kysely (query builder)
 
-**Reasoning:** Drizzle is SQL-first and lightweight -- ideal for a prototype where we want the full power of SQL without the overhead of Prisma's client generation and migration engine. `$inferSelect`/`$inferInsert` derive TypeScript types directly from the schema, and `drizzle-orm/zod` auto-generates Zod validation schemas. This makes `schema.ts` the single source of truth for database structure, TypeScript types, and runtime validation -- zero manual type maintenance. Neon's serverless driver means no connection pooling headaches on Vercel.
+**Reasoning:** Drizzle is SQL-first and lightweight -- ideal for a prototype where I want the full power of SQL without the overhead of Prisma's client generation and migration engine. `$inferSelect`/`$inferInsert` derive TypeScript types directly from the schema, and `drizzle-orm/zod` auto-generates Zod validation schemas. This makes `schema.ts` the single source of truth for database structure, TypeScript types, and runtime validation -- zero manual type maintenance. Neon's serverless driver means no connection pooling headaches on Vercel.
 
 ### Nano IDs over UUIDs _(Feb 21, 2026)_
 
@@ -249,7 +249,7 @@ What we explicitly chose NOT to show applicants: confidence scores, match result
 - Clerk (SaaS vendor lock-in, overkill for prototype)
 - Roll-our-own JWT auth
 
-**Reasoning:** Better Auth is simpler to configure, self-hosted (no vendor dependency), and integrates directly with Drizzle ORM. For a prototype with 6 pre-provisioned test accounts and two roles (specialist/applicant), we need reliable session management without the configuration overhead of NextAuth or the cost/lock-in of Clerk. Sessions use 30-day expiry with 1-day refresh, and every server action validates the session before executing.
+**Reasoning:** Better Auth is simpler to configure, self-hosted (no vendor dependency), and integrates directly with Drizzle ORM. For a prototype with 6 pre-provisioned test accounts and two roles (specialist/applicant), I need reliable session management without the configuration overhead of NextAuth or the cost/lock-in of Clerk. Sessions use 30-day expiry with 1-day refresh, and every server action validates the session before executing.
 
 ### Vercel AI SDK (Not Raw OpenAI SDK) _(Feb 21, 2026)_
 
@@ -271,7 +271,7 @@ What we explicitly chose NOT to show applicants: confidence scores, match result
 - Vercel AI Gateway
 - Portkey, Helicone, or similar AI proxy
 
-**Reasoning:** We use exactly two AI providers (Cloud Vision for OCR, OpenAI for classification) with no fallback routing, A/B testing, or multi-provider load balancing. An AI gateway would add latency to every request for zero benefit. Usage tracking is handled by the AI SDK's built-in `usage` response field. If this were production with multiple models and providers, a gateway would make sense.
+**Reasoning:** The app uses exactly two AI providers (Cloud Vision for OCR, OpenAI for classification) with no fallback routing, A/B testing, or multi-provider load balancing. An AI gateway would add latency to every request for zero benefit. Usage tracking is handled by the AI SDK's built-in `usage` response field. If this were production with multiple models and providers, a gateway would make sense.
 
 ### React Hook Form over Formik / Native Forms _(Feb 21, 2026)_
 
@@ -295,7 +295,7 @@ What we explicitly chose NOT to show applicants: confidence scores, match result
 - Database triggers
 - Background job queue (BullMQ, Inngest)
 
-**Reasoning:** On Vercel serverless, cron jobs are limited to specific intervals and add infrastructure complexity. Our approach is simpler and always accurate: when any code path reads a label's status, `getEffectiveStatus()` checks if the correction deadline has passed and returns the effective status (e.g., `needs_correction` with an expired 30-day deadline becomes `rejected`). A fire-and-forget DB update persists the transition so the database eventually converges. There is no window where a user sees stale data -- the status is computed fresh on every read. The only trade-off is that the `status` column in the database may be temporarily stale between page loads, but this has no user-visible impact.
+**Reasoning:** On Vercel serverless, cron jobs are limited to specific intervals and add infrastructure complexity. My approach is simpler and always accurate: when any code path reads a label's status, `getEffectiveStatus()` checks if the correction deadline has passed and returns the effective status (e.g., `needs_correction` with an expired 30-day deadline becomes `rejected`). A fire-and-forget DB update persists the transition so the database eventually converges. There is no window where a user sees stale data -- the status is computed fresh on every read. The only trade-off is that the `status` column in the database may be temporarily stale between page loads, but this has no user-visible impact.
 
 ### Client-Side Blob Uploads _(Feb 21, 2026)_
 
@@ -349,7 +349,7 @@ What we explicitly chose NOT to show applicants: confidence scores, match result
 
 ## 2. Scope Decisions
 
-### What We Built (MVP -- Phases 1-3)
+### What I Built (MVP -- Phases 1-3)
 
 The MVP delivers a complete, end-to-end label verification workflow:
 
@@ -363,7 +363,7 @@ The MVP delivers a complete, end-to-end label verification workflow:
 - **Correspondence Timeline** -- Simulated email audit trail showing auto-generated notifications (approval, correction, rejection) with full email previews (from/to/subject/body, field discrepancy tables)
 - **Keyboard shortcuts** -- Queue processing shortcuts (A/R/C/J/K/N/P) for high-throughput review
 
-### What We Also Built (Stretch -- Phases 4-7)
+### What I Also Built (Stretch -- Phases 4-7)
 
 Originally scoped as stretch goals, these features were implemented to demonstrate the full workflow:
 
@@ -377,7 +377,7 @@ Originally scoped as stretch goals, these features were implemented to demonstra
 | **Specialist batch approval queue**              | Dashboard splits pending labels into "Ready to Approve" (batch-approvable) and "Needs Review" (manual attention) tabs  |
 | **AI-powered form pre-fill**                     | Front-loads extraction to the applicant -- AI pre-fills form fields, applicant confirms/corrects before submission     |
 
-### What We Explicitly Excluded
+### What I Explicitly Excluded
 
 | Feature                         | Reasoning                                                                                                                                                                                                                                            |
 | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
