@@ -2,20 +2,19 @@ import { getSLAStatus, worstSLAStatus } from '@/lib/sla/status'
 
 describe('getSLAStatus', () => {
   describe('lowerIsBetter (default)', () => {
-    it('returns green when actual <= target', () => {
-      expect(getSLAStatus(10, 10)).toBe('green')
+    it('returns green when actual <= 80% of target', () => {
+      expect(getSLAStatus(5, 10)).toBe('green')
       expect(getSLAStatus(8, 10)).toBe('green')
     })
 
-    it('returns amber when actual is within 20% above target', () => {
-      // target=10, 20% above = 12. actual=11 is within amber zone
-      expect(getSLAStatus(11, 10)).toBe('amber')
-      expect(getSLAStatus(12, 10)).toBe('amber')
+    it('returns amber when actual is between 80% and 100% of target', () => {
+      // target=10, 80% = 8. actual=9 is approaching
+      expect(getSLAStatus(9, 10)).toBe('amber')
+      expect(getSLAStatus(10, 10)).toBe('amber')
     })
 
-    it('returns red when actual exceeds 20% above target', () => {
-      // target=10, 20% above = 12. actual=13 is red
-      expect(getSLAStatus(13, 10)).toBe('red')
+    it('returns red when actual exceeds target', () => {
+      expect(getSLAStatus(11, 10)).toBe('red')
       expect(getSLAStatus(100, 10)).toBe('red')
     })
   })

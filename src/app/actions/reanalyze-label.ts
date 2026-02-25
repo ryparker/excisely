@@ -35,11 +35,20 @@ export async function reanalyzeLabel(
   }
 
   if (label.status === 'processing') {
-    return { success: false, error: 'Label is already being processed' }
+    // If stuck in processing for >5 min, the previous pipeline likely crashed.
+    // Allow re-processing so labels don't get permanently stuck.
+    const STALE_PROCESSING_MS = 5 * 60 * 1000
+    const age = Date.now() - label.updatedAt.getTime()
+    if (age < STALE_PROCESSING_MS) {
+      return { success: false, error: 'Label is already being processed' }
+    }
   }
 
-  // 3. Save original status for error recovery
-  const originalStatus = label.status
+  // 3. Save original status for error recovery.
+  //    For stale processing labels we don't know the pre-crash status,
+  //    so fall back to 'pending_review' which keeps it in the specialist queue.
+  const originalStatus =
+    label.status === 'processing' ? 'pending_review' : label.status
 
   try {
     // 4. Set label to processing (optimistic lock)

@@ -86,13 +86,43 @@ describe('getEffectiveStatus', () => {
     expect(result).toBe('pending')
   })
 
-  it('passes through processing status unchanged', () => {
+  it('passes through processing status unchanged (no updatedAt)', () => {
     const result = getEffectiveStatus({
       status: 'processing',
       correctionDeadline: null,
       deadlineExpired: false,
     })
     expect(result).toBe('processing')
+  })
+
+  it('passes through processing status when recently updated', () => {
+    const result = getEffectiveStatus({
+      status: 'processing',
+      correctionDeadline: null,
+      deadlineExpired: false,
+      updatedAt: new Date(Date.now() - 60 * 1000), // 1 minute ago
+    })
+    expect(result).toBe('processing')
+  })
+
+  it('returns pending_review for stale processing (>5 min)', () => {
+    const result = getEffectiveStatus({
+      status: 'processing',
+      correctionDeadline: null,
+      deadlineExpired: false,
+      updatedAt: new Date(Date.now() - 10 * 60 * 1000), // 10 minutes ago
+    })
+    expect(result).toBe('pending_review')
+  })
+
+  it('returns pending_review for stale processing at exactly 5 min boundary', () => {
+    const result = getEffectiveStatus({
+      status: 'processing',
+      correctionDeadline: null,
+      deadlineExpired: false,
+      updatedAt: new Date(Date.now() - 5 * 60 * 1000 - 1), // just past 5 min
+    })
+    expect(result).toBe('pending_review')
   })
 })
 

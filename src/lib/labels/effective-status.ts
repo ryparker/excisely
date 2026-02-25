@@ -11,14 +11,21 @@ interface LabelForStatus {
   status: LabelStatus
   correctionDeadline: Date | null
   deadlineExpired: boolean
+  /** When provided, enables stale processing detection (>5 min → pending_review). */
+  updatedAt?: Date
 }
+
+/** Labels stuck in 'processing' longer than this are treated as crashed pipelines. */
+const STALE_PROCESSING_MS = 5 * 60 * 1000
 
 /**
  * Computes the effective status of a label by checking whether its correction
- * deadline has passed. This implements "lazy deadline expiration" — no cron job
- * needed. Call this whenever displaying a label's status and fire-and-forget
- * a DB update if the effective status differs from the stored status.
+ * deadline has passed or whether a processing pipeline has gone stale.
+ * This implements "lazy status recovery" — no cron job needed. Call this
+ * whenever displaying a label's status and fire-and-forget a DB update
+ * if the effective status differs from the stored status.
  *
+ * - `processing` + stuck >5 min (with `updatedAt`) -> `pending_review`
  * - `needs_correction` + deadline passed -> `rejected`
  * - `conditionally_approved` + deadline passed -> `needs_correction`
  * - All other statuses pass through unchanged
@@ -26,6 +33,15 @@ interface LabelForStatus {
 export function getEffectiveStatus(label: LabelForStatus): LabelStatus {
   const status = label.status
   const now = new Date()
+
+  // Stale processing recovery: if the pipeline crashed or timed out,
+  // surface the label as pending_review so it's actionable again.
+  if (status === 'processing' && label.updatedAt) {
+    const age = now.getTime() - label.updatedAt.getTime()
+    if (age > STALE_PROCESSING_MS) {
+      return 'pending_review'
+    }
+  }
 
   if (!label.correctionDeadline) {
     return status

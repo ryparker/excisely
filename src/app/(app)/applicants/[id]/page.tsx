@@ -94,6 +94,7 @@ export default async function ApplicantDetailPage({
       status: row.status,
       correctionDeadline: row.correctionDeadline,
       deadlineExpired: row.deadlineExpired,
+      updatedAt: row.updatedAt,
     }),
   }))
 
@@ -129,6 +130,7 @@ export default async function ApplicantDetailPage({
           status: row.status,
           correctionDeadline: row.correctionDeadline,
           deadlineExpired: row.deadlineExpired,
+          updatedAt: row.updatedAt,
         }),
       }))
     : labelsWithStatus

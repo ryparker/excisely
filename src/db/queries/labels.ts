@@ -345,6 +345,7 @@ export async function getFilteredLabels(opts: FilteredLabelsOptions = {}) {
     beverageType: labels.beverageType,
     correctionDeadline: labels.correctionDeadline,
     deadlineExpired: labels.deadlineExpired,
+    updatedAt: labels.updatedAt,
     createdAt: labels.createdAt,
     brandName: applicationData.brandName,
     flaggedCount: flaggedCountSql,
@@ -454,6 +455,7 @@ export async function getApplicantDetailLabels(
       overallConfidence: labels.overallConfidence,
       correctionDeadline: labels.correctionDeadline,
       deadlineExpired: labels.deadlineExpired,
+      updatedAt: labels.updatedAt,
       createdAt: labels.createdAt,
       brandName: applicationData.brandName,
     })

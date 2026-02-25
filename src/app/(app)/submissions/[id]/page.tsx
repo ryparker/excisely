@@ -259,6 +259,7 @@ export default async function SubmissionDetailPage({
     status: label.status,
     correctionDeadline: label.correctionDeadline,
     deadlineExpired: label.deadlineExpired,
+    updatedAt: label.updatedAt,
   })
 
   const brandName = appData?.brandName ?? 'Untitled Label'

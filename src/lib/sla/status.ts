@@ -10,8 +10,8 @@ export function getSLAStatus(
   lowerIsBetter = true,
 ): SLAStatus {
   if (lowerIsBetter) {
-    if (actual <= target) return 'green'
-    if (actual <= target * 1.2) return 'amber'
+    if (actual <= target * 0.8) return 'green'
+    if (actual <= target) return 'amber'
     return 'red'
   }
   // Higher is better (e.g., auto-approval rate)
@@ -47,7 +47,7 @@ export const STATUS_DOT_COLORS: Record<SLAStatus, string> = {
 export const STATUS_LABELS: Record<SLAStatus, string> = {
   green: 'On target',
   amber: 'Approaching limit',
-  red: 'Exceeding target',
+  red: 'Over limit',
 }
 
 /** Return the worst status across multiple SLA statuses. */

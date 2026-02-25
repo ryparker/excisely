@@ -150,7 +150,7 @@ async function LabelContentSection({
   return (
     <ReanalysisGuard
       labelId={label.id}
-      labelStatus={label.status}
+      labelStatus={effectiveStatus}
       processingContent={
         <div className="space-y-5">
           <AutoRefresh intervalMs={3_000} />
@@ -340,6 +340,7 @@ export default async function LabelDetailPage({
     status: label.status,
     correctionDeadline: label.correctionDeadline,
     deadlineExpired: label.deadlineExpired,
+    updatedAt: label.updatedAt,
   })
 
   const isReviewable = REVIEWABLE_STATUSES.has(effectiveStatus)

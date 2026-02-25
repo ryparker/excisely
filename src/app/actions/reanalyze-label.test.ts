@@ -164,10 +164,14 @@ describe('reanalyzeLabel', () => {
     expect(result).toEqual({ success: false, error: 'Label not found' })
   })
 
-  it('returns error when label is already processing', async () => {
+  it('returns error when label is actively processing (<5 min)', async () => {
     mockSpecialist()
     mocks.getLabelById.mockResolvedValue(
-      createLabel({ id: 'lbl_test', status: 'processing' }),
+      createLabel({
+        id: 'lbl_test',
+        status: 'processing',
+        updatedAt: new Date(), // just now
+      }),
     )
 
     const result = await reanalyzeLabel('lbl_test')
@@ -175,6 +179,24 @@ describe('reanalyzeLabel', () => {
       success: false,
       error: 'Label is already being processed',
     })
+  })
+
+  it('allows re-processing when label is stale processing (>5 min)', async () => {
+    mockSpecialist()
+    const staleDate = new Date(Date.now() - 10 * 60 * 1000) // 10 min ago
+    const label = createLabel({
+      id: 'lbl_test',
+      status: 'processing',
+      updatedAt: staleDate,
+    })
+    const appData = createApplicationData({ labelId: 'lbl_test' })
+
+    mocks.getLabelById.mockResolvedValue(label)
+    mocks.getLabelAppData.mockResolvedValue(appData)
+    mocks.getLabelImages.mockResolvedValue([labelImage])
+
+    const result = await reanalyzeLabel('lbl_test')
+    expect(result).toEqual({ success: true, labelId: 'lbl_test' })
   })
 
   // -------------------------------------------------------------------------

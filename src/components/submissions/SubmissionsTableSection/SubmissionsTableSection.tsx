@@ -83,6 +83,7 @@ export async function SubmissionsTableSection({
         status: r.status,
         correctionDeadline: r.correctionDeadline,
         deadlineExpired: r.deadlineExpired,
+        updatedAt: r.updatedAt,
       }),
     }
   })
