@@ -58,7 +58,7 @@ The specialist never waits for AI processing. The applicant gets instant feedbac
 5. Override any field if the AI got it wrong, add reviewer notes
 6. **Approve or reject** the label — your decision is final
 
-<!-- TODO: Screenshot — specialist review page with annotated image and field comparison side by side -->
+![Specialist review page](docs/screenshots/specialist/review.png)
 
 ---
 
