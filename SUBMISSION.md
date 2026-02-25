@@ -18,8 +18,6 @@ Here's how it works:
 
 The specialist never waits for AI processing. The applicant gets instant feedback. Everyone wins.
 
-<!-- TODO: Screenshot — split view showing applicant submit page (left) and specialist review page (right) -->
-
 | Applicant                                                       | Specialist                                                                 |
 | --------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | ![Applicant submit page](docs/screenshots/applicant/upload.gif) | ![Specialist review page](docs/screenshots/specialist/review-approval.gif) |
@@ -152,6 +150,8 @@ Specialist reviews and makes final decision
 ```
 
 **Speed:** ~5-9 seconds end-to-end (varies by number of images).
+
+**A note on cloud APIs:** We recognize that a production TTB system may need to run on-premises or within a restricted network where external API calls aren't permitted. We built a fully local pipeline (Tesseract.js OCR + rule-based classification, zero outbound calls) as well — it's preserved on the `local-pipeline` branch. For this prototype, we chose the cloud pipeline to demonstrate the quality achievable with current models. As self-hosted models continue to improve, the same architecture would work with locally-hosted inference.
 
 ### Cost at Scale
 
