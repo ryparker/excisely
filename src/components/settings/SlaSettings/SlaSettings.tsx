@@ -120,29 +120,6 @@ export function SLASettings({ defaults }: SLASettingsProps) {
             </p>
           </div>
 
-          {/* Auto-Approval Rate Target */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="auto-approval-rate" className="text-sm">
-                Auto-Approval Rate Target
-              </Label>
-              <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-sm tabular-nums">
-                {values.autoApprovalRateTarget}%
-              </span>
-            </div>
-            <Slider
-              id="auto-approval-rate"
-              value={[values.autoApprovalRateTarget]}
-              min={0}
-              max={100}
-              step={1}
-              onValueChange={([v]) => handleChange('autoApprovalRateTarget', v)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Target percentage of labels auto-approved by AI.
-            </p>
-          </div>
-
           {/* Max Queue Depth */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">

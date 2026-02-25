@@ -30,7 +30,6 @@ import {
   TableBody,
   TableCaption,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/Table'
@@ -92,29 +91,47 @@ export function AIErrorsTable({
         </TableCaption>
         <TableHeader>
           <TableRow className="bg-muted/50 hover:bg-muted/50">
-            <ColumnHeader sortKey="reviewedAt" defaultSort="desc">
+            <ColumnHeader
+              sortKey="reviewedAt"
+              defaultSort="desc"
+              description="Date the labeling specialist reviewed this field."
+            >
               Date
             </ColumnHeader>
-            <ColumnHeader sortKey="brandName">Label</ColumnHeader>
+            <ColumnHeader
+              sortKey="brandName"
+              description="Brand name of the label where the AI disagreement occurred."
+            >
+              Label
+            </ColumnHeader>
             <ColumnHeader
               sortKey="fieldName"
               filterKey="field"
               filterOptions={FIELD_FILTER_OPTIONS}
+              description="The specific Form 5100.31 field the AI misclassified."
             >
               Field
             </ColumnHeader>
-            <ColumnHeader filterKey="type" filterOptions={ERROR_TYPE_OPTIONS}>
+            <ColumnHeader
+              filterKey="type"
+              filterOptions={ERROR_TYPE_OPTIONS}
+              description="How the AI classification changed after specialist review."
+            >
               AI → Specialist
             </ColumnHeader>
-            <ColumnHeader sortKey="confidence" className="text-right">
+            <ColumnHeader
+              sortKey="confidence"
+              className="text-right"
+              description="AI confidence score for the original classification."
+            >
               Confidence
             </ColumnHeader>
-            <TableHead className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+            <ColumnHeader description="Labeling specialist who reviewed and corrected this field.">
               Specialist
-            </TableHead>
-            <TableHead className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+            </ColumnHeader>
+            <ColumnHeader description="Specialist's notes explaining why the AI classification was overridden.">
               Notes
-            </TableHead>
+            </ColumnHeader>
           </TableRow>
         </TableHeader>
         <TableBody>

@@ -19,8 +19,8 @@ function formatDuration(hours: number | null): {
 
 export function SLACardsSkeleton() {
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      {Array.from({ length: 4 }).map((_, i) => (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {Array.from({ length: 3 }).map((_, i) => (
         <div
           key={i}
           className="space-y-3 rounded-xl border bg-card p-5 shadow-sm"
@@ -84,23 +84,6 @@ export async function DashboardSLACards() {
           : 'green',
     },
     {
-      icon: 'Zap',
-      label: 'Approval Rate',
-      description:
-        'Percentage of labels approved automatically by AI without specialist review. Higher is better.',
-      value: slaMetrics.autoApprovalRate,
-      target: slaTargets.autoApprovalRateTarget,
-      unit: '%',
-      status:
-        slaMetrics.autoApprovalRate !== null
-          ? getSLAStatus(
-              slaMetrics.autoApprovalRate,
-              slaTargets.autoApprovalRateTarget,
-              false,
-            )
-          : 'green',
-    },
-    {
       icon: 'Inbox',
       label: 'Queue Depth',
       description:
@@ -113,7 +96,7 @@ export async function DashboardSLACards() {
   ]
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {slaCards.map((metric, i) => (
         <SLAMetricCard key={metric.label} {...metric} index={i} />
       ))}

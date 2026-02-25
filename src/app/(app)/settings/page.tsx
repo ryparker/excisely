@@ -4,23 +4,15 @@ import { Suspense } from 'react'
 
 import {
   getApprovalThreshold,
-  getAutoApprovalEnabled,
   getSettings,
   getSLATargets,
 } from '@/db/queries/settings'
-import {
-  getAvgConfidence,
-  getAvgConfidenceNonAutoApproved,
-  getFieldMatchRates,
-  getFieldOverrideRates,
-} from '@/db/queries/stats'
+import { getFieldMatchRates, getFieldOverrideRates } from '@/db/queries/stats'
 import { requireSpecialist } from '@/lib/auth/require-role'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageShell } from '@/components/layout/PageShell'
 import { Section } from '@/components/shared/Section'
 import { ApprovalThreshold } from '@/components/settings/ApprovalThreshold'
-import { AutoApprovalToggle } from '@/components/settings/AutoApprovalToggle'
-import { ConfidenceThreshold } from '@/components/settings/ConfidenceThreshold'
 import { FieldStrictness } from '@/components/settings/FieldStrictness'
 import { SLASettings } from '@/components/settings/SlaSettings'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -35,36 +27,6 @@ export const metadata: Metadata = {
 
 function SettingsSkeleton({ height = 'h-[200px]' }: { height?: string }) {
   return <Skeleton className={`${height} rounded-xl`} />
-}
-
-// ---------------------------------------------------------------------------
-// Async section: Confidence Threshold
-// ---------------------------------------------------------------------------
-
-async function ConfidenceSectionData() {
-  const [{ confidenceThreshold }, avgConfidence, avgNotAutoApproved] =
-    await Promise.all([
-      getSettings(),
-      getAvgConfidence(),
-      getAvgConfidenceNonAutoApproved(),
-    ])
-
-  return (
-    <ConfidenceThreshold
-      defaultValue={confidenceThreshold}
-      avgConfidence={avgConfidence}
-      avgNotAutoApproved={avgNotAutoApproved}
-    />
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Async section: Auto-Approval Toggle
-// ---------------------------------------------------------------------------
-
-async function AutoApprovalSectionData() {
-  const autoApprovalEnabled = await getAutoApprovalEnabled()
-  return <AutoApprovalToggle defaultValue={autoApprovalEnabled} />
 }
 
 // ---------------------------------------------------------------------------
@@ -126,19 +88,9 @@ export default async function SettingsPage() {
         title="AI Thresholds"
         description="Control how the AI pipeline scores and routes labels."
       >
-        <div className="space-y-6">
-          <Suspense fallback={<SettingsSkeleton />}>
-            <ConfidenceSectionData />
-          </Suspense>
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Suspense fallback={<SettingsSkeleton />}>
-              <AutoApprovalSectionData />
-            </Suspense>
-            <Suspense fallback={<SettingsSkeleton />}>
-              <ApprovalThresholdSectionData />
-            </Suspense>
-          </div>
-        </div>
+        <Suspense fallback={<SettingsSkeleton />}>
+          <ApprovalThresholdSectionData />
+        </Suspense>
       </Section>
 
       {/* --- Field Comparison --- */}

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useOptimistic, useState } from 'react'
+import React, { useOptimistic, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import pLimit from 'p-limit'
 
@@ -12,7 +12,13 @@ import { routes } from '@/config/routes'
 import { REASON_CODE_LABELS } from '@/config/override-reasons'
 import { BEVERAGE_OPTIONS } from '@/config/beverage-display'
 import { DeadlineDisplay } from '@/components/shared/DeadlineDisplay'
-import { confidenceColor, formatConfidence, formatDate } from '@/lib/utils'
+import {
+  confidenceColor,
+  formatConfidence,
+  formatDate,
+  formatTimeAgoShort,
+} from '@/lib/utils'
+import { type SLAStatus, STATUS_COLORS } from '@/lib/sla/status'
 import { ColumnHeader } from '@/components/shared/ColumnHeader'
 import { LabelThumbnail } from '@/components/shared/LabelThumbnail'
 import { TablePagination } from '@/components/shared/TablePagination'
@@ -20,6 +26,12 @@ import { Highlight } from '@/components/shared/Highlight'
 import { BeverageTypeCell } from '@/components/shared/BeverageTypeCell'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Badge } from '@/components/ui/Badge'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/Tooltip'
 import { Card } from '@/components/ui/Card'
 import { Checkbox } from '@/components/ui/Checkbox'
 import {
@@ -39,6 +51,67 @@ import { ConfirmReanalyzeDialog } from './ConfirmReanalyzeDialog'
 import { BulkReanalyzeDialog } from './BulkReanalyzeDialog'
 import { BatchApproveDialog } from './BatchApproveDialog'
 
+// ---------------------------------------------------------------------------
+// Age cell with SLA color-coding
+// ---------------------------------------------------------------------------
+
+function AgeDateCell({
+  createdAt,
+  slaResponseHours,
+}: {
+  createdAt: Date
+  slaResponseHours?: number
+}) {
+  // eslint-disable-next-line react-hooks/purity -- intentional: age is computed at mount time
+  const nowRef = useRef(Date.now())
+  const ageMs = nowRef.current - createdAt.getTime()
+  const ageDays = Math.floor(ageMs / 86_400_000)
+  const slaDays = slaResponseHours ? Math.round(slaResponseHours / 24) : null
+
+  // Use day-aligned thresholds so color matches the displayed "Xd ago" text
+  let status: SLAStatus = 'green'
+  if (slaDays !== null) {
+    if (ageDays > slaDays) status = 'red'
+    else if (ageDays === slaDays) status = 'amber'
+  }
+
+  const colorClass =
+    status === 'green' ? 'text-foreground' : STATUS_COLORS[status]
+  const needsTooltip = status !== 'green' && slaDays !== null
+  const pastSlaDays = slaDays !== null ? ageDays - slaDays : 0
+
+  const content = (
+    <div>
+      <span className={colorClass}>{formatTimeAgoShort(createdAt)}</span>
+      <span className="block text-xs text-muted-foreground/60">
+        {formatDate(createdAt)}
+      </span>
+    </div>
+  )
+
+  if (!needsTooltip) return content
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="cursor-default">{content}</div>
+        </TooltipTrigger>
+        <TooltipContent side="left" className="text-xs">
+          {status === 'red' ? (
+            <>
+              {pastSlaDays} {pastSlaDays === 1 ? 'day' : 'days'} past SLA (
+              {slaDays}d target)
+            </>
+          ) : (
+            <>At SLA deadline ({slaDays}d target)</>
+          )}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
 export function LabelsTable({
   labels: rows,
   userRole,
@@ -47,6 +120,7 @@ export function LabelsTable({
   pageSize,
   queueMode,
   searchTerm = '',
+  slaResponseHours,
 }: LabelsTableProps) {
   const { currentPage, onPrevious, onNext } = usePaginationState()
   const router = useRouter()
@@ -247,18 +321,32 @@ export function LabelsTable({
                   )}
                 </TableHead>
               )}
-              <TableHead className="w-[60px]">Label</TableHead>
-              <TableHead>Status</TableHead>
-              <ColumnHeader sortKey="brandName">Brand Name</ColumnHeader>
+              <ColumnHeader description="Thumbnail of the front label image.">
+                Label
+              </ColumnHeader>
+              <ColumnHeader description="Current verification status of the application.">
+                Status
+              </ColumnHeader>
+              <ColumnHeader
+                sortKey="brandName"
+                description="Brand name from the Form 5100.31 application."
+              >
+                Brand Name
+              </ColumnHeader>
               <ColumnHeader
                 sortKey="beverageType"
                 filterKey="beverageType"
                 filterOptions={BEVERAGE_OPTIONS}
+                description="Product type: wine, distilled spirits, or malt beverage."
               >
                 Beverage Type
               </ColumnHeader>
               {!isApplicant && (
-                <ColumnHeader sortKey="flaggedCount" className="text-right">
+                <ColumnHeader
+                  sortKey="flaggedCount"
+                  className="text-right"
+                  description="Number of fields where AI found a mismatch between label and application."
+                >
                   Flagged
                 </ColumnHeader>
               )}
@@ -266,22 +354,34 @@ export function LabelsTable({
                 <ColumnHeader
                   sortKey="overallConfidence"
                   className="text-right"
+                  description="AI confidence that the label matches the application data. Higher is better."
                 >
                   Confidence
                 </ColumnHeader>
               )}
               {!isApplicant && (
-                <TableHead className="text-right">Deadline</TableHead>
+                <ColumnHeader description="Correction deadline for conditionally approved or needs correction labels.">
+                  Deadline
+                </ColumnHeader>
               )}
               <ColumnHeader
                 sortKey="createdAt"
                 defaultSort="desc"
                 className="text-right"
+                description={
+                  isApplicant
+                    ? 'Date the application was submitted.'
+                    : 'How long ago the application was submitted. Color indicates SLA status.'
+                }
               >
                 {isApplicant ? 'Submitted' : 'Date'}
               </ColumnHeader>
               {isApplicant && (
-                <ColumnHeader sortKey="lastReviewedAt" className="text-right">
+                <ColumnHeader
+                  sortKey="lastReviewedAt"
+                  className="text-right"
+                  description="Date a specialist last reviewed this application."
+                >
                   Last Reviewed
                 </ColumnHeader>
               )}
@@ -379,7 +479,14 @@ export function LabelsTable({
                       </TableCell>
                     )}
                     <TableCell className="text-right text-muted-foreground tabular-nums">
-                      {formatDate(label.createdAt)}
+                      {isApplicant ? (
+                        formatDate(label.createdAt)
+                      ) : (
+                        <AgeDateCell
+                          createdAt={label.createdAt}
+                          slaResponseHours={slaResponseHours}
+                        />
+                      )}
                     </TableCell>
                     {isApplicant && (
                       <TableCell className="text-right text-muted-foreground tabular-nums">

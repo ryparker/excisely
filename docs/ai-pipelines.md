@@ -178,7 +178,7 @@ This pipeline exists for one reason: **speed**. When an applicant uploads label 
 
 **Quality trade-off:**
 
-This pipeline hardcodes confidence at 80 and provides no reasoning. That's fine — the applicant reviews and corrects every field before submitting. The submission pipeline re-classifies with gpt-5-mini for the values that actually matter to specialists.
+This pipeline hardcodes confidence at 80 and provides no reasoning. That's fine — the applicant reviews and corrects every field before submitting. The submission pipeline re-classifies with gpt-4.1 for the values that actually matter to specialists.
 
 ---
 

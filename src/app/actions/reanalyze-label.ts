@@ -81,25 +81,15 @@ export async function reanalyzeLabel(
     }
 
     // 8. Update label with final status (includes deadline computation)
-    if (result.autoApproved) {
-      await updateLabelStatus(labelId, {
-        status: 'approved',
-        overallConfidence: String(result.overallConfidence),
-        aiProposedStatus: null,
-        correctionDeadline: null,
-        deadlineExpired: false,
-      })
-    } else {
-      await updateLabelStatus(labelId, {
-        status: 'pending_review',
-        aiProposedStatus: result.overallStatus,
-        overallConfidence: String(result.overallConfidence),
-        correctionDeadline: result.deadlineDays
-          ? addDays(new Date(), result.deadlineDays)
-          : null,
-        deadlineExpired: false,
-      })
-    }
+    await updateLabelStatus(labelId, {
+      status: 'pending_review',
+      aiProposedStatus: result.overallStatus,
+      overallConfidence: String(result.overallConfidence),
+      correctionDeadline: result.deadlineDays
+        ? addDays(new Date(), result.deadlineDays)
+        : null,
+      deadlineExpired: false,
+    })
 
     updateTag('labels')
     updateTag('sla-metrics')

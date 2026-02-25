@@ -15,7 +15,7 @@ The most common flow -- an applicant submits one label for verification against 
 3. **Upload Label Image** -- Drag-and-drop or click to upload a label image (JPEG/PNG, up to 10MB). Client-side validation checks MIME type, file extension, and magic bytes before upload begins
 4. **AI Extraction (First Pass)** -- The hybrid AI pipeline runs automatically:
    - Stage 1: Google Cloud Vision OCR extracts all text with word-level bounding polygons
-   - Stage 2: GPT-5 Mini classifies extracted text into Form 5100.31 fields (brand name, fanciful name, alcohol content, health warning, etc.)
+   - Stage 2: GPT-4.1 classifies extracted text into Form 5100.31 fields (brand name, fanciful name, alcohol content, health warning, etc.)
    - Form fields pre-fill with extracted values within 2-5 seconds
 5. **Review and Correct Pre-Fill** -- Applicant reviews each pre-filled field against their actual application data. They correct any AI misreads (e.g., OCR read "Barrel Aged" as "Barrel Aqed") and fill in any fields the AI could not extract. Applicants see extracted text values only -- no confidence scores, no match results
 6. **Select Beverage Type** -- Applicant selects the product type (wine, beer, distilled spirits), which determines mandatory fields and valid container sizes
@@ -66,7 +66,7 @@ When a specialist suspects the AI made an error or wants a fresh analysis.
 
 1. **Open Label Detail** -- Specialist navigates to a label that seems off (e.g., AI said "match" but the health warning looks truncated in the image)
 2. **Click "Re-Analyze"** -- Triggers a fresh run of the hybrid AI pipeline on the same label image(s)
-3. **Pipeline Re-Runs** -- Cloud Vision OCR re-processes the image, GPT-5 Mini re-classifies. This produces new extraction results, new confidence scores, and new comparison results
+3. **Pipeline Re-Runs** -- Cloud Vision OCR re-processes the image, GPT-4.1 re-classifies. This produces new extraction results, new confidence scores, and new comparison results
 4. **Review Updated Results** -- Specialist compares the new results against the previous analysis. If the re-analysis produces different results, the specialist uses their judgment to determine which is correct
 5. **Make Final Decision** -- Specialist proceeds with their review based on the updated results
 
@@ -142,7 +142,7 @@ These attack vectors were identified during design but are outside the scope of 
 
 ### Batch Upload Abuse
 
-**Threat:** A malicious or compromised account could submit hundreds of batch uploads to drain AI API credits (each label costs ~$0.003 in Cloud Vision + GPT-5 Mini calls).
+**Threat:** A malicious or compromised account could submit hundreds of batch uploads to drain AI API credits (each label costs ~$0.003 in Cloud Vision + GPT-4.1 calls).
 
 **Mitigation ideas (not implemented):**
 

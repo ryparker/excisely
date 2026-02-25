@@ -191,7 +191,7 @@ export async function classifyFieldsForExtraction(
 }
 
 // ---------------------------------------------------------------------------
-// Submission classification (gpt-5-mini, text-only, with reasoning)
+// Submission classification (gpt-4.1, text-only, with reasoning)
 // ---------------------------------------------------------------------------
 
 /** Submission schema: confidence + reasoning but no wordIndices (local text matching handles bboxes) */

@@ -4,15 +4,9 @@ import { useMemo } from 'react'
 import { useFormContext } from 'react-hook-form'
 import { AlertTriangle, CheckCircle } from 'lucide-react'
 
+import { Combobox } from '@/components/ui/Combobox'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/Select'
 import { FieldLabel } from '@/components/shared/FieldLabel'
 import { BEVERAGE_TYPES, isValidSize } from '@/config/beverage-types'
 import { getCodesByBeverageType } from '@/config/class-type-codes'
@@ -56,38 +50,29 @@ export function VolumeAndClassFields() {
   return (
     <fieldset className="m-0 border-0 p-0">
       <legend className="sr-only">Volume and Classification</legend>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
+      <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
+        <div className="space-y-1.5">
           <Label htmlFor="classTypeCode">
             <FieldLabel fieldName="class_type">Class/Type Code</FieldLabel>
           </Label>
-          <Select
+          <Combobox
+            id="classTypeCode"
+            options={filteredCodes.map((code) => ({
+              value: code.code,
+              label: `${code.code} — ${code.description}`,
+            }))}
             value={watch('classTypeCode') || ''}
             onValueChange={(value) =>
               setValue('classTypeCode', value, { shouldValidate: true })
             }
             disabled={!beverageType}
-          >
-            <SelectTrigger id="classTypeCode" className="w-full">
-              <SelectValue
-                placeholder={
-                  beverageType
-                    ? 'Select a code'
-                    : 'Select a beverage type first'
-                }
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {filteredCodes.map((code) => (
-                <SelectItem key={code.code} value={code.code}>
-                  {code.code} — {code.description}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder={
+              beverageType ? 'Search codes...' : 'Select a beverage type first'
+            }
+          />
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <Label
             htmlFor="containerSizeMl"
             className="flex items-center gap-1.5"

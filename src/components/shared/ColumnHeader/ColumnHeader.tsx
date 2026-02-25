@@ -14,6 +14,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/DropdownMenu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/Tooltip'
 import { TableHead } from '@/components/ui/Table'
 import { cn } from '@/lib/utils'
 
@@ -32,6 +38,8 @@ interface ColumnHeaderProps {
   filterKey?: string
   /** Options for the filter radio group */
   filterOptions?: readonly FilterOption[]
+  /** Tooltip description shown on hover to explain the column */
+  description?: string
   className?: string
 }
 
@@ -41,6 +49,7 @@ export function ColumnHeader({
   defaultSort,
   filterKey,
   filterOptions,
+  description,
   className,
 }: ColumnHeaderProps) {
   const [isPending, startTransition] = useTransition()
@@ -86,6 +95,24 @@ export function ColumnHeader({
   }
 
   if (!hasDropdown) {
+    if (description) {
+      return (
+        <TableHead className={className}>
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-default border-b border-dashed border-muted-foreground/30">
+                  {children}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[220px] text-xs">
+                {description}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </TableHead>
+      )
+    }
     return <TableHead className={className}>{children}</TableHead>
   }
 
@@ -126,6 +153,14 @@ export function ColumnHeader({
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-48">
+          {description && (
+            <>
+              <p className="px-2 py-1.5 text-xs text-muted-foreground">
+                {description}
+              </p>
+              <DropdownMenuSeparator />
+            </>
+          )}
           {sortKey && (
             <>
               <DropdownMenuItem onClick={() => handleSort('asc')}>

@@ -8,6 +8,22 @@ The goal is to show iterative, thoughtful engineering judgment — not just what
 
 ## 1. Engineering Decisions
 
+### Reverted to Cloud Vision + OpenAI Pipeline _(Feb 25, 2026)_
+
+**Chosen:** Reverted from local Tesseract.js WASM + rule-based classification pipeline back to Google Cloud Vision OCR + OpenAI GPT-4.1 classification.
+
+**What changed:** The `local-pipeline` branch attempted to eliminate all outbound API calls by replacing Cloud Vision with Tesseract.js v7 (WASM OCR) and replacing OpenAI classification with an 8-tier rule-based matching waterfall (`ruleClassify()` — fuzzy text search with Dice coefficient, ampersand normalization, punctuation stripping, token overlap scoring, regex patterns, and dictionary lookups). Despite significant engineering effort, the local pipeline consistently produced garbled OCR output: "BOUREON" for BOURBON, "LONSVILLE" for Louisville, "00m" for "100 mL", and similar errors across every test label.
+
+**Why we reverted:** Cloud Vision produces dramatically better OCR text — it handles embossed, curved, and low-contrast label text that Tesseract.js simply cannot. GPT-4.1 understands context to match fields even with minor OCR imperfections (e.g., inferring "bourbon whiskey" from partially garbled text). The user's strength is building excellent products that integrate AI services — compensating for poor OCR with increasingly complex matching heuristics was not the right use of time for a take-home assignment.
+
+**Alternatives considered:**
+- **Keep improving local pipeline** — diminishing returns. The 8-tier waterfall was already at maximum complexity, and the fundamental problem was OCR quality, not classification logic.
+- **Use different local OCR engines** — no open-source OCR engine matches Cloud Vision's quality on alcohol label imagery (curved text, metallic/embossed surfaces, artistic fonts).
+
+**Trade-off:** The Cloud Vision + OpenAI pipeline costs ~$0.004/label vs $0/label for the local pipeline, and requires outbound API calls. For a TTB deployment behind a restricted firewall, API endpoints would need whitelisting. For this prototype running on Vercel, the cost and network requirements are negligible, and the accuracy improvement is dramatic.
+
+The Tesseract.js + rule-based code is preserved on the `local-pipeline` branch for reference.
+
 ### Submission Pipeline: gpt-5-mini → gpt-4.1 for 5-Second Target _(Feb 24, 2026)_
 
 **Chosen:** Switch the submission classification model from gpt-5-mini (reasoning) to gpt-4.1 (non-reasoning, `temperature: 0`).
@@ -181,6 +197,8 @@ What we explicitly chose NOT to show applicants: confidence scores, match result
 **Reasoning:** GPT-5.2 vision has an mAP50:95 of 1.5 for bounding boxes -- the worst of any frontier model (per Roboflow benchmarks). That means bounding box overlays on the label image would be unreliable, undermining the annotated-image UI that specialists need. Google Cloud Vision is purpose-built for OCR: pixel-accurate word-level bounding polygons, sub-second latency, and $0.0015/image. By splitting OCR from classification, we can use GPT-5 Mini for the reasoning step -- it only receives text (no image tokens), making it 7x cheaper than GPT-5.2 ($0.25 vs $1.75 per 1M input tokens). Total cost per label drops from ~$0.0105 to ~$0.003. Total latency stays under 5 seconds (Cloud Vision <1s + GPT-5 Mini ~1-2s), meeting Sarah's "5-second or nobody will use it" requirement from the pilot vendor disaster.
 
 > **Revised (Feb 23, 2026):** The pipeline now uses two different classification models depending on context. **Specialist review** still uses GPT-5 Mini (multimodal, with images, full schema with word indices and reasoning) for maximum accuracy. **Applicant pre-fill** uses GPT-4.1 (text-only, minimal schema) for speed — ~3-5s vs ~20s. See "Applicant Extraction Model" decision above for the full evaluation.
+
+> **Revised (Feb 25, 2026):** Briefly switched to a fully local pipeline (Tesseract.js WASM OCR + rule-based classification) to eliminate outbound API calls. Reverted back to Cloud Vision + OpenAI after the local OCR proved too unreliable for alcohol label imagery. See "Reverted to Cloud Vision + OpenAI Pipeline" decision at the top of this section.
 
 ### Next.js 16 with App Router (RSC-First) _(Feb 21, 2026)_
 

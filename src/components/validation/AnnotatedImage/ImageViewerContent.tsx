@@ -114,7 +114,9 @@ export function ImageViewerContent({
       <div
         className={cn(
           'relative origin-center',
-          enableTransition && 'transition-transform duration-300 ease-out',
+          enableTransition &&
+            !isDragging &&
+            'transition-transform duration-300 ease-out',
         )}
         style={{
           transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale}) rotate(${rotation}deg)`,

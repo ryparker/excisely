@@ -61,7 +61,7 @@ const FIELD_DESCRIPTIONS: Record<string, string> = {
 // ---------------------------------------------------------------------------
 
 /**
- * Builds a classification prompt for GPT-5 Mini that instructs the model
+ * Builds a classification prompt for GPT-5 Mini / GPT-4.1 that instructs the model
  * to identify TTB-regulated fields from OCR-extracted text.
  */
 export function buildClassificationPrompt(
@@ -274,7 +274,7 @@ ${fieldListText}
 }
 
 // ---------------------------------------------------------------------------
-// Submission classification prompt (gpt-5-mini, text-only, with reasoning)
+// Submission classification prompt (gpt-4.1, text-only, with reasoning)
 // ---------------------------------------------------------------------------
 
 /**

@@ -11,6 +11,7 @@ import {
   updateLabelStatus,
 } from '@/db/mutations/labels'
 import { PipelineTimeoutError } from '@/lib/ai/extract-label'
+import { fetchImageBytes } from '@/lib/storage/blob'
 import { guardApplicant } from '@/lib/auth/action-guards'
 import { formatZodError } from '@/lib/actions/parse-zod-error'
 import { logActionError } from '@/lib/actions/action-error'
@@ -34,7 +35,7 @@ type SubmitApplicationResult =
 export async function submitApplication(
   formData: FormData,
 ): Promise<SubmitApplicationResult> {
-  // 1. Authenticate
+  // 1. Authenticate — only applicants can submit
   const guard = await guardApplicant()
   if (!guard.success) return guard
   const { session } = guard
@@ -81,13 +82,17 @@ export async function submitApplication(
     if (!imageUrlsResult.success) return imageUrlsResult
     const { imageUrls } = imageUrlsResult
 
-    // 4. Look up applicant record by contactEmail matching session user's email
-    const applicantRecord = await getApplicantByEmail(session.user.email)
+    // 4. Start fetching image bytes NOW — overlaps with DB writes below (~150ms saved)
+    const imageBuffersPromise = Promise.all(imageUrls.map(fetchImageBytes))
 
-    // 5. Create label record with status "processing" — no specialist assigned yet
+    // 5. Resolve applicant ID by session email
+    const applicantRecord = await getApplicantByEmail(session.user.email)
+    const applicantId = applicantRecord?.id ?? null
+
+    // 6. Create label record with status "processing"
     const label = await insertLabel({
       specialistId: null,
-      applicantId: applicantRecord?.id ?? null,
+      applicantId,
       beverageType: input.beverageType,
       containerSizeMl: input.containerSizeMl,
       status: 'processing',
@@ -95,7 +100,7 @@ export async function submitApplication(
 
     labelId = label.id
 
-    // 6. Create application data record
+    // 7. Create application data record
     await insertApplicationData({
       labelId: label.id,
       serialNumber: input.serialNumber || null,
@@ -117,7 +122,7 @@ export async function submitApplication(
       stateOfDistillation: input.stateOfDistillation || null,
     })
 
-    // 7. Create label image records
+    // 8. Create label image records
     const imageRecords = await insertLabelImages(
       imageUrls.map((url, index) => ({
         labelId: label.id,
@@ -128,13 +133,16 @@ export async function submitApplication(
       })),
     )
 
-    // 8. Build applicant corrections transform for rawResponse
+    // 9. Build applicant corrections transform for rawResponse
     const rawResponseTransform = buildApplicantCorrectionsTransform(
       formData,
       input,
     )
 
-    // 9. Run shared AI validation pipeline
+    // 10. Await pre-fetched image buffers (started before DB writes)
+    const preloadedBuffers = await imageBuffersPromise
+
+    // 11. Run shared AI validation pipeline (with pre-fetched buffers)
     const expectedFields = buildExpectedFields(input, input.beverageType)
     const result = await runValidationPipeline({
       labelId: label.id,
@@ -144,25 +152,17 @@ export async function submitApplication(
       containerSizeMl: input.containerSizeMl,
       expectedFields,
       rawResponseTransform,
+      preloadedBuffers,
     })
 
-    // 10. Update label with final status
-    if (result.autoApproved) {
-      await updateLabelStatus(label.id, {
-        status: 'approved',
-        overallConfidence: String(result.overallConfidence),
-      })
-    } else {
-      await updateLabelStatus(label.id, {
-        status: 'pending_review',
-        aiProposedStatus: result.overallStatus,
-        overallConfidence: String(result.overallConfidence),
-      })
-    }
+    // 12. Update label with final status
+    await updateLabelStatus(label.id, {
+      status: 'pending_review',
+      aiProposedStatus: result.overallStatus,
+      overallConfidence: String(result.overallConfidence),
+    })
 
-    const finalStatus = result.autoApproved
-      ? ('approved' as const)
-      : ('pending_review' as const)
+    const finalStatus = 'pending_review' as const
 
     updateTag('labels')
     updateTag('sla-metrics')

@@ -16,7 +16,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/Tooltip'
-import { getNavItems, type NavItem } from '@/config/navigation'
+import {
+  getNavItems,
+  getSettingsNavItem,
+  type NavItem,
+} from '@/config/navigation'
 import { type SLAStatus } from '@/lib/sla/status'
 import { cn } from '@/lib/utils'
 
@@ -73,6 +77,7 @@ export function AppSidebar({
 
   const isApplicant = userRole === 'applicant'
   const navItems = getNavItems(userRole, reviewCount)
+  const settingsItem = !isApplicant ? getSettingsNavItem() : null
 
   const collapseTransition = shouldReduceMotion
     ? { duration: 0 }
@@ -183,19 +188,10 @@ export function AppSidebar({
           onToggle={toggle}
         />
 
-        <nav
-          className={cn(
-            'flex-1 space-y-1 overflow-y-auto',
-            collapsed ? 'px-2' : 'px-3',
-          )}
-        >
-          {navItems.map(renderItem)}
-        </nav>
-
         {isApplicant && (
           <div
             className={cn(
-              'border-t border-sidebar-border',
+              'border-b border-sidebar-border',
               collapsed ? 'p-2' : 'p-3',
             )}
           >
@@ -223,6 +219,26 @@ export function AppSidebar({
                 </Link>
               </Button>
             )}
+          </div>
+        )}
+
+        <nav
+          className={cn(
+            'flex-1 space-y-1 overflow-y-auto',
+            collapsed ? 'px-2 py-2' : 'px-3 py-2',
+          )}
+        >
+          {navItems.map(renderItem)}
+        </nav>
+
+        {settingsItem && (
+          <div
+            className={cn(
+              'border-t border-sidebar-border',
+              collapsed ? 'px-2 py-2' : 'px-3 py-2',
+            )}
+          >
+            {renderItem(settingsItem)}
           </div>
         )}
 

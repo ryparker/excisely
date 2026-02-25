@@ -5,6 +5,7 @@ import {
   getReadyToApproveCount,
   getFilteredLabels,
 } from '@/db/queries/labels'
+import { getSLATargets } from '@/db/queries/settings'
 import { getEffectiveStatus } from '@/lib/labels/effective-status'
 import { getSignedImageUrl } from '@/lib/storage/blob'
 import { FilterBar } from '@/components/shared/FilterBar'
@@ -93,20 +94,22 @@ export async function DashboardLabelsTable({
   currentPage: number
   userRole: string
 }) {
-  const [statusCountRows, readyCount, filteredResult] = await Promise.all([
-    getStatusCounts(),
-    getReadyToApproveCount(),
-    getFilteredLabels({
-      searchTerm: searchTerm || undefined,
-      statusFilter: statusFilter || undefined,
-      queueFilter: queueFilter || undefined,
-      beverageTypeFilter: beverageTypeFilter || undefined,
-      sortKey: sortKey || undefined,
-      sortOrder,
-      currentPage,
-      pageSize: PAGE_SIZE,
-    }),
-  ])
+  const [statusCountRows, readyCount, filteredResult, slaTargets] =
+    await Promise.all([
+      getStatusCounts(),
+      getReadyToApproveCount(),
+      getFilteredLabels({
+        searchTerm: searchTerm || undefined,
+        statusFilter: statusFilter || undefined,
+        queueFilter: queueFilter || undefined,
+        beverageTypeFilter: beverageTypeFilter || undefined,
+        sortKey: sortKey || undefined,
+        sortOrder,
+        currentPage,
+        pageSize: PAGE_SIZE,
+      }),
+      getSLATargets(),
+    ])
 
   const { rows, tableTotal, totalPages } = filteredResult
 
@@ -144,6 +147,7 @@ export async function DashboardLabelsTable({
       <FilterBar
         paramKey="status"
         defaultValue="pending_review"
+        className="mb-3"
         options={STATUS_FILTERS.map((f) => ({
           label: f.label,
           value: f.value,
@@ -176,6 +180,7 @@ export async function DashboardLabelsTable({
           totalPages={totalPages}
           tableTotal={tableTotal}
           pageSize={PAGE_SIZE}
+          slaResponseHours={slaTargets.reviewResponseHours}
           queueMode={
             queueFilter === 'ready'
               ? 'ready'

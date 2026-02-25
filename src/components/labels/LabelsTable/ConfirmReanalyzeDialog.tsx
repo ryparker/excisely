@@ -32,8 +32,7 @@ export function ConfirmReanalyzeDialog({
           <AlertDialogDescription>
             This will re-run AI text extraction and field classification on the
             label images. Previous results will be superseded. No new
-            notification will be sent to the applicant. Typically takes 2-4
-            seconds.
+            notification will be sent to the applicant.
           </AlertDialogDescription>
         </AlertDialogHeader>
         {error && <p className="text-sm text-destructive">{error}</p>}

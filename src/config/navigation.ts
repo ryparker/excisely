@@ -22,7 +22,7 @@ export function getNavItems(
 
   return [
     {
-      label: 'Labels',
+      label: 'Applications',
       href: routes.home(),
       icon: FileText,
       badge: reviewCount,
@@ -30,6 +30,9 @@ export function getNavItems(
     { label: 'Applicants', href: routes.applicants(), icon: Users },
     { label: 'AI Errors', href: routes.aiErrors(), icon: Flag },
     { label: 'Regulations', href: routes.regulations(), icon: Scale },
-    { label: 'Settings', href: routes.settings(), icon: Settings },
   ]
+}
+
+export function getSettingsNavItem(): NavItem | null {
+  return { label: 'Settings', href: routes.settings(), icon: Settings }
 }

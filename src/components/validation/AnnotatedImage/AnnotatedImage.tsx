@@ -174,25 +174,29 @@ export function AnnotatedImage({
   }, [isExpanded, imageUrl])
 
   // Recalculate fit on container resize
+  const { rotation, isDragging, computeFitView, setScale, setTranslate } =
+    inline
   useEffect(() => {
     if (!imageLoader.imageLoaded || !containerRef.current) return
     const container = containerRef.current
     const observer = new ResizeObserver(() => {
       // Only refit if the user hasn't panned/zoomed (still in default view)
-      if (inline.rotation === 0 && !activeField) {
-        const fit = inline.computeFitView(container)
-        inline.setScale(fit.scale)
-        inline.setTranslate({ x: 0, y: fit.translateY })
+      if (rotation === 0 && !activeField && !isDragging) {
+        const fit = computeFitView(container)
+        setScale(fit.scale)
+        setTranslate({ x: 0, y: fit.translateY })
       }
     })
     observer.observe(container)
     return () => observer.disconnect()
   }, [
     imageLoader.imageLoaded,
-    inline.rotation,
+    rotation,
+    isDragging,
     activeField,
-    inline.computeFitView,
-    inline,
+    computeFitView,
+    setScale,
+    setTranslate,
   ])
 
   // Pan to center the active field's bounding box in view, or reset on deselect

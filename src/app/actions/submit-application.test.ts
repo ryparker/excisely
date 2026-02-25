@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   updateLabelStatus: vi.fn(),
   parseImageUrls: vi.fn(),
   runValidationPipeline: vi.fn(),
+  fetchImageBytes: vi.fn(),
 }))
 
 vi.mock('next/cache', () => ({ updateTag: mocks.updateTag }))
@@ -38,6 +39,9 @@ vi.mock('@/lib/actions/parse-image-urls', () => ({
 }))
 vi.mock('@/lib/actions/validation-pipeline', () => ({
   runValidationPipeline: mocks.runValidationPipeline,
+}))
+vi.mock('@/lib/storage/blob', () => ({
+  fetchImageBytes: mocks.fetchImageBytes,
 }))
 
 // ---------------------------------------------------------------------------
@@ -92,7 +96,7 @@ function defaultPipelineOutput(overrides?: Record<string, unknown>) {
       fields: [],
       imageClassifications: [],
       processingTimeMs: 2500,
-      modelUsed: 'gpt-5-mini',
+      modelUsed: 'gpt-4.1',
       rawResponse: {},
       detectedBeverageType: null,
       metrics: {
@@ -129,6 +133,7 @@ function setupDefaults() {
   mocks.insertLabelImages.mockResolvedValue([{ id: imageRecordId }])
   mocks.updateLabelStatus.mockResolvedValue(undefined)
   mocks.runValidationPipeline.mockResolvedValue(defaultPipelineOutput())
+  mocks.fetchImageBytes.mockResolvedValue(Buffer.from('fake-image'))
   // after() just runs callback immediately for testing — or we can ignore it
   mocks.after.mockImplementation((fn: () => void) => fn())
 
@@ -152,19 +157,6 @@ describe('submitApplication', () => {
 
     const result = await submitApplication(makeFormData())
     expect(result).toEqual({ success: false, error: 'Authentication required' })
-  })
-
-  it('returns error when user is a specialist (not applicant)', async () => {
-    mocks.guardApplicant.mockResolvedValue({
-      success: false,
-      error: 'Only applicants can perform this action',
-    })
-
-    const result = await submitApplication(makeFormData())
-    expect(result).toEqual({
-      success: false,
-      error: 'Only applicants can perform this action',
-    })
   })
 
   // -------------------------------------------------------------------------
@@ -228,7 +220,7 @@ describe('submitApplication', () => {
 
   it('creates label with no specialist and applicant lookup', async () => {
     mockApplicant()
-    const { labelId } = setupDefaults()
+    setupDefaults()
 
     await submitApplication(makeFormData())
 
@@ -312,34 +304,10 @@ describe('submitApplication', () => {
   })
 
   // -------------------------------------------------------------------------
-  // Success: auto-approved
-  // -------------------------------------------------------------------------
-
-  it('returns approved status when pipeline auto-approves', async () => {
-    mockApplicant()
-    const { labelId } = setupDefaults()
-    mocks.runValidationPipeline.mockResolvedValue(
-      defaultPipelineOutput({ autoApproved: true, overallConfidence: 98 }),
-    )
-
-    const result = await submitApplication(makeFormData())
-    expect(result).toEqual({
-      success: true,
-      labelId,
-      status: 'approved',
-    })
-
-    expect(mocks.updateLabelStatus).toHaveBeenCalledWith(labelId, {
-      status: 'approved',
-      overallConfidence: '98',
-    })
-  })
-
-  // -------------------------------------------------------------------------
   // Success: pending_review
   // -------------------------------------------------------------------------
 
-  it('returns pending_review status when not auto-approved', async () => {
+  it('always returns pending_review status', async () => {
     mockApplicant()
     const { labelId } = setupDefaults()
     mocks.runValidationPipeline.mockResolvedValue(

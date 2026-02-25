@@ -4,8 +4,6 @@ import { cacheLife, cacheTag } from 'next/cache'
 import { db } from '@/db'
 import { settings } from '@/db/schema'
 
-const DEFAULT_CONFIDENCE_THRESHOLD = 80
-
 export type StrictnessLevel = 'strict' | 'moderate' | 'lenient'
 
 const DEFAULT_FIELD_STRICTNESS: Record<string, StrictnessLevel> = {
@@ -30,14 +28,12 @@ const DEFAULT_FIELD_STRICTNESS: Record<string, StrictnessLevel> = {
 export interface SLATargets {
   reviewResponseHours: number
   totalTurnaroundHours: number
-  autoApprovalRateTarget: number
   maxQueueDepth: number
 }
 
 const DEFAULT_SLA_TARGETS: SLATargets = {
   reviewResponseHours: 48,
   totalTurnaroundHours: 72,
-  autoApprovalRateTarget: 70,
   maxQueueDepth: 50,
 }
 
@@ -57,23 +53,9 @@ async function getSettingValue<T>(key: string): Promise<T | null> {
 }
 
 export async function getSettings(): Promise<{
-  confidenceThreshold: number
   fieldStrictness: Record<string, StrictnessLevel>
 }> {
-  const [threshold, strictness] = await Promise.all([
-    getConfidenceThreshold(),
-    getFieldStrictness(),
-  ])
-
-  return {
-    confidenceThreshold: threshold,
-    fieldStrictness: strictness,
-  }
-}
-
-export async function getConfidenceThreshold(): Promise<number> {
-  const value = await getSettingValue<number>('confidence_threshold')
-  return value ?? DEFAULT_CONFIDENCE_THRESHOLD
+  return { fieldStrictness: await getFieldStrictness() }
 }
 
 export async function getFieldStrictness(): Promise<
@@ -87,11 +69,6 @@ export async function getFieldStrictness(): Promise<
 export async function getSLATargets(): Promise<SLATargets> {
   const value = await getSettingValue<SLATargets>('sla_targets')
   return value ?? { ...DEFAULT_SLA_TARGETS }
-}
-
-export async function getAutoApprovalEnabled(): Promise<boolean> {
-  const value = await getSettingValue<boolean>('auto_approval_enabled')
-  return value ?? false
 }
 
 const DEFAULT_APPROVAL_THRESHOLD = 95

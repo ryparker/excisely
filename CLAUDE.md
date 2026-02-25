@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Label verification, precisely.**
 
-AI-powered alcohol label verification tool for TTB labeling specialists. Compares label images against COLA application data (Form 5100.31) using a hybrid AI pipeline (Google Cloud Vision OCR + GPT-5 Mini classification).
+AI-powered alcohol label verification tool for TTB labeling specialists. Compares label images against COLA application data (Form 5100.31) using a hybrid AI pipeline (Google Cloud Vision OCR + OpenAI GPT-4.1 / GPT-5 Mini classification).
 
 ## Stack
 
@@ -16,7 +16,7 @@ AI-powered alcohol label verification tool for TTB labeling specialists. Compare
 - **Animation:** Motion (framer-motion v12)
 - **Database:** Drizzle ORM + Neon Postgres (production) / local Postgres via Docker (development)
 - **Storage:** Vercel Blob (signed URLs, client-side direct uploads via `@vercel/blob/client`)
-- **AI:** Hybrid pipeline — Google Cloud Vision (`@google-cloud/vision`) for OCR + bounding boxes, GPT-5 Mini (`ai` + `@ai-sdk/openai`) for field classification via `generateText` + `Output.object()` + Zod schemas
+- **AI:** Google Cloud Vision OCR (`@google-cloud/vision`) + OpenAI via `ai` + `@ai-sdk/openai`: GPT-4.1 for submissions/applicant pre-fill (text-only, `temperature: 0`), GPT-5 Mini for specialist review (multimodal with images). `generateText` + `Output.object()` + Zod schemas.
 - **Forms:** React Hook Form v7 + `@hookform/resolvers` (Zod resolver)
 - **State:** Zustand v5 (client stores) + nuqs v2.8 (URL search params)
 - **Auth:** Better Auth v1.4 (specialist + applicant roles, session-based)
@@ -80,7 +80,7 @@ Use the `/db-inspect` skill for common queries — it has ready-made queries for
 
 ## Decision Log
 
-**When you make or recommend a major engineering decision** — architectural pivots, technology swaps, new patterns, significant scope changes, or meaningful trade-off evaluations — **update `DECISIONS.md` immediately.** This is a U.S. Treasury hiring assignment; the decision log demonstrates thoughtful engineering judgment to evaluators.
+**When you make or recommend a major engineering decision** — architectural pivots, technology swaps, new patterns, significant scope changes, or meaningful trade-off evaluations — **update `docs/decisions.md` immediately.** This is a U.S. Treasury hiring assignment; the decision log demonstrates thoughtful engineering judgment to evaluators.
 
 What qualifies as a "major decision":
 
@@ -101,7 +101,7 @@ If a previous decision in the doc is being revised or reversed, don't delete it 
 
 ## Production Readiness Log
 
-**When you identify something that would be needed for production but is out of scope for this prototype, add it to `PRODUCTION.md`.** This document shows evaluators we've thought beyond the demo — that we understand the gap between a working prototype and a production system real TTB specialists would use daily.
+**When you identify something that would be needed for production but is out of scope for this prototype, add it to `docs/production.md`.** This document shows evaluators we've thought beyond the demo — that we understand the gap between a working prototype and a production system real TTB specialists would use daily.
 
 Add entries when you:
 
@@ -114,7 +114,7 @@ Keep entries concrete and specific — explain _what_ we'd build and _why_ it ma
 
 ## Changelog
 
-**When committing notable changes, update `CHANGELOG.md`.** Keep the "Unreleased" section current with meaningful changes as they happen. When a commit is made, move unreleased items into a versioned section. Entries should describe _what changed and why_ in plain language — not just file lists. Group under Added/Changed/Fixed/Removed headings.
+**When committing notable changes, update `docs/changelog.md`.** Keep the "Unreleased" section current with meaningful changes as they happen. When a commit is made, move unreleased items into a versioned section. Entries should describe _what changed and why_ in plain language — not just file lists. Group under Added/Changed/Fixed/Removed headings.
 
 ## Architecture Rules
 
@@ -129,7 +129,7 @@ Keep entries concrete and specific — explain _what_ we'd build and _why_ it ma
 9. **Nano IDs everywhere** — all PKs use `nanoid()` via `$defaultFn`, never UUID. Exception: Better Auth managed tables.
 10. **Types from schema** — derive TypeScript types via `$inferSelect`/`$inferInsert` and Zod schemas via `drizzle-orm/zod`. No manual type files.
 11. **Zustand for client state, nuqs for URL state** — Zustand stores for ephemeral UI state (annotations, uploads, reviews). nuqs for persistent filter/pagination/sort state (URL-backed, shareable, RSC-compatible).
-12. **AI: Hybrid pipeline** — Stage 1: `@google-cloud/vision` for OCR + pixel-accurate bounding boxes. Stage 2: `generateText` + `Output.object()` from `ai` with `@ai-sdk/openai` provider, model `openai('gpt-5-mini')` for text classification. No AI Gateway. Use `.nullable()` not `.optional()` in Zod schemas (OpenAI structured output limitation).
+12. **AI: Cloud Vision + OpenAI pipeline** — Stage 1: `@google-cloud/vision` for OCR + pixel-accurate bounding boxes. Stage 2: `generateText` + `Output.object()` from `ai` with `@ai-sdk/openai` provider. Submission pipeline uses `openai('gpt-4.1')` (text-only, `temperature: 0`). Specialist pipeline uses `openai('gpt-5-mini')` (multimodal, with images). No AI Gateway. Use `.nullable()` not `.optional()` in Zod schemas (OpenAI structured output limitation).
 13. **Migrations forward-only** — `drizzle-kit push` in dev, `drizzle-kit generate` + `drizzle-kit migrate` for production. No down migrations.
 14. **No dotenv** — Next.js handles `.env` / `.env.local` natively. Use `NEXT_PUBLIC_` prefix only for client-exposed vars.
 15. **React Hook Form for all multi-field forms** — `useForm` + `zodResolver` for client-side validation. Server actions re-validate independently.
@@ -182,7 +182,7 @@ Received → Processing → Approved
 | `src/db/schema.ts`                                    | Database schema — single source of truth for all tables, types (`$inferSelect`/`$inferInsert`), and Zod schemas (`drizzle-orm/zod`) |
 | `src/app/actions/`                                    | Server actions — all mutations live here                                                                                            |
 | `src/lib/ai/ocr.ts`                                   | Stage 1: Google Cloud Vision OCR — word-level bounding polygons                                                                     |
-| `src/lib/ai/classify-fields.ts`                       | Stage 2: GPT-5 Mini field classification — text-only input                                                                          |
+| `src/lib/ai/classify-fields.ts`                       | Stage 2: OpenAI field classification via AI SDK — GPT-4.1 (submission) / GPT-5 Mini (specialist multimodal)                         |
 | `src/lib/ai/extract-label.ts`                         | AI pipeline orchestrator — runs OCR → classification → merges bounding boxes                                                        |
 | `src/lib/labels/effective-status.ts`                  | Lazy deadline expiration — `getEffectiveStatus()`                                                                                   |
 | `src/lib/ai/compare-fields.ts`                        | Field comparison engine (fuzzy, strict, normalized)                                                                                 |
@@ -197,11 +197,11 @@ Received → Processing → Approved
 | `.next-docs/`                                         | Full Next.js docs (referenced by AGENTS.md) — gitignored                                                                            |
 | `.claude/plans/20260221-ai-label-verification-app.md` | Full implementation plan                                                                                                            |
 | `.claude/plans/test-workflows.md`                     | 150+ test cases by feature area                                                                                                     |
-| `CONTEXT.md`                                          | TTB research — vocabulary, Form 5100.31 fields, regulations                                                                         |
-| `PRODUCTION.md`                                       | Production readiness gaps — what we'd address before a real release (security, data, ops)                                           |
-| `DECISIONS.md`                                        | Living decision log — engineering trade-offs with dates, reasoning, and revisions                                                   |
-| `CHANGELOG.md`                                        | Narrative changelog — what changed and why, grouped by version                                                                      |
-| `docs/ai-pipelines.md`                                | AI pipeline architecture — all 4 pipelines, stages, models, comparison engine, cost model. **Keep updated when changing AI code.**  |
+| `docs/context.md`                                     | TTB research — vocabulary, Form 5100.31 fields, regulations                                                                         |
+| `docs/production.md`                                  | Production readiness gaps — what we'd address before a real release (security, data, ops)                                           |
+| `docs/decisions.md`                                   | Living decision log — engineering trade-offs with dates, reasoning, and revisions                                                   |
+| `docs/changelog.md`                                   | Narrative changelog — what changed and why, grouped by version                                                                      |
+| `docs/ai-pipelines.md`                                | AI pipeline architecture — all 5 pipelines, stages, models, comparison engine, cost model. **Keep updated when changing AI code.**  |
 
 ## AI Pipeline Documentation
 
@@ -236,11 +236,13 @@ Changes that require updating the doc:
 ```bash
 DATABASE_URL=              # Local: postgresql://excisely:excisely@localhost:5432/excisely
                            # Prod: Neon Postgres connection string (must contain neon.tech)
-OPENAI_API_KEY=            # OpenAI API key (used by @ai-sdk/openai provider for GPT-5 Mini)
+OPENAI_API_KEY=            # OpenAI API key (used by @ai-sdk/openai provider for GPT-4.1 / GPT-5 Mini)
 GOOGLE_APPLICATION_CREDENTIALS=  # Path to Google Cloud service account JSON (for Cloud Vision OCR)
+GOOGLE_APPLICATION_CREDENTIALS_JSON=  # Raw JSON content of service account key (for Vercel — no file system access)
 BLOB_READ_WRITE_TOKEN=     # Vercel Blob storage token
 BETTER_AUTH_SECRET=        # Better Auth session secret (openssl rand -hex 32)
 BETTER_AUTH_URL=           # App URL (http://localhost:3000 in dev)
 # .env.local for local secrets, .env for defaults. No dotenv package needed.
-# For Vercel: set GOOGLE_APPLICATION_CREDENTIALS_JSON with raw JSON content (not file path).
+# Local dev: use GOOGLE_APPLICATION_CREDENTIALS (file path).
+# Vercel: use GOOGLE_APPLICATION_CREDENTIALS_JSON (raw JSON content, no file path).
 ```

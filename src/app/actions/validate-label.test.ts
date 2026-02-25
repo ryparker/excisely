@@ -76,7 +76,7 @@ function defaultPipelineOutput(overrides?: Record<string, unknown>) {
       fields: [],
       imageClassifications: [],
       processingTimeMs: 2500,
-      modelUsed: 'gpt-5-mini',
+      modelUsed: 'gpt-4.1',
       rawResponse: {},
       detectedBeverageType: null,
       metrics: {
@@ -196,7 +196,7 @@ describe('validateLabel', () => {
   // Success: auto-approved
   // -------------------------------------------------------------------------
 
-  it('sets status to approved when pipeline auto-approves', async () => {
+  it('always sets pending_review status with aiProposedStatus', async () => {
     mockSpecialist()
     const { labelId } = setupDefaults()
     mocks.runValidationPipeline.mockResolvedValue(
@@ -207,7 +207,8 @@ describe('validateLabel', () => {
     expect(result).toEqual({ success: true, labelId })
 
     expect(mocks.updateLabelStatus).toHaveBeenCalledWith(labelId, {
-      status: 'approved',
+      status: 'pending_review',
+      aiProposedStatus: 'approved',
       overallConfidence: '98',
     })
   })

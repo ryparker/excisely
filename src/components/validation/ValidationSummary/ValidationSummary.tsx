@@ -32,9 +32,9 @@ interface ValidationSummaryProps {
 }
 
 const AI_STATUS_LABELS: Record<string, string> = {
-  rejected: 'Rejected',
+  rejected: 'Reject',
   needs_correction: 'Needs Correction',
-  conditionally_approved: 'Conditionally Approved',
+  conditionally_approved: 'Conditionally Approve',
 }
 
 export function ValidationSummary({
@@ -65,7 +65,7 @@ export function ValidationSummary({
               className="gap-1.5 border-indigo-200 bg-indigo-50/50 text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-400"
             >
               <Bot className="size-3.5" />
-              AI Recommended:{' '}
+              AI Recommendation:{' '}
               {AI_STATUS_LABELS[aiProposedStatus] ?? aiProposedStatus}
             </Badge>
           )}

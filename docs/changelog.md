@@ -8,6 +8,9 @@ All notable changes to Excisely are documented here. This project follows a narr
 
 ### Added
 
+- **`preloadedBuffers` optimization** — Image bytes are now fetched in parallel with DB writes during submission, shaving ~150ms off the pipeline by overlapping I/O that was previously sequential.
+- **Specialist can submit labels on behalf of applicants** — Specialists can now select an applicant when submitting a label through the validation form, enabling bulk processing workflows.
+- **E2E test suite with 11 labels** — 4 real-world and 7 AI-generated test labels covering all beverage types (spirits, wine, malt beverages), exercising the full submission pipeline end-to-end.
 - **Server-side caching with `use cache`** — Settings cached for hours, SLA metrics cached for minutes, label data cached for seconds. Uses Next.js 16's `cacheTag()` + `cacheLife()` directives. Previously every page was `force-dynamic` with zero caching.
 - **React Compiler** — Enabled `reactCompiler: true` for automatic memoization across all components. Eliminates the need for manual `useCallback`/`useMemo`.
 - **Optimistic batch approval** — Selected labels show approved status immediately in the UI via `useOptimistic` while the server action runs. Reverts on error.
@@ -15,6 +18,7 @@ All notable changes to Excisely are documented here. This project follows a narr
 
 ### Changed
 
+- **Restored Cloud Vision + OpenAI pipeline** — Reverted from the local Tesseract.js WASM + rule-based classification experiment back to Google Cloud Vision OCR + GPT-4.1 classification. The local pipeline produced garbled OCR on alcohol labels despite an 8-tier matching waterfall. Cloud Vision's purpose-built OCR and GPT-4.1's contextual understanding produce dramatically better accuracy. Local pipeline code preserved on `local-pipeline` branch.
 - **Submission pipeline under 5 seconds** — Switched the core verification pipeline from gpt-5-mini (reasoning model, ~10-15s) to gpt-4.1 (non-reasoning, ~3-5s). Total pipeline drops from ~15-20s to ~4-6s, meeting Sarah Chen's "about 5 seconds" usability threshold from the stakeholder interviews. The comparison engine — not the AI model — determines match/mismatch outcomes, so validation quality is unchanged. Also made the Google Cloud Vision client a singleton to eliminate per-call constructor overhead.
 - **Tag-based cache invalidation replaces `revalidatePath`** — All server actions now use granular `updateTag('labels' | 'sla-metrics' | 'settings')` instead of full-page `revalidatePath()`. Specialists see changes immediately without invalidating unrelated cached data.
 - **`connection()` replaces `force-dynamic`** — All 9 app pages now use `await connection()` from `next/server` instead of `export const dynamic = 'force-dynamic'`. This is the modern Next.js 16 approach for opting into dynamic rendering.

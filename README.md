@@ -2,7 +2,7 @@
 
 **Label verification, precisely.**
 
-AI-powered alcohol label verification for TTB labeling specialists. Compares uploaded label images against COLA application data (Form 5100.31) using a hybrid AI pipeline — Google Cloud Vision for pixel-accurate OCR, GPT-5 Mini for semantic field classification — with annotated image overlays and field-by-field comparison.
+AI-powered alcohol label verification for TTB labeling specialists. Compares uploaded label images against COLA application data (Form 5100.31) using a hybrid AI pipeline — Google Cloud Vision for pixel-accurate OCR, OpenAI GPT-4.1 for semantic field classification — with annotated image overlays and field-by-field comparison.
 
 Built as a prototype to demonstrate how AI can reduce the 5-10 minute manual label review process to under 5 seconds.
 
@@ -15,7 +15,7 @@ Built as a prototype to demonstrate how AI can reduce the 5-10 minute manual lab
 - Node.js 22+ (via `mise use node@22`)
 - Yarn (`corepack enable && corepack prepare yarn@stable --activate`)
 - PostgreSQL database ([Neon](https://neon.tech) recommended)
-- OpenAI API key (GPT-5 Mini)
+- OpenAI API key (GPT-4.1)
 - Google Cloud Vision API credentials
 - Vercel Blob storage token
 
@@ -50,15 +50,18 @@ Open [http://localhost:3000](http://localhost:3000) and log in with a test accou
 
 ### Test Accounts
 
-| Role       | Name       | Email              | Password      |
-| ---------- | ---------- | ------------------ | ------------- |
-| Specialist | Sarah Chen | sarah.chen@ttb.gov | specialist123 |
+| Role       | Name             | Email                         | Password      |
+| ---------- | ---------------- | ----------------------------- | ------------- |
+| Specialist | Sarah Chen       | sarah.chen@ttb.gov            | specialist123 |
+| Applicant  | Thomas Blackwell | labeling@oldtomdistillery.com | applicant123  |
+| Applicant  | Catherine Moreau | legal@napavalleyestate.com    | applicant123  |
+| Applicant  | Mike Olsen       | labels@cascadehop.com         | applicant123  |
 
 ## How It Works
 
 ### 1. Upload & Enter Application Data
 
-A labeling specialist uploads 1-4 label images (front, back, neck, strip) and enters the corresponding Form 5100.31 application data — brand name, alcohol content, health warning statement, etc. The form is beverage-type-aware: selecting "Wine" surfaces wine-specific fields (sulfite declaration, appellation of origin, grape varietal).
+An applicant (or specialist) uploads 1-4 label images (front, back, neck, strip) and enters the corresponding Form 5100.31 application data — brand name, alcohol content, health warning statement, etc. The form is beverage-type-aware: selecting "Wine" surfaces wine-specific fields (sulfite declaration, appellation of origin, grape varietal). Uploading images triggers AI extraction that pre-fills the form automatically.
 
 ### 2. Hybrid AI Pipeline
 
@@ -69,13 +72,13 @@ The system processes each label through two stages:
 - Extracts every word on the label with pixel-accurate bounding polygons (4 vertices per word)
 - Runs on each image in parallel
 
-**Stage 2 — GPT-5 Mini Classification** (~1-2 seconds, ~$0.0015/label)
+**Stage 2 — GPT-4.1 Classification** (~2-4 seconds, ~$0.002/label)
 
 - Receives OCR text only (no image tokens — fast and cheap)
 - Classifies text blocks into TTB regulatory fields (brand name, alcohol content, health warning, etc.)
 - Each classified field inherits bounding box coordinates from Stage 1
 
-Total: **~$0.003/label, 2-4 seconds.**
+Total: **~$0.004/label, 5-9 seconds** (varies by number of images).
 
 ### 3. Field Comparison
 
@@ -102,16 +105,16 @@ Labels are assigned a TTB status:
 
 ## Architecture
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for system diagrams, data flow, database schema, and module descriptions.
+See [docs/architecture.md](./docs/architecture.md) for system diagrams, data flow, database schema, and module descriptions.
 
 ### Stack
 
 - **Framework:** Next.js 16 (App Router, RSC-first, Turbopack)
 - **Language:** TypeScript (strict mode)
-- **Styling:** Tailwind CSS v4 + shadcn/ui + Source Serif 4 / Inter / JetBrains Mono
+- **Styling:** Tailwind CSS v4 + shadcn/ui + Fraunces / Space Grotesk / JetBrains Mono
 - **Database:** Drizzle ORM + Neon Postgres
 - **Storage:** Vercel Blob (signed URLs, client-side direct uploads)
-- **AI:** Google Cloud Vision (OCR) + GPT-5 Mini via Vercel AI SDK v6
+- **AI:** Google Cloud Vision (OCR) + OpenAI GPT-4.1 (submission) / GPT-5 Mini (specialist review) via AI SDK
 - **Auth:** Better Auth v1.4 (specialist + applicant roles)
 - **Forms:** React Hook Form v7 + Zod
 - **State:** Zustand v5 (client) + nuqs v2.8 (URL params)
@@ -138,28 +141,28 @@ yarn knip               # Find unused code
 
 ## Engineering Decisions
 
-See [DECISIONS.md](./DECISIONS.md) for detailed rationale on all technical choices, scope decisions, known limitations, and assumptions.
+See [docs/decisions.md](./docs/decisions.md) for detailed rationale on all technical choices, scope decisions, known limitations, and assumptions.
 
 Key decisions:
 
-- **Hybrid AI pipeline** over single-model — Cloud Vision provides pixel-accurate bounding boxes (GPT-5.2 vision has mAP 1.5, worst frontier model), GPT-5 Mini handles text classification at 7x lower cost
+- **Hybrid AI pipeline** over single-model — Cloud Vision provides pixel-accurate bounding boxes that GPT vision models can't match, GPT-4.1 handles text classification fast enough to meet the 5-second target
+- **AI on the applicant side** — applicants get instant feedback on submission; specialists see pre-analyzed results with zero wait time
 - **RSC-first** — server components for data loading, server actions for mutations, zero client-side waterfalls
 - **Lazy deadline expiration** — `getEffectiveStatus()` computes true status inline, no cron infrastructure needed
-- **Nano IDs** — shorter than UUIDs, URL-friendly, smaller indexes
 
 ## Scope
 
-**MVP (implemented):** Auth, single label validation, annotated results, history, dashboard, keyboard shortcuts, communication reports.
+**Implemented:** Auth (specialist + applicant roles), label submission with AI pre-fill, annotated image results with interactive zoom/pan, field comparison with diff highlighting, review queue with per-field overrides, batch approval, applicant management, dashboard with SLA metrics, settings (configurable thresholds).
 
-**Deferred:** Review queue, batch upload (300+ labels), applicant management, PDF export.
+**Deferred:** Batch upload (300+ labels at once), PDF export, email notifications.
 
-See [DECISIONS.md](./DECISIONS.md) for full scope rationale.
+See [docs/decisions.md](./docs/decisions.md) for full scope rationale.
 
 ## Environment Variables
 
 ```bash
 DATABASE_URL=                        # Neon Postgres connection string
-OPENAI_API_KEY=                      # OpenAI API key (GPT-5 Mini)
+OPENAI_API_KEY=                      # OpenAI API key (GPT-4.1)
 GOOGLE_APPLICATION_CREDENTIALS=      # Path to GCP service account JSON (local)
 GOOGLE_APPLICATION_CREDENTIALS_JSON= # GCP SA JSON content (Vercel deployment)
 BLOB_READ_WRITE_TOKEN=               # Vercel Blob storage token

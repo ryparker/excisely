@@ -1,6 +1,6 @@
 # Excisely — Architecture
 
-AI-powered alcohol label verification tool for TTB (Alcohol and Tobacco Tax and Trade Bureau) labeling specialists. Compares uploaded label images against COLA application data (TTB Form 5100.31) using a hybrid AI pipeline: Google Cloud Vision for pixel-accurate OCR, then GPT-5 Mini for semantic field classification.
+AI-powered alcohol label verification tool for TTB (Alcohol and Tobacco Tax and Trade Bureau) labeling specialists. Compares uploaded label images against COLA application data (TTB Form 5100.31) using a hybrid AI pipeline: Google Cloud Vision for pixel-accurate OCR, then OpenAI GPT-4.1 for semantic field classification.
 
 ---
 
@@ -108,7 +108,7 @@ The system handles three beverage types (distilled spirits, wine, malt beverages
 
 ```
   +-------------+        +---------------------------+        +-------------------------+
-  |  Label      |        |  STAGE 1: Google Cloud    |        |  STAGE 2: GPT-5 Mini   |
+  |  Label      |        |  STAGE 1: Google Cloud    |        |  STAGE 2: GPT-4.1   |
   |  Image(s)   |------->|  Vision OCR               |------->|  Field Classification  |
   |             |        |                           |        |                         |
   |  (Vercel    |        |  - TEXT_DETECTION API     |        |  - Text-only input     |
@@ -317,7 +317,7 @@ excisely/
     |-- lib/
     |   |-- ai/
     |   |   |-- ocr.ts                # Stage 1: Google Cloud Vision OCR
-    |   |   |-- classify-fields.ts    # Stage 2: GPT-5 Mini field classification
+    |   |   |-- classify-fields.ts    # Stage 2: GPT-4.1 field classification
     |   |   |-- extract-label.ts      # Pipeline orchestrator (OCR -> classify -> merge)
     |   |   |-- compare-fields.ts     # Field comparison engine (fuzzy, strict, normalized)
     |   |   +-- prompts.ts            # Classification prompts (beverage-type-aware)
@@ -430,13 +430,13 @@ STEP 3: Stage 1 — Google Cloud Vision OCR
   Cost: $0.0015/image    Latency: <1 second
 
 
-STEP 4: Stage 2 — GPT-5 Mini Field Classification
+STEP 4: Stage 2 — GPT-4.1 Field Classification
 ====================================================
 
   Combined OCR text from all images -> single generateText call:
 
   +------------------+      +------------------------+      +--------------------+
-  | OCR fullText     |----->| GPT-5 Mini             |----->| Classified Fields  |
+  | OCR fullText     |----->| GPT-4.1             |----->| Classified Fields  |
   | (text only,      |      | (via Vercel AI SDK v6) |      |                    |
   |  no image        |      |                        |      | brand_name:        |
   |  tokens)         |      | generateText +         |      |   "JACK DANIEL'S"  |
@@ -879,7 +879,7 @@ All secrets are server-only (no `NEXT_PUBLIC_` prefix). Managed in Vercel's envi
 
 ```
 DATABASE_URL                       # Neon Postgres connection string
-OPENAI_API_KEY                     # OpenAI API key (GPT-5 Mini via @ai-sdk/openai)
+OPENAI_API_KEY                     # OpenAI API key (GPT-4.1 / GPT-5 Mini via @ai-sdk/openai)
 GOOGLE_APPLICATION_CREDENTIALS     # Path to GCP service account JSON (local dev)
 GOOGLE_APPLICATION_CREDENTIALS_JSON # GCP service account JSON content (Vercel — parsed at runtime)
 BLOB_READ_WRITE_TOKEN              # Vercel Blob storage token

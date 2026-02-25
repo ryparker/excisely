@@ -74,20 +74,38 @@ export function ApplicantsTable({
         <TableCaption className="sr-only">Registered applicants</TableCaption>
         <TableHeader>
           <TableRow className="bg-muted/30 hover:bg-muted/30">
-            <ColumnHeader sortKey="companyName">Company Name</ColumnHeader>
-            <ColumnHeader sortKey="totalLabels" className="text-right">
+            <ColumnHeader
+              sortKey="companyName"
+              description="Registered company name of the applicant."
+            >
+              Company Name
+            </ColumnHeader>
+            <ColumnHeader
+              sortKey="totalLabels"
+              className="text-right"
+              description="Total number of COLA applications submitted by this applicant."
+            >
               Total Labels
             </ColumnHeader>
-            <ColumnHeader sortKey="approvalRate" className="text-right">
+            <ColumnHeader
+              sortKey="approvalRate"
+              className="text-right"
+              description="Percentage of this applicant's labels approved without correction."
+            >
               Approval Rate
             </ColumnHeader>
-            <ColumnHeader filterKey="risk" filterOptions={RISK_OPTIONS}>
+            <ColumnHeader
+              filterKey="risk"
+              filterOptions={RISK_OPTIONS}
+              description="Compliance risk level based on approval rate history."
+            >
               Risk
             </ColumnHeader>
             <ColumnHeader
               sortKey="lastSubmission"
               defaultSort="desc"
               className="text-right"
+              description="Date of the most recent application submitted by this applicant."
             >
               Last Submission
             </ColumnHeader>

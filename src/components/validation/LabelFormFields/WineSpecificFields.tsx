@@ -28,9 +28,7 @@ export function WineSpecificFields({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="grapeVarietal" className="flex items-center gap-1.5">
-            <FieldLabel fieldName="grape_varietal">
-              Grape Varietal (Item 10)
-            </FieldLabel>
+            <FieldLabel fieldName="grape_varietal">Grape Varietal</FieldLabel>
             <AiFieldIndicator
               showSplitPane={showSplitPane}
               onFieldFocus={onFieldFocus}
@@ -45,12 +43,10 @@ export function WineSpecificFields({
                 !extraction.modifiedFields.has('grape_varietal') &&
                 'bg-indigo-50/50 dark:bg-indigo-950/20',
             )}
-            {...register('grapeVarietal')}
+            {...register('grapeVarietal', {
+              onChange: () => onFieldChange('grape_varietal'),
+            })}
             onFocus={() => onFieldFocus('grape_varietal')}
-            onChange={(e) => {
-              register('grapeVarietal').onChange(e)
-              onFieldChange('grape_varietal')
-            }}
           />
         </div>
 
@@ -60,7 +56,7 @@ export function WineSpecificFields({
             className="flex items-center gap-1.5"
           >
             <FieldLabel fieldName="appellation_of_origin">
-              Appellation of Origin (Item 14)
+              Appellation of Origin
             </FieldLabel>
             <AiFieldIndicator
               showSplitPane={showSplitPane}
@@ -76,20 +72,16 @@ export function WineSpecificFields({
                 !extraction.modifiedFields.has('appellation_of_origin') &&
                 'bg-indigo-50/50 dark:bg-indigo-950/20',
             )}
-            {...register('appellationOfOrigin')}
+            {...register('appellationOfOrigin', {
+              onChange: () => onFieldChange('appellation_of_origin'),
+            })}
             onFocus={() => onFieldFocus('appellation_of_origin')}
-            onChange={(e) => {
-              register('appellationOfOrigin').onChange(e)
-              onFieldChange('appellation_of_origin')
-            }}
           />
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="vintageYear" className="flex items-center gap-1.5">
-            <FieldLabel fieldName="vintage_year">
-              Vintage Year (Item 15)
-            </FieldLabel>
+            <FieldLabel fieldName="vintage_year">Vintage Year</FieldLabel>
             <AiFieldIndicator
               showSplitPane={showSplitPane}
               onFieldFocus={onFieldFocus}
@@ -104,12 +96,10 @@ export function WineSpecificFields({
                 !extraction.modifiedFields.has('vintage_year') &&
                 'bg-indigo-50/50 dark:bg-indigo-950/20',
             )}
-            {...register('vintageYear')}
+            {...register('vintageYear', {
+              onChange: () => onFieldChange('vintage_year'),
+            })}
             onFocus={() => onFieldFocus('vintage_year')}
-            onChange={(e) => {
-              register('vintageYear').onChange(e)
-              onFieldChange('vintage_year')
-            }}
           />
         </div>
 

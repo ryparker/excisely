@@ -17,7 +17,6 @@ import {
   TableBody,
   TableCaption,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/Table'
@@ -88,26 +87,48 @@ export function SubmissionsTable({
         </TableCaption>
         <TableHeader>
           <TableRow className="bg-muted/30 hover:bg-muted/30">
-            <TableHead className="w-[60px]">Label</TableHead>
-            <ColumnHeader sortKey="brandName">Brand Name</ColumnHeader>
-            <TableHead>Serial Number</TableHead>
-            <ColumnHeader filterKey="status" filterOptions={STATUS_OPTIONS}>
+            <ColumnHeader
+              description="Thumbnail of the submitted label image."
+              className="w-[60px]"
+            >
+              Label
+            </ColumnHeader>
+            <ColumnHeader
+              sortKey="brandName"
+              description="The brand name (Item 6) from the COLA application."
+            >
+              Brand Name
+            </ColumnHeader>
+            <ColumnHeader description="The TTB-assigned serial number (Item 4) for this application.">
+              Serial Number
+            </ColumnHeader>
+            <ColumnHeader
+              filterKey="status"
+              filterOptions={STATUS_OPTIONS}
+              description="Current status of the label application in the review pipeline."
+            >
               Status
             </ColumnHeader>
             <ColumnHeader
               sortKey="beverageType"
               filterKey="beverageType"
               filterOptions={BEVERAGE_OPTIONS}
+              description="Product category — wine, malt beverage, or distilled spirits."
             >
               Beverage Type
             </ColumnHeader>
-            <ColumnHeader sortKey="flaggedCount" className="text-right">
+            <ColumnHeader
+              sortKey="flaggedCount"
+              className="text-right"
+              description="Number of fields flagged as mismatched during AI verification."
+            >
               Issues
             </ColumnHeader>
             <ColumnHeader
               sortKey="createdAt"
               defaultSort="desc"
               className="text-right"
+              description="Date the application was submitted for review."
             >
               Submitted
             </ColumnHeader>

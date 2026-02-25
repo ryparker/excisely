@@ -4,13 +4,6 @@ interface ProcessingStatusBannerProps {
   imageCount?: number
 }
 
-function estimateTime(imageCount: number): string {
-  // ~12s per image for OCR + classification pipeline
-  const low = Math.max(10, imageCount * 10)
-  const high = imageCount * 15
-  return `${low}\u2013${high} seconds`
-}
-
 export function ProcessingStatusBanner({
   imageCount = 1,
 }: ProcessingStatusBannerProps) {
@@ -25,8 +18,7 @@ export function ProcessingStatusBanner({
         {imageCount > 1 ? ` ${imageCount} images` : ' label'}
         <span className="text-muted-foreground/60">
           {' '}
-          &middot; typically {estimateTime(imageCount)} &middot; updates
-          automatically
+          &middot; updates automatically
         </span>
       </p>
     </div>

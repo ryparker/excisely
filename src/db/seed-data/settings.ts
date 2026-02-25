@@ -5,10 +5,6 @@ export interface SeedSetting {
 
 export const SEED_SETTINGS: SeedSetting[] = [
   {
-    key: 'confidence_threshold',
-    value: 80,
-  },
-  {
     key: 'field_strictness',
     value: {
       health_warning: 'strict',

@@ -62,7 +62,7 @@ export default async function SpecialistDashboard({
     <DashboardAnimatedShell
       header={
         <PageHeader
-          title="Labels"
+          title="Label Applications"
           description="All label verification activity and review queue."
         />
       }

@@ -89,7 +89,7 @@ function defaultPipelineOutput(overrides?: Record<string, unknown>) {
         { imageIndex: 0, imageType: 'front', confidence: 98 },
       ],
       processingTimeMs: 2500,
-      modelUsed: 'gpt-5-mini',
+      modelUsed: 'gpt-4.1',
       rawResponse: {},
       detectedBeverageType: null,
       metrics: {

@@ -23,6 +23,8 @@ export interface LabelsTableProps {
   pageSize: number
   queueMode?: 'ready' | 'review'
   searchTerm?: string
+  /** SLA review response target in hours — used to color-code the age column. */
+  slaResponseHours?: number
 }
 
 export type BulkItemStatus = 'pending' | 'processing' | 'success' | 'error'

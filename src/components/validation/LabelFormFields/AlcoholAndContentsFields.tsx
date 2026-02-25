@@ -22,8 +22,8 @@ export function AlcoholAndContentsFields({
   return (
     <fieldset className="m-0 border-0 p-0">
       <legend className="sr-only">Alcohol and Contents</legend>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
+      <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
+        <div className="space-y-1.5">
           <Label htmlFor="alcoholContent" className="flex items-center gap-1.5">
             <FieldLabel fieldName="alcohol_content">Alcohol Content</FieldLabel>
             <AiFieldIndicator
@@ -40,16 +40,14 @@ export function AlcoholAndContentsFields({
                 !extraction.modifiedFields.has('alcohol_content') &&
                 'bg-indigo-50/50 dark:bg-indigo-950/20',
             )}
-            {...register('alcoholContent')}
+            {...register('alcoholContent', {
+              onChange: () => onFieldChange('alcohol_content'),
+            })}
             onFocus={() => onFieldFocus('alcohol_content')}
-            onChange={(e) => {
-              register('alcoholContent').onChange(e)
-              onFieldChange('alcohol_content')
-            }}
           />
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <Label htmlFor="netContents" className="flex items-center gap-1.5">
             <FieldLabel fieldName="net_contents">Net Contents</FieldLabel>
             <AiFieldIndicator
@@ -66,12 +64,10 @@ export function AlcoholAndContentsFields({
                 !extraction.modifiedFields.has('net_contents') &&
                 'bg-indigo-50/50 dark:bg-indigo-950/20',
             )}
-            {...register('netContents')}
+            {...register('netContents', {
+              onChange: () => onFieldChange('net_contents'),
+            })}
             onFocus={() => onFieldFocus('net_contents')}
-            onChange={(e) => {
-              register('netContents').onChange(e)
-              onFieldChange('net_contents')
-            }}
           />
         </div>
       </div>

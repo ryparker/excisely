@@ -42,12 +42,10 @@ export function SpiritsSpecificFields({
                 !extraction.modifiedFields.has('age_statement') &&
                 'bg-indigo-50/50 dark:bg-indigo-950/20',
             )}
-            {...register('ageStatement')}
+            {...register('ageStatement', {
+              onChange: () => onFieldChange('age_statement'),
+            })}
             onFocus={() => onFieldFocus('age_statement')}
-            onChange={(e) => {
-              register('ageStatement').onChange(e)
-              onFieldChange('age_statement')
-            }}
           />
         </div>
 
@@ -73,12 +71,10 @@ export function SpiritsSpecificFields({
                 !extraction.modifiedFields.has('state_of_distillation') &&
                 'bg-indigo-50/50 dark:bg-indigo-950/20',
             )}
-            {...register('stateOfDistillation')}
+            {...register('stateOfDistillation', {
+              onChange: () => onFieldChange('state_of_distillation'),
+            })}
             onFocus={() => onFieldFocus('state_of_distillation')}
-            onChange={(e) => {
-              register('stateOfDistillation').onChange(e)
-              onFieldChange('state_of_distillation')
-            }}
           />
         </div>
       </div>

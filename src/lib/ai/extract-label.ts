@@ -89,7 +89,7 @@ export interface ExtractionResult {
  *
  * 1. Runs Google Cloud Vision OCR on all images in parallel
  * 2. Builds a combined word list with global indices
- * 3. Sends the combined text to GPT-5 Mini for field classification
+ * 3. Sends the combined text + images to GPT-5 Mini for field classification
  * 4. Maps classified fields back to bounding boxes from OCR results
  */
 export async function extractLabelFields(
@@ -189,7 +189,7 @@ export async function extractLabelFieldsFromBuffers(
 }
 
 // ---------------------------------------------------------------------------
-// Submission pipeline (gpt-5-mini, text-only, with reasoning + bounding boxes)
+// Submission pipeline (gpt-4.1, text-only, with reasoning + bounding boxes)
 // ---------------------------------------------------------------------------
 
 /**
@@ -206,12 +206,14 @@ export async function extractLabelFieldsForSubmission(
   imageUrls: string[],
   beverageType: BeverageType,
   applicationData?: Record<string, string>,
+  preloadedBuffers?: Buffer[],
 ): Promise<ExtractionResult> {
   const startTime = performance.now()
 
-  // Fetch image bytes from private blob storage (needed for OCR, not sent to LLM)
+  // Use pre-fetched buffers if available (overlapped with DB writes), otherwise fetch now
   const fetchStart = performance.now()
-  const imageBuffers = await Promise.all(imageUrls.map(fetchImageBytes))
+  const imageBuffers =
+    preloadedBuffers ?? (await Promise.all(imageUrls.map(fetchImageBytes)))
   const fetchTimeMs = Math.round(performance.now() - fetchStart)
 
   // Stage 1: OCR all images in parallel
@@ -224,7 +226,7 @@ export async function extractLabelFieldsForSubmission(
     .map((r, i) => `--- Image ${i + 1} ---\n${r.fullText}`)
     .join('\n\n')
 
-  // Stage 2: Text-only classification via gpt-5-mini (no images sent)
+  // Stage 2: Text-only classification via gpt-4.1 (no images sent)
   const classificationStart = performance.now()
   const { result: classification, usage } = await classifyFieldsForSubmission(
     combinedFullText,

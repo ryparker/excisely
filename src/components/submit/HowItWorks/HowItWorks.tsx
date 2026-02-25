@@ -11,7 +11,7 @@ export function HowItWorks() {
   const submissionStep = useExtractionStore((s) => s.submissionStep)
 
   return (
-    <div className="my-6">
+    <div className="my-10">
       {/* Desktop: horizontal stepper */}
       <div className="hidden items-start sm:flex">
         {STEPS.map((step, i) => {

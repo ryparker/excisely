@@ -9,14 +9,6 @@ import { logActionError } from '@/lib/actions/action-error'
 import type { StrictnessLevel } from '@/db/queries/settings'
 import type { ActionResult } from '@/lib/actions/result-types'
 
-const updateAutoApprovalSchema = z.object({
-  enabled: z.boolean(),
-})
-
-const updateConfidenceSchema = z.object({
-  confidenceThreshold: z.number().min(0).max(100),
-})
-
 const updateApprovalThresholdSchema = z.object({
   approvalThreshold: z.number().min(80).max(100),
 })
@@ -31,59 +23,8 @@ const updateStrictnessSchema = z.object({
 const updateSLASchema = z.object({
   reviewResponseHours: z.number().min(1).max(168),
   totalTurnaroundHours: z.number().min(1).max(168),
-  autoApprovalRateTarget: z.number().min(0).max(100),
   maxQueueDepth: z.number().min(1).max(1000),
 })
-
-export async function updateAutoApproval(
-  enabled: boolean,
-): Promise<ActionResult> {
-  const guard = await guardSpecialist()
-  if (!guard.success) return guard
-
-  const parsed = updateAutoApprovalSchema.safeParse({ enabled })
-  if (!parsed.success) {
-    return { success: false, error: 'Invalid value' }
-  }
-
-  try {
-    await upsertSetting('auto_approval_enabled', parsed.data.enabled)
-    updateTag('settings')
-    return { success: true }
-  } catch (error) {
-    return logActionError(
-      'updateAutoApproval',
-      error,
-      'Failed to save auto-approval setting',
-    )
-  }
-}
-
-export async function updateConfidenceThreshold(
-  threshold: number,
-): Promise<ActionResult> {
-  const guard = await guardSpecialist()
-  if (!guard.success) return guard
-
-  const parsed = updateConfidenceSchema.safeParse({
-    confidenceThreshold: threshold,
-  })
-  if (!parsed.success) {
-    return { success: false, error: 'Threshold must be between 0 and 100' }
-  }
-
-  try {
-    await upsertSetting('confidence_threshold', parsed.data.confidenceThreshold)
-    updateTag('settings')
-    return { success: true }
-  } catch (error) {
-    return logActionError(
-      'updateConfidenceThreshold',
-      error,
-      'Failed to save threshold',
-    )
-  }
-}
 
 export async function updateApprovalThreshold(
   threshold: number,
@@ -142,7 +83,6 @@ export async function updateFieldStrictness(
 export async function updateSLATargets(targets: {
   reviewResponseHours: number
   totalTurnaroundHours: number
-  autoApprovalRateTarget: number
   maxQueueDepth: number
 }): Promise<ActionResult> {
   const guard = await guardSpecialist()

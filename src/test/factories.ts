@@ -147,7 +147,7 @@ export function createValidationResult(
     isCurrent: true,
     aiRawResponse: { classification: {}, usage: {}, metrics: {} },
     processingTimeMs: 2500,
-    modelUsed: 'gpt-5-mini',
+    modelUsed: 'gpt-4.1',
     inputTokens: null,
     outputTokens: null,
     totalTokens: null,

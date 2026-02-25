@@ -48,35 +48,35 @@ export function LabelFormFields({
   const fieldGroupProps = { showSplitPane, onFieldFocus, onFieldChange }
 
   return (
-    <>
+    <div className="flex flex-col gap-5">
       <CommonFields {...fieldGroupProps} />
       <VolumeAndClassFields />
       <AlcoholAndContentsFields {...fieldGroupProps} />
 
-      <Separator />
+      <div className="flex flex-col gap-5 border-t border-border pt-5">
+        <ProducerInfoFields {...fieldGroupProps} />
 
-      <ProducerInfoFields {...fieldGroupProps} />
+        {mode === 'validate' && (
+          <>
+            <Separator />
+            <HealthWarningField onFieldFocus={onFieldFocus} />
+          </>
+        )}
 
-      {mode === 'validate' && (
-        <>
-          <Separator />
-          <HealthWarningField onFieldFocus={onFieldFocus} />
-        </>
-      )}
+        {beverageType === 'wine' && (
+          <>
+            <Separator />
+            <WineSpecificFields {...fieldGroupProps} />
+          </>
+        )}
 
-      {beverageType === 'wine' && (
-        <>
-          <Separator />
-          <WineSpecificFields {...fieldGroupProps} />
-        </>
-      )}
-
-      {beverageType === 'distilled_spirits' && (
-        <>
-          <Separator />
-          <SpiritsSpecificFields {...fieldGroupProps} />
-        </>
-      )}
-    </>
+        {beverageType === 'distilled_spirits' && (
+          <>
+            <Separator />
+            <SpiritsSpecificFields {...fieldGroupProps} />
+          </>
+        )}
+      </div>
+    </div>
   )
 }

@@ -124,18 +124,11 @@ export async function validateLabel(
     })
 
     // 8. Update label with final status
-    if (result.autoApproved) {
-      await updateLabelStatus(label.id, {
-        status: 'approved',
-        overallConfidence: String(result.overallConfidence),
-      })
-    } else {
-      await updateLabelStatus(label.id, {
-        status: 'pending_review',
-        aiProposedStatus: result.overallStatus,
-        overallConfidence: String(result.overallConfidence),
-      })
-    }
+    await updateLabelStatus(label.id, {
+      status: 'pending_review',
+      aiProposedStatus: result.overallStatus,
+      overallConfidence: String(result.overallConfidence),
+    })
 
     return { success: true, labelId: label.id }
   } catch (error) {

@@ -6,11 +6,7 @@ import { AnimatePresence, motion } from 'motion/react'
 
 import { Button } from '@/components/ui/Button'
 import { Progress } from '@/components/ui/Progress'
-import {
-  type ProcessingStage,
-  getScaledTimings,
-  getTimeEstimateLabel,
-} from '@/lib/processing-stages'
+import { type ProcessingStage, getScaledTimings } from '@/lib/processing-stages'
 import {
   ImageProcessingSummary,
   type ImageInfo,
@@ -195,7 +191,7 @@ export function ProcessingProgress({
                   ? 'Your submission could not be completed. Please try again.'
                   : isSlow
                     ? 'Taking a bit longer than usual — hang tight'
-                    : `This typically takes ${getTimeEstimateLabel(imageCount)}`}
+                    : 'This may take a moment'}
           </p>
         </div>
 

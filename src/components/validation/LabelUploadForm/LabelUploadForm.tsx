@@ -30,13 +30,7 @@ import {
   CardTitle,
 } from '@/components/ui/Card'
 import { Label } from '@/components/ui/Label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/Select'
+import { Combobox } from '@/components/ui/Combobox'
 import { Input } from '@/components/ui/Input'
 import { Separator } from '@/components/ui/Separator'
 import {
@@ -108,7 +102,6 @@ export function LabelUploadForm({
   const [photoReviewOpen, setPhotoReviewOpen] = useState(false)
   const prevFileCountRef = useRef(0)
   const [showQrDialog, setShowQrDialog] = useState(false)
-
   // Extraction store
   const extraction = useExtractionStore()
 
@@ -299,7 +292,7 @@ export function LabelUploadForm({
           Object.assign(merged, { [key]: value })
         }
       }
-      reset(merged, { keepDirty: true, keepErrors: true })
+      reset(merged, { keepDirty: true })
       pendingPrefillRef.current = null
     }, 50)
     return () => clearTimeout(timer)
@@ -403,6 +396,7 @@ export function LabelUploadForm({
         formData.set('stateOfDistillation', data.stateOfDistillation)
       formData.set('imageUrls', JSON.stringify(imageUrls))
 
+      // Specialist submitting on behalf of an applicant
       // Send AI extraction data for correction delta computation
       if (mode === 'submit' && extraction.aiOriginalValues.size > 0) {
         const aiFields = Object.fromEntries(extraction.aiOriginalValues)
@@ -644,30 +638,23 @@ export function LabelUploadForm({
             <div className="grid gap-6 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="classTypeCode">Class/Type Code</Label>
-                <Select
+                <Combobox
+                  id="classTypeCode"
+                  options={filteredCodes.map((code) => ({
+                    value: code.code,
+                    label: `${code.code} — ${code.description}`,
+                  }))}
                   value={watch('classTypeCode') || ''}
                   onValueChange={(value) =>
                     setValue('classTypeCode', value, { shouldValidate: true })
                   }
                   disabled={!beverageType}
-                >
-                  <SelectTrigger id="classTypeCode" className="w-full">
-                    <SelectValue
-                      placeholder={
-                        beverageType
-                          ? 'Select a code'
-                          : 'Select a beverage type first'
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredCodes.map((code) => (
-                      <SelectItem key={code.code} value={code.code}>
-                        {code.code} — {code.description}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder={
+                    beverageType
+                      ? 'Search codes...'
+                      : 'Select a beverage type first'
+                  }
+                />
               </div>
 
               <div className="space-y-2">
@@ -874,7 +861,7 @@ export function LabelUploadForm({
             animate={phaseAnimate}
             exit={phaseExit}
             transition={phaseTransition}
-            className="space-y-6"
+            className="space-y-8"
           >
             <div>
               <h2 className="font-heading text-lg font-semibold tracking-tight">
@@ -1025,7 +1012,7 @@ export function LabelUploadForm({
           >
             {/* Left: Sticky image viewer */}
             <div className="hidden w-[40%] shrink-0 lg:block">
-              <div className="sticky top-20 h-[calc(100dvh-12rem)]">
+              <div className="sticky top-20 h-[calc(100dvh-20rem)]">
                 <ApplicantImageViewer
                   imageUrls={
                     extraction.status === 'extracting'

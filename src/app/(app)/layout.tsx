@@ -63,15 +63,6 @@ export default async function AppLayout({
           ),
         )
       }
-      if (slaMetrics.autoApprovalRate !== null) {
-        statuses.push(
-          getSLAStatus(
-            slaMetrics.autoApprovalRate,
-            slaTargets.autoApprovalRateTarget,
-            false,
-          ),
-        )
-      }
       slaHealth = worstSLAStatus(statuses)
     } catch (error) {
       console.error('[Layout] Failed to fetch sidebar data:', error)

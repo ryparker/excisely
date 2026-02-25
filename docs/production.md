@@ -47,13 +47,13 @@ The prototype has two roles: specialist and applicant. In production, we'd need 
 
 This is the biggest gap between prototype and production.
 
-**The problem:** Right now the AI pipeline is a fixed configuration in code — Cloud Vision for OCR, GPT-5 Mini for classification, with prompts defined in `src/lib/ai/prompts.ts` and comparison logic in `src/lib/ai/compare-fields.ts`. If we change a prompt, swap a model, or adjust matching thresholds, there's no record of what version of the pipeline produced previous results.
+**The problem:** Right now the AI pipeline is a fixed configuration in code — Cloud Vision for OCR, GPT-4.1 for classification, with prompts defined in `src/lib/ai/prompts.ts` and comparison logic in `src/lib/ai/compare-fields.ts`. If we change a prompt, swap a model, or adjust matching thresholds, there's no record of what version of the pipeline produced previous results.
 
 **What we'd implement:**
 
 - **Pipeline version identifier** — a semantic version (e.g., `v1.2.0`) attached to every validation result. The version encodes: OCR provider + model, classification provider + model, prompt template hash, comparison algorithm version, and confidence thresholds
 - **Version stored per label** — each `validation_items` row records which pipeline version produced it. When we change anything, the version bumps and new validations use the new version while historical results retain their version tag
-- **Changelog** — human-readable description of what changed in each version ("Switched classification from GPT-5 Mini to GPT-5.2 for improved multi-line field grouping")
+- **Changelog** — human-readable description of what changed in each version ("Switched classification from GPT-4.1 to GPT-5.2 for improved multi-line field grouping")
 - **A/B comparison** — ability to re-run a sample of historical labels through a new pipeline version and compare accuracy before promoting it to production
 - **Rollback** — if a new version degrades accuracy, revert to the previous version without a code deploy
 
@@ -61,11 +61,11 @@ This is the biggest gap between prototype and production.
 
 ### Model Portability
 
-The current architecture already abstracts the AI SDK provider (swapping `openai('gpt-5-mini')` for another model is a one-line change), but production would need:
+The current architecture already abstracts the AI SDK provider (swapping `openai('gpt-4.1')` for another model is a one-line change), but production would need:
 
 - Configuration-driven model selection (not hardcoded)
 - Cost and latency monitoring per model
-- Graceful fallback if a provider has an outage (e.g., fall back from GPT-5 Mini to GPT-4.1 Nano)
+- Graceful fallback if a provider has an outage (e.g., fall back from GPT-4.1 to GPT-4.1 Nano)
 - Evaluation harness to benchmark new models against the existing validation dataset before deployment
 
 ---
@@ -176,7 +176,7 @@ Government systems typically need to meet FedRAMP authorization, operate within 
 | **Database**            | Neon Postgres (serverless)  | Amazon RDS for PostgreSQL on GovCloud                            | RDS in AWS GovCloud is FedRAMP High authorized. We'd switch from Neon's serverless driver to standard `pg` (node-postgres) with connection pooling via PgBouncer or RDS Proxy. Drizzle ORM is driver-agnostic — `src/db/index.ts` already auto-detects the driver based on the connection URL, so this is a configuration change, not a code change.                                                                                           |
 | **File storage**        | Vercel Blob (Cloudflare R2) | Amazon S3 on GovCloud                                            | S3 in GovCloud is FedRAMP High authorized with server-side encryption (SSE-S3 or SSE-KMS), bucket policies, and access logging. Label images are regulatory evidence — they need encryption at rest, versioning, and retention policies. The upload flow would switch from `@vercel/blob/client` to pre-signed S3 URLs, which is a similar pattern (client-side direct upload with server-issued tokens).                                      |
 | **AI — OCR**            | Google Cloud Vision         | Google Cloud Vision (with VPC-SC) or Amazon Textract on GovCloud | Google Cloud has FedRAMP High authorization for some services, but availability depends on the specific agency's ATOs. Amazon Textract on GovCloud is a direct alternative — it provides OCR with word-level bounding boxes similar to Cloud Vision. Would require updating `src/lib/ai/ocr.ts` to use the Textract SDK instead of the Vision SDK, but the output structure (text + bounding polygons) is comparable.                          |
-| **AI — Classification** | OpenAI GPT-5 Mini           | Azure OpenAI on Government or AWS Bedrock                        | OpenAI's commercial API is not FedRAMP authorized. Azure OpenAI Service is available in Azure Government regions with FedRAMP High authorization — same models, government-compliant infrastructure. Alternatively, AWS Bedrock in GovCloud offers Claude and other models. The AI SDK is provider-agnostic, so switching from `@ai-sdk/openai` to `@ai-sdk/azure` or `@ai-sdk/amazon-bedrock` is a provider swap, not an architecture change. |
+| **AI — Classification** | OpenAI GPT-4.1              | Azure OpenAI on Government or AWS Bedrock                        | OpenAI's commercial API is not FedRAMP authorized. Azure OpenAI Service is available in Azure Government regions with FedRAMP High authorization — same models, government-compliant infrastructure. Alternatively, AWS Bedrock in GovCloud offers Claude and other models. The AI SDK is provider-agnostic, so switching from `@ai-sdk/openai` to `@ai-sdk/azure` or `@ai-sdk/amazon-bedrock` is a provider swap, not an architecture change. |
 
 **Fallback: Full AWS deployment**
 

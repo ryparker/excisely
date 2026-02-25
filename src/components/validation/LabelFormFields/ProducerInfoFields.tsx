@@ -2,15 +2,9 @@
 
 import { useFormContext } from 'react-hook-form'
 
+import { Combobox } from '@/components/ui/Combobox'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { FieldLabel } from '@/components/shared/FieldLabel'
 import { AiFieldIndicator } from '@/components/validation/AiFieldIndicator'
@@ -31,11 +25,11 @@ export function ProducerInfoFields({
   return (
     <fieldset className="m-0 border-0 p-0">
       <legend className="sr-only">Producer Information</legend>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
+      <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
+        <div className="space-y-1.5">
           <Label htmlFor="nameAndAddress" className="flex items-center gap-1.5">
             <FieldLabel fieldName="name_and_address">
-              Name and Address (Item 8)
+              Name and Address
             </FieldLabel>
             <AiFieldIndicator
               showSplitPane={showSplitPane}
@@ -52,17 +46,15 @@ export function ProducerInfoFields({
                 !extraction.modifiedFields.has('name_and_address') &&
                 'bg-indigo-50/50 dark:bg-indigo-950/20',
             )}
-            {...register('nameAndAddress')}
+            {...register('nameAndAddress', {
+              onChange: () => onFieldChange('name_and_address'),
+            })}
             onFocus={() => onFieldFocus('name_and_address')}
-            onChange={(e) => {
-              register('nameAndAddress').onChange(e)
-              onFieldChange('name_and_address')
-            }}
           />
         </div>
 
         <div className="space-y-4">
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label
               htmlFor="qualifyingPhrase"
               className="flex items-center gap-1.5"
@@ -76,7 +68,12 @@ export function ProducerInfoFields({
                 fieldName="qualifying_phrase"
               />
             </Label>
-            <Select
+            <Combobox
+              id="qualifyingPhrase"
+              options={QUALIFYING_PHRASES.map((phrase) => ({
+                value: phrase,
+                label: phrase,
+              }))}
               value={watch('qualifyingPhrase') || ''}
               onValueChange={(value) => {
                 setValue('qualifyingPhrase', value, {
@@ -84,25 +81,12 @@ export function ProducerInfoFields({
                 })
                 onFieldChange('qualifying_phrase')
               }}
-            >
-              <SelectTrigger
-                id="qualifyingPhrase"
-                className="w-full"
-                onFocus={() => onFieldFocus('qualifying_phrase')}
-              >
-                <SelectValue placeholder="Select a phrase" />
-              </SelectTrigger>
-              <SelectContent>
-                {QUALIFYING_PHRASES.map((phrase) => (
-                  <SelectItem key={phrase} value={phrase}>
-                    {phrase}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="Search phrases..."
+              onFocus={() => onFieldFocus('qualifying_phrase')}
+            />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label
               htmlFor="countryOfOrigin"
               className="flex items-center gap-1.5"
@@ -124,12 +108,10 @@ export function ProducerInfoFields({
                   !extraction.modifiedFields.has('country_of_origin') &&
                   'bg-indigo-50/50 dark:bg-indigo-950/20',
               )}
-              {...register('countryOfOrigin')}
+              {...register('countryOfOrigin', {
+                onChange: () => onFieldChange('country_of_origin'),
+              })}
               onFocus={() => onFieldFocus('country_of_origin')}
-              onChange={(e) => {
-                register('countryOfOrigin').onChange(e)
-                onFieldChange('country_of_origin')
-              }}
             />
           </div>
         </div>

@@ -51,21 +51,32 @@ export function ApplicantLabelsTable({ labels }: ApplicantLabelsTableProps) {
         </TableCaption>
         <TableHeader>
           <TableRow className="bg-muted/30 hover:bg-muted/30">
-            <ColumnHeader sortKey="brandName">Brand Name</ColumnHeader>
+            <ColumnHeader
+              sortKey="brandName"
+              description="The brand name (Item 6) from the COLA application."
+            >
+              Brand Name
+            </ColumnHeader>
             <ColumnHeader
               sortKey="beverageType"
               filterKey="beverageType"
               filterOptions={BEVERAGE_OPTIONS}
+              description="Product category — wine, malt beverage, or distilled spirits."
             >
               Beverage Type
             </ColumnHeader>
-            <ColumnHeader sortKey="overallConfidence" className="text-right">
+            <ColumnHeader
+              sortKey="overallConfidence"
+              className="text-right"
+              description="AI verification confidence score for this label."
+            >
               Confidence
             </ColumnHeader>
             <ColumnHeader
               sortKey="createdAt"
               defaultSort="desc"
               className="text-right"
+              description="Date the application was submitted for review."
             >
               Date
             </ColumnHeader>

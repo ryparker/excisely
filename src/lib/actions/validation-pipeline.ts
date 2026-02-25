@@ -13,7 +13,6 @@ import {
   type ValidationItemStatus,
   type LabelStatus,
 } from '@/lib/labels/validation-helpers'
-import { getAutoApprovalEnabled } from '@/db/queries/settings'
 import type { BeverageType } from '@/config/beverage-types'
 
 // ---------------------------------------------------------------------------
@@ -30,6 +29,8 @@ export interface ValidationPipelineInput {
   expectedFields: Map<string, string>
   /** Optional transform applied to extraction.rawResponse before inserting the validation result. */
   rawResponseTransform?: (rawResponse: unknown) => unknown
+  /** Pre-fetched image buffers (overlapped with DB writes to save ~150ms). */
+  preloadedBuffers?: Buffer[]
 }
 
 export interface ValidationPipelineOutput {
@@ -37,8 +38,6 @@ export interface ValidationPipelineOutput {
   overallStatus: LabelStatus
   overallConfidence: number
   deadlineDays: number | null
-  /** Whether auto-approval would apply (overallStatus === 'approved' AND setting enabled). */
-  autoApproved: boolean
   extraction: ExtractionResult
 }
 
@@ -67,6 +66,7 @@ export async function runValidationPipeline(
     containerSizeMl,
     expectedFields,
     rawResponseTransform,
+    preloadedBuffers,
   } = input
 
   // 1. Run AI extraction with application data for disambiguation
@@ -75,6 +75,7 @@ export async function runValidationPipeline(
     imageUrls,
     beverageType,
     appDataForAI,
+    preloadedBuffers,
   )
 
   // 2. Update image types from AI classification (60% confidence threshold)
@@ -185,16 +186,11 @@ export async function runValidationPipeline(
         )
       : 0
 
-  // 8. Check auto-approval setting
-  const autoApprovalEnabled = await getAutoApprovalEnabled()
-  const autoApproved = autoApprovalEnabled && overallStatus === 'approved'
-
   return {
     validationResultId: validationResult.id,
     overallStatus,
     overallConfidence,
     deadlineDays,
-    autoApproved,
     extraction,
   }
 }

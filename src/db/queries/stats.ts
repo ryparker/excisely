@@ -2,56 +2,7 @@ import { sql } from 'drizzle-orm'
 import { cacheLife, cacheTag } from 'next/cache'
 
 import { db } from '@/db'
-import { humanReviews, labels, validationItems } from '@/db/schema'
-
-// ---------------------------------------------------------------------------
-// Average Confidence (all labels)
-// ---------------------------------------------------------------------------
-
-/** Average overall confidence across all labels with a confidence score. */
-export async function getAvgConfidence(): Promise<number | null> {
-  'use cache'
-  cacheTag('labels')
-  cacheLife('seconds')
-
-  const [result] = await db
-    .select({
-      avg: sql<number>`round(avg(${labels.overallConfidence}::numeric))::int`,
-    })
-    .from(labels)
-    .where(sql`${labels.overallConfidence} IS NOT NULL`)
-
-  return result?.avg ?? null
-}
-
-// ---------------------------------------------------------------------------
-// Average Confidence (non-auto-approved)
-// ---------------------------------------------------------------------------
-
-/** Average confidence for labels that went through manual review (not auto-approved). */
-export async function getAvgConfidenceNonAutoApproved(): Promise<
-  number | null
-> {
-  'use cache'
-  cacheTag('labels')
-  cacheLife('seconds')
-
-  const [result] = await db
-    .select({
-      avg: sql<number>`round(avg(${labels.overallConfidence}::numeric))::int`,
-    })
-    .from(labels)
-    .where(
-      sql`${labels.overallConfidence} IS NOT NULL AND (
-            ${labels.status} IN ('pending_review', 'needs_correction', 'conditionally_approved', 'rejected')
-            OR (${labels.status} = 'approved' AND EXISTS (
-              SELECT 1 FROM human_reviews hr WHERE hr.label_id = ${labels.id}
-            ))
-          )`,
-    )
-
-  return result?.avg ?? null
-}
+import { humanReviews, validationItems } from '@/db/schema'
 
 // ---------------------------------------------------------------------------
 // Field Match Rates
