@@ -278,11 +278,9 @@ ${fieldListText}
 // ---------------------------------------------------------------------------
 
 /**
- * Builds a submission-optimized prompt for gpt-5-mini.
- * Key differences from buildClassificationPrompt:
- * - No "Visual Verification" section (no images sent — saves ~30-40s)
- * - No "Image Type Classification" section (already done during pre-fill)
- * - No word indices in response format (local text matching produces bounding boxes)
+ * Builds a submission-optimized prompt for gpt-4.1.
+ * Optimized for speed: concise instructions, system/user split for prompt caching.
+ * - No images, no word indices, no image classification
  * - Keeps: field descriptions, disambiguation rules, application data, confidence/reasoning
  *
  * Returns { system, user } for OpenAI prompt caching (system is cacheable across calls).

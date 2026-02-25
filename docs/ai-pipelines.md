@@ -37,7 +37,7 @@ The system has five pipelines optimized for different use cases. They all share 
                           Images to    Word      Reasoning   Confidence
   Pipeline       Model    Model?    Indices?    Effort       Scores?     Speed
   ─────────────  ───────  ────────  ────────    ──────────   ──────────  ────────
-  Submission     5-mini   No        No          Low          Yes         ~15-20s
+  Submission     4.1      No        No          N/A          Yes         ~4-6s
   Specialist     5-mini   Yes       Yes         Default      Yes         20-60s+
   Fast Pre-fill  4.1      No        No          N/A          No (80)     ~3-5s
   Full Extract   5-mini   Yes       Yes         Default      Yes         20-60s+
@@ -51,16 +51,16 @@ The system has five pipelines optimized for different use cases. They all share 
 ### 1. Submission Pipeline
 
 **Function:** `extractLabelFieldsForSubmission()`
-**Model:** gpt-5-mini (text-only, `reasoningEffort: 'low'`)
+**Model:** gpt-4.1 (text-only, `temperature: 0`)
 **Used by:** All label processing actions
 
 ```
-  Blob Storage        Cloud Vision          gpt-5-mini             Local CPU
+  Blob Storage        Cloud Vision            gpt-4.1              Local CPU
   ┌──────────┐       ┌────────────┐       ┌──────────────┐       ┌──────────────┐
   │  Fetch   │──────>│    OCR     │──────>│ Classify     │──────>│ Match fields  │
   │  images  │ bytes │ (parallel) │ text  │ (text-only)  │fields │ to OCR words  │
-  │          │       │            │       │              │       │               │
-  │ ~200ms   │       │  ~600ms    │       │  ~10-15s     │       │    ~1ms       │
+  │          │       │            │       │ temp=0       │       │               │
+  │ ~200ms   │       │  ~600ms    │       │  ~3-5s       │       │    ~1ms       │
   └──────────┘       └────────────┘       └──────────────┘       └──────────────┘
        |                   |                     |                       |
    Image bytes       Word polygons         Field values +          Bounding boxes
@@ -71,11 +71,14 @@ The system has five pipelines optimized for different use cases. They all share 
 
 **Why this design:**
 
-This is the workhorse pipeline. It handles applicant submissions, specialist validations, reanalysis, and batch processing. The key optimization: **images are fetched for OCR but never sent to the LLM**. This saves ~30-40 seconds of multimodal upload and processing time.
+This is the workhorse pipeline. It handles applicant submissions, specialist validations, reanalysis, and batch processing. Two key optimizations:
 
-- **gpt-5-mini** is a reasoning model, so it still produces high-quality confidence scores and per-field reasoning that specialists rely on for batch accept/reject decisions
-- **`reasoningEffort: 'low'`** reduces internal chain-of-thought tokens while keeping output quality high for structured classification tasks
-- **Local text matching** produces equivalent bounding boxes to LLM-provided word indices (the model would be finding the same text anyway)
+1. **Images are fetched for OCR but never sent to the LLM** — saves ~30-40s of multimodal upload and processing time
+2. **gpt-4.1 (non-reasoning) replaces gpt-5-mini** — drops classification from ~10-15s to ~3-5s, bringing total pipeline time under the 5-second usability threshold identified by Sarah Chen ("If we can't get results back in about 5 seconds, nobody's going to use it.")
+
+- **gpt-4.1** is a fast non-reasoning model with `temperature: 0` for deterministic output
+- **The comparison engine is the real arbiter** — it determines match/mismatch/missing status independently of AI confidence, so the loss of reasoning model nuance doesn't affect validation outcomes
+- **Local text matching** produces equivalent bounding boxes to LLM-provided word indices
 - Application data from Form 5100.31 is included in the prompt for disambiguation
 
 **What's NOT included** (vs the full multimodal pipeline):
@@ -508,12 +511,11 @@ The `needs_correction` status is applied when a mismatch occurs on a minor field
 | Component           | Cost               | Per Label              |
 | ------------------- | ------------------ | ---------------------- |
 | Cloud Vision OCR    | $1.50 / 1K images  | ~$0.003 (2 images)     |
-| gpt-5-mini input    | $0.25 / 1M tokens  | ~$0.0005 (2K tokens)   |
-| gpt-5-mini output   | $2.00 / 1M tokens  | ~$0.004 (2K tokens)    |
+| gpt-4.1 (submit)   | ~$0.10 / 1M tokens | ~$0.0002 (2K tokens)   |
 | gpt-4.1 (pre-fill)  | ~$0.10 / 1M tokens | ~$0.0001 (1.3K tokens) |
-| **Total per label** |                    | **~$0.008**            |
+| **Total per label** |                    | **~$0.004**            |
 
-Pre-fill adds ~$0.0001 per scan. A label that goes through pre-fill + submission + one reanalysis costs roughly $0.02.
+Pre-fill adds ~$0.0001 per scan. A label that goes through pre-fill + submission + one reanalysis costs roughly $0.01. Switching the submission pipeline from gpt-5-mini to gpt-4.1 halved per-label cost while cutting latency from ~15-20s to ~4-6s.
 
 ---
 
@@ -521,15 +523,15 @@ Pre-fill adds ~$0.0001 per scan. A label that goes through pre-fill + submission
 
 **Why not a single end-to-end vision model?**
 
-No single model excels at both text localization (where exactly is each word, in pixels?) and semantic classification (what does this text mean in TTB regulatory context?). Cloud Vision provides sub-pixel bounding polygons in ~600ms at $0.0015/image. OpenAI provides regulatory understanding. The hybrid approach costs ~$0.008/label total and takes 15-20 seconds.
+No single model excels at both text localization (where exactly is each word, in pixels?) and semantic classification (what does this text mean in TTB regulatory context?). Cloud Vision provides sub-pixel bounding polygons in ~600ms at $0.0015/image. OpenAI provides regulatory understanding. The hybrid approach costs ~$0.005/label total and completes in ~4-6 seconds.
 
 **Why text-only classification?**
 
-The submission pipeline proved that text-only gpt-5-mini produces classification quality equivalent to multimodal for TTB labels. OCR captures the text accurately; the model's job is semantic mapping, not reading. Visual verification (catching OCR digit errors) sounds valuable in theory, but in practice: (a) OCR digit errors produce mismatches that route to specialist review anyway, and (b) sending images to a reasoning model adds 30-40 seconds. The safety net works without it.
+The submission pipeline proved that text-only classification produces quality equivalent to multimodal for TTB labels. OCR captures the text accurately; the model's job is semantic mapping, not reading. Visual verification (catching OCR digit errors) sounds valuable in theory, but in practice: (a) OCR digit errors produce mismatches that route to specialist review anyway, and (b) sending images to a model adds 30-40 seconds. The safety net works without it.
 
-**Why `reasoningEffort: 'low'`?**
+**Why gpt-4.1 for the submission pipeline (not gpt-5-mini)?**
 
-gpt-5-mini is a reasoning model (like o1/o3). By default it generates extensive internal chain-of-thought before producing output. For structured classification with a constrained schema, most of that reasoning is unnecessary — the schema forces correct output structure, and TTB field classification is a well-defined task. `reasoningEffort: 'low'` dramatically reduces latency while keeping output quality high.
+The 5-second usability threshold demanded a non-reasoning model. gpt-5-mini (reasoning model) took ~10-15s even with `reasoningEffort: 'low'` because it generates internal chain-of-thought. gpt-4.1 produces equivalent classification quality in ~3-5s — the comparison engine (Dice coefficient, normalized parsing, exact matching) is the real arbiter of match/mismatch outcomes, not the model's confidence score. The model's job is structured extraction; the comparison engine does validation.
 
 **Why local bounding box matching?**
 

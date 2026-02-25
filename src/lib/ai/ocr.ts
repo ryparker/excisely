@@ -19,10 +19,14 @@ export interface OcrResult {
 }
 
 // ---------------------------------------------------------------------------
-// Client
+// Client (singleton — reuse across calls to avoid constructor overhead)
 // ---------------------------------------------------------------------------
 
-function createClient(): InstanceType<typeof vision.ImageAnnotatorClient> {
+let _client: InstanceType<typeof vision.ImageAnnotatorClient> | null = null
+
+function getClient(): InstanceType<typeof vision.ImageAnnotatorClient> {
+  if (_client) return _client
+
   // In Vercel, credentials JSON is stored as an env var string.
   // Locally, GOOGLE_APPLICATION_CREDENTIALS points to a file path.
   const credentialsJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON
@@ -37,11 +41,13 @@ function createClient(): InstanceType<typeof vision.ImageAnnotatorClient> {
       client_email: string
       private_key: string
     }
-    return new vision.ImageAnnotatorClient({ credentials })
+    _client = new vision.ImageAnnotatorClient({ credentials })
+  } else {
+    // Falls back to GOOGLE_APPLICATION_CREDENTIALS file path (local dev)
+    _client = new vision.ImageAnnotatorClient()
   }
 
-  // Falls back to GOOGLE_APPLICATION_CREDENTIALS file path (local dev)
-  return new vision.ImageAnnotatorClient()
+  return _client
 }
 
 // ---------------------------------------------------------------------------
@@ -86,7 +92,7 @@ async function normalizeOrientation(imageBytes: Buffer): Promise<Buffer> {
  * sending to GCV so bounding box coordinates match the displayed image.
  */
 export async function extractText(imageBytes: Buffer): Promise<OcrResult> {
-  const client = createClient()
+  const client = getClient()
 
   // Normalize EXIF orientation so GCV coordinates match displayed image
   const orientedBytes = await normalizeOrientation(imageBytes)

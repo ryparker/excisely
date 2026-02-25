@@ -193,13 +193,13 @@ export async function extractLabelFieldsFromBuffers(
 // ---------------------------------------------------------------------------
 
 /**
- * Submission-optimized pipeline: OCR → text-only gpt-5-mini → local bbox matching.
+ * Submission-optimized pipeline: OCR → text-only gpt-4.1 → local bbox matching.
  *
- * Keeps gpt-5-mini reasoning quality (specialists rely on confidence levels)
- * while dropping multimodal image overhead (~30-40s savings → ~15-20s total).
+ * Targets <5s total to meet Sarah Chen's "about 5 seconds" usability threshold.
+ * The comparison engine (not AI confidence) determines match/mismatch outcomes.
  *
  * - Stage 1: OCR via Google Cloud Vision (~600ms)
- * - Stage 2: Text-only classification via gpt-5-mini (~10-15s)
+ * - Stage 2: Text-only classification via gpt-4.1 (~3-5s)
  * - Stage 3: Local text matching for bounding boxes (~1ms)
  */
 export async function extractLabelFieldsForSubmission(
@@ -272,7 +272,7 @@ export async function extractLabelFieldsForSubmission(
     imageClassifications,
     detectedBeverageType: beverageType,
     processingTimeMs: totalTimeMs,
-    modelUsed: 'gpt-5-mini',
+    modelUsed: 'gpt-4.1',
     rawResponse: { classification, usage, metrics },
     metrics,
   }

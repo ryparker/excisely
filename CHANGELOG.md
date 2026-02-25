@@ -15,6 +15,7 @@ All notable changes to Excisely are documented here. This project follows a narr
 
 ### Changed
 
+- **Submission pipeline under 5 seconds** — Switched the core verification pipeline from gpt-5-mini (reasoning model, ~10-15s) to gpt-4.1 (non-reasoning, ~3-5s). Total pipeline drops from ~15-20s to ~4-6s, meeting Sarah Chen's "about 5 seconds" usability threshold from the stakeholder interviews. The comparison engine — not the AI model — determines match/mismatch outcomes, so validation quality is unchanged. Also made the Google Cloud Vision client a singleton to eliminate per-call constructor overhead.
 - **Tag-based cache invalidation replaces `revalidatePath`** — All server actions now use granular `updateTag('labels' | 'sla-metrics' | 'settings')` instead of full-page `revalidatePath()`. Specialists see changes immediately without invalidating unrelated cached data.
 - **`connection()` replaces `force-dynamic`** — All 9 app pages now use `await connection()` from `next/server` instead of `export const dynamic = 'force-dynamic'`. This is the modern Next.js 16 approach for opting into dynamic rendering.
 - **`experimental.useCache` over `cacheComponents`** — After discovering that `cacheComponents: true` requires all dynamic data inside `<Suspense>` boundaries (incompatible with auth-gated layouts), switched to `experimental: { useCache: true }` which enables `use cache` without the strict enforcement.

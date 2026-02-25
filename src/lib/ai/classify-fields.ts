@@ -207,11 +207,11 @@ const submissionResultSchema = z.object({
 })
 
 /**
- * Submission-optimized classification using gpt-5-mini (text-only).
- * Keeps reasoning quality for specialist confidence levels while dropping
- * multimodal image overhead (~30-40s savings).
+ * Submission-optimized classification using gpt-4.1 (text-only).
+ * Optimized for speed (~3-5s) to meet the 5-second pipeline target.
+ * The comparison engine determines match/mismatch outcomes independently.
  *
- * - Model: gpt-5-mini (reasoning model)
+ * - Model: gpt-4.1 (non-reasoning, temperature=0)
  * - Text-only (no image buffers)
  * - System/user message split for OpenAI prompt caching
  * - Returns confidence + reasoning per field (no wordIndices)
@@ -228,14 +228,12 @@ export async function classifyFieldsForSubmission(
   )
 
   const { experimental_output, usage } = await generateText({
-    model: openai('gpt-5-mini'),
+    model: openai('gpt-4.1'),
+    temperature: 0,
     messages: [
       { role: 'system', content: system },
       { role: 'user', content: user },
     ],
-    providerOptions: {
-      openai: { reasoningEffort: 'low' },
-    },
     experimental_output: Output.object({
       schema: submissionResultSchema,
     }),

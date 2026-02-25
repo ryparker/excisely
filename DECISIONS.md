@@ -8,6 +8,27 @@ The goal is to show iterative, thoughtful engineering judgment — not just what
 
 ## 1. Engineering Decisions
 
+### Submission Pipeline: gpt-5-mini → gpt-4.1 for 5-Second Target _(Feb 24, 2026)_
+
+**Chosen:** Switch the submission classification model from gpt-5-mini (reasoning) to gpt-4.1 (non-reasoning, `temperature: 0`).
+
+**Problem:** The submission pipeline took ~15-20s end-to-end. Sarah Chen's interview was explicit: "If we can't get results back in about 5 seconds, nobody's going to use it." The previous scanning vendor pilot failed precisely because of 30-40s processing times.
+
+**What changed:**
+- Classification: gpt-5-mini (`reasoningEffort: 'low'`, ~10-15s) → gpt-4.1 (`temperature: 0`, ~3-5s)
+- Total pipeline: ~15-20s → ~4-6s (fetch ~200ms + OCR ~600ms + classify ~3-5s + merge ~1ms)
+- Cost: ~$0.008/label → ~$0.004/label (gpt-4.1 is ~60% cheaper)
+- GCV client: per-call instantiation → module-level singleton (eliminates constructor overhead across parallel OCR calls)
+
+**Why this works:** The comparison engine — not the AI model's confidence score — is what determines validation outcomes (match/mismatch/missing). It uses strategy-specific algorithms (Dice coefficient for fuzzy text, normalized parsing for alcohol content, exact matching for health warnings) that are independent of how the model scores its own confidence. gpt-4.1 still produces reasonable per-field confidence estimates and brief reasoning for the specialist UI, just without the internal chain-of-thought overhead.
+
+**Alternatives considered:**
+- **Keep gpt-5-mini with `reasoningEffort: 'low'`** — still ~10-15s, well over the 5s target. The reasoning model's internal CoT is the bottleneck, and even `low` effort can't eliminate it.
+- **gpt-4.1-nano** (~1-3s) — faster but lower quality. The submission prompt includes disambiguation rules and application data that benefit from gpt-4.1's capability level. Could revisit if 4-6s proves too slow.
+- **Cache OCR results between pre-fill and submission** — would save ~600ms but adds storage complexity. Not worth the tradeoff when the model switch already gets us under target.
+
+**Trade-off:** gpt-4.1 confidence scores are less nuanced than gpt-5-mini's reasoning-backed scores. In practice this is acceptable because: (1) the comparison engine independently validates each field, (2) specialists review flagged items visually regardless, and (3) the auto-approval threshold uses comparison confidence, not AI confidence.
+
 ### Next.js 16 Caching Strategy: `use cache` + `updateTag` + React Compiler _(Feb 24, 2026)_
 
 **Chosen:** Three-layer caching approach using Next.js 16's `use cache` directive:
