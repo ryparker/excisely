@@ -14,7 +14,7 @@ import {
   VALIDATION_BADGE_STYLE,
 } from '@/config/validation-item-config'
 import { routes } from '@/config/routes'
-import { confidenceColor, formatReviewDate } from '@/lib/utils'
+import { cn, confidenceColor, formatReviewDate } from '@/lib/utils'
 import { ColumnHeader } from '@/components/shared/ColumnHeader'
 import { TablePagination } from '@/components/shared/TablePagination'
 import { Highlight } from '@/components/shared/Highlight'
@@ -80,7 +80,7 @@ export function AIErrorsTable({
   pageSize,
   searchTerm = '',
 }: AIErrorsTableProps) {
-  const { currentPage, onPrevious, onNext } = usePaginationState()
+  const { currentPage, isPending, onPrevious, onNext } = usePaginationState()
   const router = useRouter()
 
   return (
@@ -134,7 +134,12 @@ export function AIErrorsTable({
             </ColumnHeader>
           </TableRow>
         </TableHeader>
-        <TableBody>
+        <TableBody
+          className={cn(
+            'transition-opacity duration-200',
+            isPending && 'opacity-40',
+          )}
+        >
           {rows.map((row) => {
             const aiStatus = {
               label:

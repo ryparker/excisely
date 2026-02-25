@@ -57,7 +57,7 @@ export default function RootLayout({
           <NuqsAdapter>
             <TooltipProvider>{children}</TooltipProvider>
           </NuqsAdapter>
-          <Toaster />
+          <Toaster position="top-right" />
           <Analytics />
         </ThemeProvider>
       </body>

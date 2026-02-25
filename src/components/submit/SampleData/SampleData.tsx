@@ -56,24 +56,32 @@ const SAMPLE_LABELS: SampleLabel[] = [
     ],
   },
   {
-    name: 'Old Tom Distillery Vodka',
+    name: 'Knob Creek Single Barrel Reserve',
     beverageType: 'Distilled Spirits',
     images: [
       {
-        src: '/sample-labels/old-tom-vodka/front.png',
+        src: '/sample-labels/knob-creek/front.png',
         label: 'Front',
-        filename: 'old-tom-vodka-front.png',
+        filename: 'knob-creek-front.png',
+      },
+      {
+        src: '/sample-labels/knob-creek/back.png',
+        label: 'Back',
+        filename: 'knob-creek-back.png',
       },
     ],
     fields: [
-      { label: 'Brand Name', value: 'Old Tom Distillery' },
-      { label: 'Fanciful Name', value: 'Premium' },
-      { label: 'Class/Type', value: 'Vodka' },
-      { label: 'Alcohol Content', value: '40% Alc./Vol. (80 Proof)' },
-      { label: 'Net Contents', value: '750 ML' },
-      { label: 'Name & Address', value: 'Old Tom Distillery, Louisville, KY' },
+      { label: 'Brand Name', value: 'Knob Creek' },
+      { label: 'Fanciful Name', value: 'Single Barrel Reserve' },
+      { label: 'Class/Type', value: 'Kentucky Straight Bourbon Whiskey' },
+      { label: 'Alcohol Content', value: '60% Alc./Vol.' },
+      { label: 'Net Contents', value: '750 mL' },
+      {
+        label: 'Name & Address',
+        value: 'James B. Beam Distilling Co., Clermont, Kentucky',
+      },
       { label: 'Qualifying Phrase', value: 'Distilled and Bottled by' },
-      { label: 'Country of Origin', value: 'Imported from Poland' },
+      { label: 'Age Statement', value: 'Aged Nine Years' },
     ],
   },
   {

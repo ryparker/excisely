@@ -20,6 +20,11 @@ The specialist never waits for AI processing. The applicant gets instant feedbac
 
 <!-- TODO: Screenshot — split view showing applicant submit page (left) and specialist review page (right) -->
 
+
+| Applicant                                                       | Specialist                                                                 |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| ![Applicant submit page](docs/screenshots/applicant/upload.gif) | ![Specialist review page](docs/screenshots/specialist/review-approval.gif) |
+
 ---
 
 ## Quick Walkthrough
@@ -42,7 +47,7 @@ The specialist never waits for AI processing. The applicant gets instant feedbac
 7. Click **"Submit Application"**
 8. You'll see the AI's proposed status (Approved, Needs Correction, etc.) immediately
 
-<!-- TODO: Screenshot — the submit form after AI pre-fill, showing extracted values in the fields -->
+![Submit form after AI pre-fill](./docs/screenshots/applicant/new-submission-1-review.png)
 
 ### Step 2: Review as a Specialist
 
@@ -70,7 +75,7 @@ Log in as an applicant on your phone. The submit form is fully responsive — yo
 
 The Cloud Vision OCR handles curved text, reflections, glare, and artistic fonts — no need for perfectly flat scans.
 
-<!-- TODO: Screenshot — mobile submit form with camera upload -->
+![Mobile submit form with camera upload](./docs/screenshots/applicant/upload-phone-qr.gif)
 
 ### 2. Interactive Image Viewer
 
@@ -82,7 +87,7 @@ On any label detail page, try:
 
 This is how a specialist would work through a label — click each field, verify it visually, move on.
 
-<!-- TODO: Screenshot — zoomed into a specific field with bounding box highlighted -->
+![Interactive image viewer](docs/screenshots/specialist/interactive-image-viewer-botanist.gif)
 
 ### 3. Character-Level Diff on Health Warning
 
@@ -92,7 +97,7 @@ Submit a label where the health warning text has a minor difference (e.g., "Gove
 
 This catches the exact scenario Jenny Park described — applicants getting creative with warning statement formatting.
 
-<!-- TODO: Screenshot — diff highlighting showing a health warning mismatch -->
+![Character-level diff on health warning](docs/screenshots/specialist/health-warning-diff.png)
 
 ### 4. Batch Approval Queue
 
@@ -103,6 +108,8 @@ As a specialist on the dashboard:
 
 This addresses the batch processing need Sarah Chen described for peak season (200-300 labels at once from large importers).
 
+![Batch approval queue](docs/screenshots/specialist/batch-approve.gif)
+
 ### 5. Applicant Corrections Tracking
 
 1. As an applicant, scan a label and let the AI pre-fill
@@ -112,12 +119,16 @@ This addresses the batch processing need Sarah Chen described for peak season (2
 
 This gives specialists context: "The AI read it as X, but the applicant says it should be Y."
 
+![Applicant corrections tracking](docs/screenshots/specialist/applicant-correction.png)
+
 ### 6. Deadline Enforcement
 
 Labels with "Needs Correction" get a 30-day deadline. Labels with "Conditionally Approved" get 7 days. The system:
 - Shows countdown timers on each label
 - Automatically expires labels past their deadline (lazy evaluation, no cron jobs)
 - Updates status from "Needs Correction" → "Rejected" when time runs out
+
+![Deadline enforcement](docs/screenshots/specialist/needs-correction-table.png)
 
 ---
 
@@ -143,11 +154,11 @@ Specialist reviews and makes final decision
 
 At ~$0.004 per submission pipeline run and ~$0.002 per applicant pre-fill scan:
 
-| | Per label | 150,000 labels/year |
-|---|---|---|
-| Applicant pre-fill (Cloud Vision OCR + GPT-4.1) | ~$0.002 | $300 |
-| Submission pipeline (Cloud Vision OCR + GPT-4.1) | ~$0.004 | $600 |
-| **Total** | **~$0.006** | **~$900/year** |
+|                                                  | Per label   | 150,000 labels/year |
+| ------------------------------------------------ | ----------- | ------------------- |
+| Applicant pre-fill (Cloud Vision OCR + GPT-4.1)  | ~$0.002     | $300                |
+| Submission pipeline (Cloud Vision OCR + GPT-4.1) | ~$0.004     | $600                |
+| **Total**                                        | **~$0.006** | **~$900/year**      |
 
 TTB processes ~150,000 label applications per year with 47 specialists. Full AI verification for every single one would cost roughly **$900/year** — about $19 per specialist per year.
 
@@ -155,13 +166,26 @@ TTB processes ~150,000 label applications per year with 47 specialists. Full AI 
 
 ---
 
+## What We'd Build Next
+
+Given more time, these are the features we'd prioritize:
+
+- **Applicant resubmission** — When a label gets "Needs Correction," the applicant should be able to upload corrected images and resubmit against the same application, preserving the review history. Currently they'd need to start a new submission.
+- **Batch submission** — Large importers dump 200-300 labels at once (Sarah Chen's peak season scenario). Applicants should be able to drag in a folder of label images and submit them all in one flow, rather than one at a time.
+- **Email notifications** — Notify applicants when their label status changes (approved, needs correction, rejected) and notify specialists when new submissions arrive.
+- **PDF export** — Generate a printable COLA certificate or rejection letter from the review results.
+
+See [docs/production.md](./docs/production.md) for the full list of production readiness gaps (security, monitoring, rate limiting, FedRAMP compliance, etc.).
+
+---
+
 ## Further Reading
 
-| Document                                        | What's in it                                          |
-| ----------------------------------------------- | ----------------------------------------------------- |
-| [README.md](./README.md)                        | Setup instructions, quick start, commands             |
-| [docs/architecture.md](./docs/architecture.md)  | System diagrams, data flow, DB schema, modules        |
-| [docs/ai-pipelines.md](./docs/ai-pipelines.md)  | AI pipeline deep dive — OCR, classification, matching |
-| [docs/decisions.md](./docs/decisions.md)        | 14 engineering decisions with rationale               |
-| [docs/production.md](./docs/production.md)      | What we'd build for production (security, scale, ops) |
-| [docs/changelog.md](./docs/changelog.md)        | What changed and why, chronologically                 |
+| Document                                       | What's in it                                          |
+| ---------------------------------------------- | ----------------------------------------------------- |
+| [README.md](./README.md)                       | Setup instructions, quick start, commands             |
+| [docs/architecture.md](./docs/architecture.md) | System diagrams, data flow, DB schema, modules        |
+| [docs/ai-pipelines.md](./docs/ai-pipelines.md) | AI pipeline deep dive — OCR, classification, matching |
+| [docs/decisions.md](./docs/decisions.md)       | 14 engineering decisions with rationale               |
+| [docs/production.md](./docs/production.md)     | What we'd build for production (security, scale, ops) |
+| [docs/changelog.md](./docs/changelog.md)       | What changed and why, chronologically                 |

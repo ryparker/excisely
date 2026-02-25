@@ -10,11 +10,32 @@ import {
   Send,
 } from 'lucide-react'
 
+import { toast } from 'sonner'
+
 import { routes } from '@/config/routes'
 import { submitReview } from '@/app/actions/submit-review'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 import { pluralize } from '@/lib/pluralize'
+
+const STATUS_TOAST: Record<string, { message: string; description: string }> = {
+  approved: {
+    message: 'Label approved',
+    description: 'The applicant has been notified of approval.',
+  },
+  conditionally_approved: {
+    message: 'Conditionally approved',
+    description: 'The applicant has 7 days to submit corrections.',
+  },
+  needs_correction: {
+    message: 'Corrections requested',
+    description: 'The applicant has 30 days to submit corrections.',
+  },
+  rejected: {
+    message: 'Label rejected',
+    description: 'The applicant has been notified of rejection.',
+  },
+}
 
 interface ProjectedStatus {
   status: string
@@ -73,6 +94,12 @@ export function ReviewSubmitButton({
       const result = await submitReview(formData)
 
       if (result.success) {
+        const t = projectedStatus?.status
+          ? STATUS_TOAST[projectedStatus.status]
+          : null
+        if (t) {
+          toast.success(t.message, { description: t.description })
+        }
         router.push(routes.home())
       } else {
         setError(result.error)

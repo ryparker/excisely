@@ -13,6 +13,7 @@ import { REASON_CODE_LABELS } from '@/config/override-reasons'
 import { BEVERAGE_OPTIONS } from '@/config/beverage-display'
 import { DeadlineDisplay } from '@/components/shared/DeadlineDisplay'
 import {
+  cn,
   confidenceColor,
   formatConfidence,
   formatDate,
@@ -122,7 +123,7 @@ export function LabelsTable({
   searchTerm = '',
   slaResponseHours,
 }: LabelsTableProps) {
-  const { currentPage, onPrevious, onNext } = usePaginationState()
+  const { currentPage, isPending, onPrevious, onNext } = usePaginationState()
   const router = useRouter()
   const isApplicant = userRole === 'applicant'
   const isReadyQueue = queueMode === 'ready'
@@ -387,7 +388,12 @@ export function LabelsTable({
               )}
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody
+            className={cn(
+              'transition-opacity duration-200',
+              isPending && 'opacity-40',
+            )}
+          >
             {optimisticLabels.map((label) => {
               const isRowReanalyzing = reanalyzingIds.has(label.id)
               const displayStatus = isRowReanalyzing

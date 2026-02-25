@@ -7,7 +7,7 @@ import { searchParamParsers } from '@/lib/search-params'
 
 /** Shared pagination state backed by the `page` URL search param. */
 export function usePaginationState() {
-  const [, startTransition] = useTransition()
+  const [isPending, startTransition] = useTransition()
   const [currentPage, setCurrentPage] = useQueryState(
     'page',
     searchParamParsers.page.withOptions({ shallow: false, startTransition }),
@@ -15,6 +15,7 @@ export function usePaginationState() {
 
   return {
     currentPage,
+    isPending,
     onPrevious: () =>
       setCurrentPage(currentPage - 1 > 1 ? currentPage - 1 : null),
     onNext: () => setCurrentPage(currentPage + 1),

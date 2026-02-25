@@ -12,7 +12,7 @@ Built as a prototype to demonstrate how AI can reduce the 5-10 minute manual lab
 
 ### Prerequisites
 
-- Node.js 22+ (via `mise use node@22`)
+- Node.js 22+
 - Yarn (`corepack enable && corepack prepare yarn@stable --activate`)
 - PostgreSQL database ([Neon](https://neon.tech) recommended)
 - OpenAI API key (GPT-4.1)

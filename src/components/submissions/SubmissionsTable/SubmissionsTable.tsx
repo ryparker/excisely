@@ -77,7 +77,7 @@ export function SubmissionsTable({
   searchTerm,
 }: SubmissionsTableProps) {
   const router = useRouter()
-  const { currentPage, onPrevious, onNext } = usePaginationState()
+  const { currentPage, isPending, onPrevious, onNext } = usePaginationState()
 
   return (
     <Card className="overflow-clip py-0">
@@ -134,7 +134,12 @@ export function SubmissionsTable({
             </ColumnHeader>
           </TableRow>
         </TableHeader>
-        <TableBody>
+        <TableBody
+          className={cn(
+            'transition-opacity duration-200',
+            isPending && 'opacity-40',
+          )}
+        >
           {rows.map((row, i) => {
             const showDeadline =
               (row.effectiveStatus === 'needs_correction' ||

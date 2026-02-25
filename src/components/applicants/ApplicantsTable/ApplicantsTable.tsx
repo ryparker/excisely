@@ -66,7 +66,7 @@ export function ApplicantsTable({
   searchTerm,
 }: ApplicantsTableProps) {
   const router = useRouter()
-  const { currentPage, onPrevious, onNext } = usePaginationState()
+  const { currentPage, isPending, onPrevious, onNext } = usePaginationState()
 
   return (
     <Card className="overflow-clip py-0">
@@ -111,7 +111,12 @@ export function ApplicantsTable({
             </ColumnHeader>
           </TableRow>
         </TableHeader>
-        <TableBody>
+        <TableBody
+          className={cn(
+            'transition-opacity duration-200',
+            isPending && 'opacity-40',
+          )}
+        >
           {rows.map((applicant, i) => {
             return (
               <AnimatedTableRow
