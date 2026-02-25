@@ -510,12 +510,12 @@ The `needs_correction` status is applied when a mismatch occurs on a minor field
 
 ## Cost Model
 
-| Component           | Cost               | Per Label              |
-| ------------------- | ------------------ | ---------------------- |
-| Cloud Vision OCR    | $1.50 / 1K images  | ~$0.003 (2 images)     |
-| gpt-4.1-nano (submit)| ~$0.05 / 1M tokens | ~$0.0001 (1.5K tokens) |
-| gpt-4.1-mini (pre-fill)| ~$0.08 / 1M tokens | ~$0.0001 (1.3K tokens) |
-| **Total per label** |                    | **~$0.004**            |
+| Component               | Cost               | Per Label              |
+| ----------------------- | ------------------ | ---------------------- |
+| Cloud Vision OCR        | $1.50 / 1K images  | ~$0.003 (2 images)     |
+| gpt-4.1-nano (submit)   | ~$0.05 / 1M tokens | ~$0.0001 (1.5K tokens) |
+| gpt-4.1-mini (pre-fill) | ~$0.08 / 1M tokens | ~$0.0001 (1.3K tokens) |
+| **Total per label**     |                    | **~$0.004**            |
 
 Pre-fill adds ~$0.0001 per scan. A label that goes through pre-fill + submission + one reanalysis costs roughly $0.008. Switching the submission pipeline from gpt-5-mini to gpt-4.1-nano cut per-label cost by ~75% while cutting latency from ~15-20s to ~3-5s.
 
