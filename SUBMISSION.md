@@ -8,7 +8,7 @@
 
 ## The Big Idea
 
-The task described a 5-second response time target for specialists. We went further: **we moved the AI verification to the applicant side**, so the specialist wait time is zero.
+The task described a 5-second response time target for specialists. I went further: **I moved the AI verification to the applicant side**, so the specialist wait time is zero.
 
 Here's how it works:
 
@@ -151,7 +151,7 @@ Specialist reviews and makes final decision
 
 **Speed:** ~5-9 seconds end-to-end (varies by number of images).
 
-**A note on cloud APIs:** We recognize that a production TTB system may need to run on-premises or within a restricted network where external API calls aren't permitted. We built a fully local pipeline (Tesseract.js OCR + rule-based classification, zero outbound calls) as well — it's preserved on the `local-pipeline` branch. For this prototype, we chose the cloud pipeline to demonstrate the quality achievable with current models. As self-hosted models continue to improve, the same architecture would work with locally-hosted inference.
+**A note on cloud APIs:** I recognize that a production TTB system may need to run on-premises or within a restricted network where external API calls aren't permitted. I built a fully local pipeline (Tesseract.js OCR + rule-based classification, zero outbound calls) as well — it's preserved on the `local-pipeline` branch. For this prototype, I chose the cloud pipeline to demonstrate the quality achievable with current models. As self-hosted models continue to improve, the same architecture would work with locally-hosted inference.
 
 ### Cost at Scale
 
@@ -169,9 +169,9 @@ TTB processes ~150,000 label applications per year with 47 specialists. Full AI 
 
 ---
 
-## What We'd Build Next
+## What I'd Build Next
 
-Given more time, these are the features we'd prioritize:
+Given more time, these are the features I'd prioritize:
 
 - **Applicant resubmission** — When a label gets "Needs Correction," the applicant should be able to upload corrected images and resubmit against the same application, preserving the review history. Currently they'd need to start a new submission.
 - **Batch submission** — Large importers dump 200-300 labels at once (Sarah Chen's peak season scenario). Applicants should be able to drag in a folder of label images and submit them all in one flow, rather than one at a time.
@@ -190,5 +190,5 @@ See [docs/production.md](./docs/production.md) for the full list of production r
 | [docs/architecture.md](./docs/architecture.md) | System diagrams, data flow, DB schema, modules        |
 | [docs/ai-pipelines.md](./docs/ai-pipelines.md) | AI pipeline deep dive — OCR, classification, matching |
 | [docs/decisions.md](./docs/decisions.md)       | 14 engineering decisions with rationale               |
-| [docs/production.md](./docs/production.md)     | What we'd build for production (security, scale, ops) |
+| [docs/production.md](./docs/production.md)     | What I'd build for production (security, scale, ops)  |
 | [docs/changelog.md](./docs/changelog.md)       | What changed and why, chronologically                 |
