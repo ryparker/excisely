@@ -17,6 +17,7 @@ The goal is to show iterative, thoughtful engineering judgment — not just what
 **Why we reverted:** Cloud Vision produces dramatically better OCR text — it handles embossed, curved, and low-contrast label text that Tesseract.js simply cannot. GPT-4.1 understands context to match fields even with minor OCR imperfections (e.g., inferring "bourbon whiskey" from partially garbled text). The user's strength is building excellent products that integrate AI services — compensating for poor OCR with increasingly complex matching heuristics was not the right use of time for a take-home assignment.
 
 **Alternatives considered:**
+
 - **Keep improving local pipeline** — diminishing returns. The 8-tier waterfall was already at maximum complexity, and the fundamental problem was OCR quality, not classification logic.
 - **Use different local OCR engines** — no open-source OCR engine matches Cloud Vision's quality on alcohol label imagery (curved text, metallic/embossed surfaces, artistic fonts).
 
@@ -31,6 +32,7 @@ The Tesseract.js + rule-based code is preserved on the `local-pipeline` branch f
 **Problem:** The submission pipeline took ~15-20s end-to-end. Sarah Chen's interview was explicit: "If we can't get results back in about 5 seconds, nobody's going to use it." The previous scanning vendor pilot failed precisely because of 30-40s processing times.
 
 **What changed:**
+
 - Classification: gpt-5-mini (`reasoningEffort: 'low'`, ~10-15s) → gpt-4.1 (`temperature: 0`, ~3-5s)
 - Total pipeline: ~15-20s → ~4-6s (fetch ~200ms + OCR ~600ms + classify ~3-5s + merge ~1ms)
 - Cost: ~$0.008/label → ~$0.004/label (gpt-4.1 is ~60% cheaper)
@@ -39,6 +41,7 @@ The Tesseract.js + rule-based code is preserved on the `local-pipeline` branch f
 **Why this works:** The comparison engine — not the AI model's confidence score — is what determines validation outcomes (match/mismatch/missing). It uses strategy-specific algorithms (Dice coefficient for fuzzy text, normalized parsing for alcohol content, exact matching for health warnings) that are independent of how the model scores its own confidence. gpt-4.1 still produces reasonable per-field confidence estimates and brief reasoning for the specialist UI, just without the internal chain-of-thought overhead.
 
 **Alternatives considered:**
+
 - **Keep gpt-5-mini with `reasoningEffort: 'low'`** — still ~10-15s, well over the 5s target. The reasoning model's internal CoT is the bottleneck, and even `low` effort can't eliminate it.
 - **gpt-4.1-nano** (~1-3s) — faster but lower quality. The submission prompt includes disambiguation rules and application data that benefit from gpt-4.1's capability level. Could revisit if 4-6s proves too slow.
 - **Cache OCR results between pre-fill and submission** — would save ~600ms but adds storage complexity. Not worth the tradeoff when the model switch already gets us under target.

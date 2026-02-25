@@ -20,7 +20,6 @@ The specialist never waits for AI processing. The applicant gets instant feedbac
 
 <!-- TODO: Screenshot — split view showing applicant submit page (left) and specialist review page (right) -->
 
-
 | Applicant                                                       | Specialist                                                                 |
 | --------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | ![Applicant submit page](docs/screenshots/applicant/upload.gif) | ![Specialist review page](docs/screenshots/specialist/review-approval.gif) |
@@ -80,6 +79,7 @@ The Cloud Vision OCR handles curved text, reflections, glare, and artistic fonts
 ### 2. Interactive Image Viewer
 
 On any label detail page, try:
+
 - **Click a field** in the comparison table — the image auto-pans and zooms to that exact region
 - **Scroll to zoom**, drag to pan, toolbar buttons to rotate
 - **Toggle overlays** on/off to see the clean label vs. annotated view
@@ -92,6 +92,7 @@ This is how a specialist would work through a label — click each field, verify
 ### 3. Character-Level Diff on Health Warning
 
 Submit a label where the health warning text has a minor difference (e.g., "Government Warning" in title case instead of "GOVERNMENT WARNING" in all caps). The review page shows:
+
 - Exact character-level highlighting of what differs
 - Red/green inline diff so the specialist sees precisely what's wrong
 
@@ -102,6 +103,7 @@ This catches the exact scenario Jenny Park described — applicants getting crea
 ### 4. Batch Approval Queue
 
 As a specialist on the dashboard:
+
 1. Filter to **"Ready to Approve"** — these are high-confidence labels where all fields match
 2. Select multiple labels with checkboxes
 3. Click **"Approve Selected"** — all approved instantly with optimistic UI updates
@@ -124,6 +126,7 @@ This gives specialists context: "The AI read it as X, but the applicant says it 
 ### 6. Deadline Enforcement
 
 Labels with "Needs Correction" get a 30-day deadline. Labels with "Conditionally Approved" get 7 days. The system:
+
 - Shows countdown timers on each label
 - Automatically expires labels past their deadline (lazy evaluation, no cron jobs)
 - Updates status from "Needs Correction" → "Rejected" when time runs out

@@ -511,7 +511,7 @@ The `needs_correction` status is applied when a mismatch occurs on a minor field
 | Component           | Cost               | Per Label              |
 | ------------------- | ------------------ | ---------------------- |
 | Cloud Vision OCR    | $1.50 / 1K images  | ~$0.003 (2 images)     |
-| gpt-4.1 (submit)   | ~$0.10 / 1M tokens | ~$0.0002 (2K tokens)   |
+| gpt-4.1 (submit)    | ~$0.10 / 1M tokens | ~$0.0002 (2K tokens)   |
 | gpt-4.1 (pre-fill)  | ~$0.10 / 1M tokens | ~$0.0001 (1.3K tokens) |
 | **Total per label** |                    | **~$0.004**            |
 
