@@ -6,6 +6,16 @@ All notable changes to Excisely are documented here. This project follows a narr
 
 ## Unreleased
 
+### Changed
+
+- **Local AI pipeline replaces cloud APIs** — Replaced Google Cloud Vision OCR + OpenAI GPT-4.1/GPT-5 Mini classification with Tesseract.js v7 (WASM OCR) + rule-based classification (pure TypeScript). Zero outbound API calls — the entire pipeline runs locally on Vercel serverless. This directly addresses Marcus Williams' warning that TTB's network blocks outbound traffic to external domains (the scanning vendor pilot failed for this exact reason). The specialist submission flow leverages application data to turn classification into a fuzzy text-search problem, eliminating the need for an LLM. Performance improves from ~4-6s to ~2-3.5s despite slower OCR because the 3-5s LLM call is replaced by ~5ms of rule matching. Cost drops from ~$0.004/label to $0/label.
+- **New config files for rule-based extraction** — Added grape varietal dictionary (~60 varieties) and appellation dictionary (~80 AVAs/regions) for dictionary-based field extraction in the applicant flow.
+- **Tesseract.js OCR with preprocessing** — Images are preprocessed via sharp (EXIF orient, grayscale, contrast normalize, resize to max 2000px) for optimal OCR accuracy. Bounding boxes are converted from Tesseract's axis-aligned rectangles to the same 4-vertex polygon format used by the rest of the codebase.
+
+### Removed
+
+- **Cloud AI dependencies** — Removed `@google-cloud/vision`, `ai`, and `@ai-sdk/openai` packages. Removed `OPENAI_API_KEY`, `GOOGLE_APPLICATION_CREDENTIALS`, and `GOOGLE_APPLICATION_CREDENTIALS_JSON` environment variables.
+
 ### Added
 
 - **Server-side caching with `use cache`** — Settings cached for hours, SLA metrics cached for minutes, label data cached for seconds. Uses Next.js 16's `cacheTag()` + `cacheLife()` directives. Previously every page was `force-dynamic` with zero caching.

@@ -183,48 +183,46 @@ export function AppSidebar({
           onToggle={toggle}
         />
 
+        <div
+          className={cn(
+            'border-b border-sidebar-border',
+            collapsed ? 'p-2' : 'p-3',
+          )}
+        >
+          {collapsed ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button asChild size="icon" className="w-full">
+                  <Link href={routes.submit()}>
+                    <Plus className="size-4" />
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={8}>
+                New Submission
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <Button
+              asChild
+              className="w-full bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
+            >
+              <Link href={routes.submit()}>
+                <Plus className="size-4" />
+                <span className="whitespace-nowrap">New Submission</span>
+              </Link>
+            </Button>
+          )}
+        </div>
+
         <nav
           className={cn(
             'flex-1 space-y-1 overflow-y-auto',
-            collapsed ? 'px-2' : 'px-3',
+            collapsed ? 'px-2 py-2' : 'px-3 py-2',
           )}
         >
           {navItems.map(renderItem)}
         </nav>
-
-        {isApplicant && (
-          <div
-            className={cn(
-              'border-t border-sidebar-border',
-              collapsed ? 'p-2' : 'p-3',
-            )}
-          >
-            {collapsed ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button asChild size="icon" className="w-full">
-                    <Link href={routes.submit()}>
-                      <Plus className="size-4" />
-                    </Link>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right" sideOffset={8}>
-                  New Submission
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              <Button
-                asChild
-                className="w-full bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
-              >
-                <Link href={routes.submit()}>
-                  <Plus className="size-4" />
-                  <span className="whitespace-nowrap">New Submission</span>
-                </Link>
-              </Button>
-            )}
-          </div>
-        )}
 
         <div
           className={cn(

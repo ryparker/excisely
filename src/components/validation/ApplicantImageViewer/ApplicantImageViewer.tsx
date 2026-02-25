@@ -94,19 +94,6 @@ export function ApplicantImageViewer({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-end gap-2">
-        <ImageTabs
-          images={tabImages}
-          selectedImageId={String(activeImageIndex)}
-          onSelect={(id) =>
-            setManualSelection({
-              index: Number(id),
-              whenField: activeHighlightField,
-            })
-          }
-        />
-        {action && <div className="mb-1 ml-auto shrink-0">{action}</div>}
-      </div>
       <div className="min-h-0 flex-1">
         <AnnotatedImage
           imageUrl={getSignedImageUrl(imageUrl)}
@@ -125,6 +112,19 @@ export function ApplicantImageViewer({
             })
           }
         />
+      </div>
+      <div className="flex items-start gap-2 pt-2">
+        <ImageTabs
+          images={tabImages}
+          selectedImageId={String(activeImageIndex)}
+          onSelect={(id) =>
+            setManualSelection({
+              index: Number(id),
+              whenField: activeHighlightField,
+            })
+          }
+        />
+        {action && <div className="mt-1 ml-auto shrink-0">{action}</div>}
       </div>
     </div>
   )

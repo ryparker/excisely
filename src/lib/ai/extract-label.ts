@@ -23,7 +23,7 @@ export { detectBeverageTypeFromText } from '@/lib/ai/beverage-detector'
 // Pipeline timeout
 // ---------------------------------------------------------------------------
 
-export const PIPELINE_TIMEOUT_MS = 60_000
+export const PIPELINE_TIMEOUT_MS = 15_000
 
 export class PipelineTimeoutError extends Error {
   constructor() {
@@ -87,9 +87,9 @@ export interface ExtractionResult {
 /**
  * Full extraction pipeline: OCR all images -> classify fields -> merge bounding boxes.
  *
- * 1. Runs Google Cloud Vision OCR on all images in parallel
+ * 1. Runs Tesseract.js WASM OCR on all images
  * 2. Builds a combined word list with global indices
- * 3. Sends the combined text to GPT-5 Mini for field classification
+ * 3. Rule-based field classification (regex, dictionary, fuzzy search)
  * 4. Maps classified fields back to bounding boxes from OCR results
  */
 export async function extractLabelFields(
@@ -141,7 +141,7 @@ export async function extractLabelFieldsFromBuffers(
     .map((r, i) => `--- Image ${i + 1} ---\n${r.fullText}`)
     .join('\n\n')
 
-  // Stage 2: Classification via GPT-5 Mini (multimodal — text + images)
+  // Stage 2: Rule-based classification (no LLM)
   const classificationStart = performance.now()
   const { result: classification, usage } = await classifyFields(
     combinedFullText,
@@ -182,36 +182,39 @@ export async function extractLabelFieldsFromBuffers(
     imageClassifications: classification.imageClassifications ?? [],
     detectedBeverageType: classification.detectedBeverageType ?? null,
     processingTimeMs: totalTimeMs,
-    modelUsed: 'gpt-5-mini',
+    modelUsed:
+      usage.totalTokens > 0 ? 'tesseract+gpt-4.1-mini' : 'tesseract+rules',
     rawResponse: { classification, usage, metrics },
     metrics,
   }
 }
 
 // ---------------------------------------------------------------------------
-// Submission pipeline (gpt-5-mini, text-only, with reasoning + bounding boxes)
+// Submission pipeline (tesseract+rules, text-only, with reasoning + bounding boxes)
 // ---------------------------------------------------------------------------
 
 /**
- * Submission-optimized pipeline: OCR → text-only gpt-4.1 → local bbox matching.
+ * Submission-optimized pipeline: OCR → rule-based classification → local bbox matching.
  *
  * Targets <5s total to meet Sarah Chen's "about 5 seconds" usability threshold.
  * The comparison engine (not AI confidence) determines match/mismatch outcomes.
  *
- * - Stage 1: OCR via Google Cloud Vision (~600ms)
- * - Stage 2: Text-only classification via gpt-4.1 (~3-5s)
+ * - Stage 1: OCR via Tesseract.js WASM (~1-2s)
+ * - Stage 2: Rule-based classification (~5ms)
  * - Stage 3: Local text matching for bounding boxes (~1ms)
  */
 export async function extractLabelFieldsForSubmission(
   imageUrls: string[],
   beverageType: BeverageType,
   applicationData?: Record<string, string>,
+  preloadedBuffers?: Buffer[],
 ): Promise<ExtractionResult> {
   const startTime = performance.now()
 
-  // Fetch image bytes from private blob storage (needed for OCR, not sent to LLM)
+  // Use pre-fetched buffers if available (overlapped with DB writes), otherwise fetch now
   const fetchStart = performance.now()
-  const imageBuffers = await Promise.all(imageUrls.map(fetchImageBytes))
+  const imageBuffers =
+    preloadedBuffers ?? (await Promise.all(imageUrls.map(fetchImageBytes)))
   const fetchTimeMs = Math.round(performance.now() - fetchStart)
 
   // Stage 1: OCR all images in parallel
@@ -224,7 +227,7 @@ export async function extractLabelFieldsForSubmission(
     .map((r, i) => `--- Image ${i + 1} ---\n${r.fullText}`)
     .join('\n\n')
 
-  // Stage 2: Text-only classification via gpt-5-mini (no images sent)
+  // Stage 2: Rule-based classification (no LLM)
   const classificationStart = performance.now()
   const { result: classification, usage } = await classifyFieldsForSubmission(
     combinedFullText,
@@ -272,7 +275,7 @@ export async function extractLabelFieldsForSubmission(
     imageClassifications,
     detectedBeverageType: beverageType,
     processingTimeMs: totalTimeMs,
-    modelUsed: 'gpt-4.1',
+    modelUsed: 'tesseract+rules',
     rawResponse: { classification, usage, metrics },
     metrics,
   }
@@ -284,7 +287,7 @@ export async function extractLabelFieldsForSubmission(
 
 /**
  * Extraction-only pipeline for applicant pre-fill.
- * Does NOT require beverage type — the model detects it from the label.
+ * Does NOT require beverage type — keyword detection infers it from the label.
  * Returns extracted fields, image classifications, and detected beverage type.
  */
 export async function extractLabelFieldsForApplicant(
@@ -314,9 +317,7 @@ export async function extractLabelFieldsForApplicant(
     .map((r, i) => `--- Image ${i + 1} ---\n${r.fullText}`)
     .join('\n\n')
 
-  // Stage 2: Extraction via GPT-5 Mini (no beverage type)
-  // Skip sending image buffers — OCR text is sufficient for applicant pre-fill.
-  // Visual verification happens during specialist review, where accuracy > speed.
+  // Stage 2: Rule-based extraction (no beverage type)
   const classificationStart = performance.now()
   const { result: classification, usage } = await extractFieldsOnly(
     combinedFullText,
@@ -354,7 +355,8 @@ export async function extractLabelFieldsForApplicant(
     imageClassifications: classification.imageClassifications ?? [],
     detectedBeverageType: classification.detectedBeverageType ?? null,
     processingTimeMs: totalTimeMs,
-    modelUsed: 'gpt-5-mini',
+    modelUsed:
+      usage.totalTokens > 0 ? 'tesseract+gpt-4.1-mini' : 'tesseract+rules',
     rawResponse: { classification, usage, metrics },
     metrics,
   }
@@ -365,10 +367,8 @@ export async function extractLabelFieldsForApplicant(
 // ---------------------------------------------------------------------------
 
 /**
- * Ultra-fast beverage-type-aware extraction for applicant pre-fill.
- * Optimized for speed: text-only prompt, minimal schema, no bounding boxes.
- * Bounding boxes aren't needed — the applicant reviews and corrects values.
- * The specialist review later does the thorough visual verification.
+ * Beverage-type-aware extraction for applicant pre-fill.
+ * Uses type-specific field list for more focused extraction.
  */
 export async function extractLabelFieldsForApplicantWithType(
   imageUrls: string[],
@@ -391,7 +391,7 @@ export async function extractLabelFieldsForApplicantWithType(
     .map((r, i) => `--- Image ${i + 1} ---\n${r.fullText}`)
     .join('\n\n')
 
-  // Stage 2: Text-only classification (minimal schema, no images)
+  // Stage 2: Rule-based classification
   const classificationStart = performance.now()
   const { result: classification, usage } = await classifyFieldsForExtraction(
     combinedFullText,
@@ -438,7 +438,8 @@ export async function extractLabelFieldsForApplicantWithType(
     imageClassifications,
     detectedBeverageType: beverageType,
     processingTimeMs: totalTimeMs,
-    modelUsed: 'gpt-4.1',
+    modelUsed:
+      usage.totalTokens > 0 ? 'tesseract+gpt-4.1-mini' : 'tesseract+rules',
     rawResponse: { classification, usage, metrics },
     metrics,
   }
@@ -454,9 +455,9 @@ export async function extractLabelFieldsForApplicantWithType(
  * determined from keywords.
  *
  * 1. Fetch images + OCR (shared with all pipelines)
- * 2. Keyword-based type detection (~0ms, free)
- * 3a. If type detected → classifyFieldsForExtraction (Pipeline 3, gpt-4.1, ~3-8s)
- * 3b. If ambiguous → extractFieldsOnly (Pipeline 4, gpt-5-mini, ~10-20s)
+ * 2. Keyword-based type detection (~0ms)
+ * 3a. If type detected → rule-based type-specific extraction (~5ms)
+ * 3b. If ambiguous → rule-based full extraction (~5ms)
  * 4. Local bounding box matching (~1ms)
  */
 export async function extractLabelFieldsWithAutoDetect(
@@ -491,15 +492,14 @@ export async function extractLabelFieldsWithAutoDetect(
   let detectedBeverageType: string | null
 
   if (detectedType) {
-    // Happy path: use fast type-specific extraction (gpt-4.1, ~3-8s)
+    // Happy path: use type-specific extraction (LLM or rule-based)
     classificationResult = await classifyFieldsForExtraction(
       combinedFullText,
       detectedType,
     )
-    modelUsed = 'gpt-4.1'
     detectedBeverageType = detectedType
   } else {
-    // Fallback: use full extraction with word indices (gpt-5-mini, ~10-20s)
+    // Fallback: use full extraction across all field types
     const combinedWords = buildCombinedWordList(ocrResults)
     const wordListForPrompt = combinedWords.map((w) => ({
       index: w.globalIndex,
@@ -509,10 +509,13 @@ export async function extractLabelFieldsWithAutoDetect(
       combinedFullText,
       wordListForPrompt,
     )
-    modelUsed = 'gpt-5-mini'
     detectedBeverageType =
       classificationResult.result.detectedBeverageType ?? null
   }
+  modelUsed =
+    classificationResult.usage.totalTokens > 0
+      ? 'tesseract+gpt-4.1-mini'
+      : 'tesseract+rules'
 
   const classificationTimeMs = Math.round(
     performance.now() - classificationStart,

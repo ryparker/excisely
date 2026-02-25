@@ -30,6 +30,8 @@ export interface ValidationPipelineInput {
   expectedFields: Map<string, string>
   /** Optional transform applied to extraction.rawResponse before inserting the validation result. */
   rawResponseTransform?: (rawResponse: unknown) => unknown
+  /** Pre-fetched image buffers (overlapped with DB writes to save ~150ms). */
+  preloadedBuffers?: Buffer[]
 }
 
 export interface ValidationPipelineOutput {
@@ -67,6 +69,7 @@ export async function runValidationPipeline(
     containerSizeMl,
     expectedFields,
     rawResponseTransform,
+    preloadedBuffers,
   } = input
 
   // 1. Run AI extraction with application data for disambiguation
@@ -75,6 +78,7 @@ export async function runValidationPipeline(
     imageUrls,
     beverageType,
     appDataForAI,
+    preloadedBuffers,
   )
 
   // 2. Update image types from AI classification (60% confidence threshold)

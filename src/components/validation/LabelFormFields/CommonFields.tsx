@@ -28,11 +28,11 @@ export function CommonFields({
       {/* Brand Name + Fanciful Name — primary identifiers */}
       <fieldset className="m-0 border-0 p-0">
         <legend className="sr-only">Primary Identifiers</legend>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
+        <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
+          <div className="space-y-1.5">
             <Label htmlFor="brandName" className="flex items-center gap-1.5">
               <FieldLabel fieldName="brand_name">
-                Brand Name (Item 6)
+                Brand Name
               </FieldLabel>{' '}
               <span className="text-destructive" aria-hidden="true">
                 *
@@ -52,12 +52,10 @@ export function CommonFields({
                   !extraction.modifiedFields.has('brand_name') &&
                   'bg-indigo-50/50 dark:bg-indigo-950/20',
               )}
-              {...register('brandName')}
+              {...register('brandName', {
+                onChange: () => onFieldChange('brand_name'),
+              })}
               onFocus={() => onFieldFocus('brand_name')}
-              onChange={(e) => {
-                register('brandName').onChange(e)
-                onFieldChange('brand_name')
-              }}
               aria-invalid={!!errors.brandName}
             />
             {errors.brandName && (
@@ -67,10 +65,10 @@ export function CommonFields({
             )}
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label htmlFor="fancifulName" className="flex items-center gap-1.5">
               <FieldLabel fieldName="fanciful_name">
-                Fanciful Name (Item 7)
+                Fanciful Name
               </FieldLabel>
               <AiFieldIndicator
                 showSplitPane={showSplitPane}
@@ -86,12 +84,10 @@ export function CommonFields({
                   !extraction.modifiedFields.has('fanciful_name') &&
                   'bg-indigo-50/50 dark:bg-indigo-950/20',
               )}
-              {...register('fancifulName')}
+              {...register('fancifulName', {
+                onChange: () => onFieldChange('fanciful_name'),
+              })}
               onFocus={() => onFieldFocus('fanciful_name')}
-              onChange={(e) => {
-                register('fancifulName').onChange(e)
-                onFieldChange('fanciful_name')
-              }}
             />
           </div>
         </div>
@@ -100,9 +96,9 @@ export function CommonFields({
       {/* Serial Number + Class/Type Designation */}
       <fieldset className="m-0 border-0 p-0">
         <legend className="sr-only">Application Identification</legend>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="serialNumber">Serial Number (Item 4)</Label>
+        <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="serialNumber">Serial Number</Label>
             <Input
               id="serialNumber"
               placeholder="e.g., 12345678"
@@ -110,7 +106,7 @@ export function CommonFields({
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label htmlFor="classType" className="flex items-center gap-1.5">
               <FieldLabel fieldName="class_type">
                 Class/Type Designation
@@ -129,12 +125,10 @@ export function CommonFields({
                   !extraction.modifiedFields.has('class_type') &&
                   'bg-indigo-50/50 dark:bg-indigo-950/20',
               )}
-              {...register('classType')}
+              {...register('classType', {
+                onChange: () => onFieldChange('class_type'),
+              })}
               onFocus={() => onFieldFocus('class_type')}
-              onChange={(e) => {
-                register('classType').onChange(e)
-                onFieldChange('class_type')
-              }}
             />
           </div>
         </div>

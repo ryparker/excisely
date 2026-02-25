@@ -75,6 +75,27 @@ export async function getFullApplicantByEmail(email: string) {
 }
 
 // ---------------------------------------------------------------------------
+// All Applicants (lightweight — for selector dropdowns)
+// ---------------------------------------------------------------------------
+
+/** All applicants (id + companyName only). Used for specialist applicant picker. */
+export async function getAllApplicants() {
+  'use cache'
+  cacheTag('labels')
+  cacheLife('seconds')
+
+  return db
+    .select({
+      id: applicants.id,
+      companyName: applicants.companyName,
+    })
+    .from(applicants)
+    .orderBy(asc(applicants.companyName))
+}
+
+export type ApplicantOption = Awaited<ReturnType<typeof getAllApplicants>>[number]
+
+// ---------------------------------------------------------------------------
 // Applicants with Stats (paginated list)
 // ---------------------------------------------------------------------------
 

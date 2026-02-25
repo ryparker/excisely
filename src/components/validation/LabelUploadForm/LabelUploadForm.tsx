@@ -30,13 +30,7 @@ import {
   CardTitle,
 } from '@/components/ui/Card'
 import { Label } from '@/components/ui/Label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/Select'
+import { Combobox } from '@/components/ui/Combobox'
 import { Input } from '@/components/ui/Input'
 import { Separator } from '@/components/ui/Separator'
 import {
@@ -62,6 +56,7 @@ import { ImageUploadCarousel } from '@/components/validation/ImageUploadCarousel
 import { LabelFormFields } from '@/components/validation/LabelFormFields'
 import { useExtractionStore } from '@/stores/useExtractionStore'
 import { cn } from '@/lib/utils'
+import type { ApplicantOption } from '@/db/queries/applicants'
 
 import {
   phaseInitial,
@@ -87,11 +82,15 @@ import { QRCodeDialog } from './QRCodeDialog'
 interface LabelUploadFormProps {
   mode?: 'validate' | 'submit'
   onActiveChange?: (active: boolean) => void
+  isSpecialist?: boolean
+  applicants?: ApplicantOption[]
 }
 
 export function LabelUploadForm({
   mode = 'validate',
   onActiveChange,
+  isSpecialist = false,
+  applicants = [],
 }: LabelUploadFormProps) {
   const router = useRouter()
   const prefersReducedMotion = useReducedMotion()
@@ -108,6 +107,7 @@ export function LabelUploadForm({
   const [photoReviewOpen, setPhotoReviewOpen] = useState(false)
   const prevFileCountRef = useRef(0)
   const [showQrDialog, setShowQrDialog] = useState(false)
+  const [selectedApplicantId, setSelectedApplicantId] = useState('')
 
   // Extraction store
   const extraction = useExtractionStore()
@@ -299,7 +299,7 @@ export function LabelUploadForm({
           Object.assign(merged, { [key]: value })
         }
       }
-      reset(merged, { keepDirty: true, keepErrors: true })
+      reset(merged, { keepDirty: true })
       pendingPrefillRef.current = null
     }, 50)
     return () => clearTimeout(timer)
@@ -346,6 +346,11 @@ export function LabelUploadForm({
   // -------------------------------------------------------------------------
 
   async function onSubmit(data: ValidateLabelInput) {
+    if (mode === 'submit' && isSpecialist && !selectedApplicantId) {
+      toast.error('Select an applicant for this submission')
+      return
+    }
+
     if (files.length === 0) {
       toast.error('Please upload at least one label image')
       return
@@ -402,6 +407,11 @@ export function LabelUploadForm({
       if (data.stateOfDistillation)
         formData.set('stateOfDistillation', data.stateOfDistillation)
       formData.set('imageUrls', JSON.stringify(imageUrls))
+
+      // Specialist submitting on behalf of an applicant
+      if (isSpecialist && selectedApplicantId) {
+        formData.set('applicantId', selectedApplicantId)
+      }
 
       // Send AI extraction data for correction delta computation
       if (mode === 'submit' && extraction.aiOriginalValues.size > 0) {
@@ -644,30 +654,23 @@ export function LabelUploadForm({
             <div className="grid gap-6 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="classTypeCode">Class/Type Code</Label>
-                <Select
+                <Combobox
+                  id="classTypeCode"
+                  options={filteredCodes.map((code) => ({
+                    value: code.code,
+                    label: `${code.code} — ${code.description}`,
+                  }))}
                   value={watch('classTypeCode') || ''}
                   onValueChange={(value) =>
                     setValue('classTypeCode', value, { shouldValidate: true })
                   }
                   disabled={!beverageType}
-                >
-                  <SelectTrigger id="classTypeCode" className="w-full">
-                    <SelectValue
-                      placeholder={
-                        beverageType
-                          ? 'Select a code'
-                          : 'Select a beverage type first'
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredCodes.map((code) => (
-                      <SelectItem key={code.code} value={code.code}>
-                        {code.code} — {code.description}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder={
+                    beverageType
+                      ? 'Search codes...'
+                      : 'Select a beverage type first'
+                  }
+                />
               </div>
 
               <div className="space-y-2">
@@ -749,6 +752,27 @@ export function LabelUploadForm({
 
   const submitFormContent = (
     <div className="space-y-8">
+      {/* Applicant selector — specialists only */}
+      {mode === 'submit' && isSpecialist && applicants.length > 0 && (
+        <div className="max-w-xs space-y-1.5">
+          <Label htmlFor="applicantId">
+            Applicant
+            <span className="text-destructive" aria-hidden="true"> *</span>
+          </Label>
+          <Combobox
+            id="applicantId"
+            options={applicants.map((a) => ({
+              value: a.id,
+              label: a.companyName,
+            }))}
+            value={selectedApplicantId}
+            onValueChange={setSelectedApplicantId}
+            placeholder="Search applicants..."
+            emptyMessage="No applicants found."
+          />
+        </div>
+      )}
+
       {/* Phase 1+2: Hidden when split pane is active (images visible in left panel) */}
       <AnimatePresence>
         {!showSplitPane && (
@@ -874,7 +898,7 @@ export function LabelUploadForm({
             animate={phaseAnimate}
             exit={phaseExit}
             transition={phaseTransition}
-            className="space-y-6"
+            className="space-y-8"
           >
             <div>
               <h2 className="font-heading text-lg font-semibold tracking-tight">
@@ -1025,7 +1049,7 @@ export function LabelUploadForm({
           >
             {/* Left: Sticky image viewer */}
             <div className="hidden w-[40%] shrink-0 lg:block">
-              <div className="sticky top-20 h-[calc(100dvh-12rem)]">
+              <div className="sticky top-20 h-[calc(100dvh-20rem)]">
                 <ApplicantImageViewer
                   imageUrls={
                     extraction.status === 'extracting'

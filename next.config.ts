@@ -15,6 +15,7 @@ const cspDirectives = [
 const contentSecurityPolicy = cspDirectives.join('; ')
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ['tesseract.js', 'sharp'],
   poweredByHeader: false,
   reactCompiler: true,
   experimental: {

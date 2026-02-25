@@ -231,7 +231,7 @@ export function useScanLabels({
           Object.assign(merged, { [key]: value })
         }
       }
-      reset(merged, { keepDirty: true, keepErrors: true })
+      reset(merged, { keepDirty: true })
 
       // Also store for deferred re-application after Phase 3 mounts
       pendingPrefillRef.current = prefillMap

@@ -11,7 +11,8 @@ import {
   updateLabelStatus,
 } from '@/db/mutations/labels'
 import { PipelineTimeoutError } from '@/lib/ai/extract-label'
-import { guardApplicant } from '@/lib/auth/action-guards'
+import { fetchImageBytes } from '@/lib/storage/blob'
+import { guardAuth } from '@/lib/auth/action-guards'
 import { formatZodError } from '@/lib/actions/parse-zod-error'
 import { logActionError } from '@/lib/actions/action-error'
 import { parseImageUrls } from '@/lib/actions/parse-image-urls'
@@ -34,10 +35,11 @@ type SubmitApplicationResult =
 export async function submitApplication(
   formData: FormData,
 ): Promise<SubmitApplicationResult> {
-  // 1. Authenticate
-  const guard = await guardApplicant()
+  // 1. Authenticate (both applicants and specialists can submit)
+  const guard = await guardAuth()
   if (!guard.success) return guard
   const { session } = guard
+  const isSpecialist = session.user.role !== 'applicant'
 
   let labelId: string | null = null
 
@@ -81,13 +83,28 @@ export async function submitApplication(
     if (!imageUrlsResult.success) return imageUrlsResult
     const { imageUrls } = imageUrlsResult
 
-    // 4. Look up applicant record by contactEmail matching session user's email
-    const applicantRecord = await getApplicantByEmail(session.user.email)
+    // 4. Start fetching image bytes NOW — overlaps with DB writes below (~150ms saved)
+    const imageBuffersPromise = Promise.all(imageUrls.map(fetchImageBytes))
 
-    // 5. Create label record with status "processing" — no specialist assigned yet
+    // 5. Resolve applicant ID
+    //    - Specialists must provide an applicantId via form data
+    //    - Applicants are matched by their session email
+    let applicantId: string | null = null
+    if (isSpecialist) {
+      const formApplicantId = formData.get('applicantId') as string | null
+      if (!formApplicantId) {
+        return { success: false, error: 'Select an applicant for this submission' }
+      }
+      applicantId = formApplicantId
+    } else {
+      const applicantRecord = await getApplicantByEmail(session.user.email)
+      applicantId = applicantRecord?.id ?? null
+    }
+
+    // 6. Create label record with status "processing"
     const label = await insertLabel({
-      specialistId: null,
-      applicantId: applicantRecord?.id ?? null,
+      specialistId: isSpecialist ? session.user.id : null,
+      applicantId,
       beverageType: input.beverageType,
       containerSizeMl: input.containerSizeMl,
       status: 'processing',
@@ -95,7 +112,7 @@ export async function submitApplication(
 
     labelId = label.id
 
-    // 6. Create application data record
+    // 7. Create application data record
     await insertApplicationData({
       labelId: label.id,
       serialNumber: input.serialNumber || null,
@@ -117,7 +134,7 @@ export async function submitApplication(
       stateOfDistillation: input.stateOfDistillation || null,
     })
 
-    // 7. Create label image records
+    // 8. Create label image records
     const imageRecords = await insertLabelImages(
       imageUrls.map((url, index) => ({
         labelId: label.id,
@@ -128,13 +145,16 @@ export async function submitApplication(
       })),
     )
 
-    // 8. Build applicant corrections transform for rawResponse
+    // 9. Build applicant corrections transform for rawResponse
     const rawResponseTransform = buildApplicantCorrectionsTransform(
       formData,
       input,
     )
 
-    // 9. Run shared AI validation pipeline
+    // 10. Await pre-fetched image buffers (started before DB writes)
+    const preloadedBuffers = await imageBuffersPromise
+
+    // 11. Run shared AI validation pipeline (with pre-fetched buffers)
     const expectedFields = buildExpectedFields(input, input.beverageType)
     const result = await runValidationPipeline({
       labelId: label.id,
@@ -144,9 +164,10 @@ export async function submitApplication(
       containerSizeMl: input.containerSizeMl,
       expectedFields,
       rawResponseTransform,
+      preloadedBuffers,
     })
 
-    // 10. Update label with final status
+    // 12. Update label with final status
     if (result.autoApproved) {
       await updateLabelStatus(label.id, {
         status: 'approved',

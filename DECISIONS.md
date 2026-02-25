@@ -8,7 +8,60 @@ The goal is to show iterative, thoughtful engineering judgment — not just what
 
 ## 1. Engineering Decisions
 
-### Submission Pipeline: gpt-5-mini → gpt-4.1 for 5-Second Target _(Feb 24, 2026)_
+### Hybrid Pipeline: GPT-4.1-mini for Applicant Pre-fill, Rules for Specialist Validation _(Feb 24, 2026)_
+
+**Chosen:** Add optional GPT-4.1-mini extraction for the applicant pre-fill flow only. The specialist validation pipeline remains fully local (Tesseract.js + rule-based classification). When `OPENAI_API_KEY` is not set, the entire app runs rule-based — zero behavior change.
+
+**Problem:** The rule-based classifier can't reliably extract `brand_name` or `fanciful_name` — they're arbitrary proper nouns that no regex or dictionary can identify. The two-pass exclusion heuristic (strip known values, score remaining text) works ~60% of the time but fails for unusual layouts. This matters for applicant pre-fill UX: if brand name doesn't auto-populate, applicants have to type it manually every time.
+
+**Why only applicant pre-fill?** The specialist submission flow has application data (Form 5100.31), so classification is a text-search problem — "find WHERE '45% Alc./Vol.' appears in OCR text." Rules solve this perfectly. The applicant flow has NO application data, making it a true identification problem where LLM understanding helps.
+
+**Alternatives considered:**
+1. **LLM everywhere** — Rejected. Would add latency and cost to the specialist critical path where rules already work perfectly. Also breaks the "zero outbound API calls" promise for the specialist flow, which matters for TTB's restricted network.
+2. **Larger model (GPT-4.1, GPT-5 Mini)** — Rejected. Brand name extraction is a straightforward identification task. GPT-4.1-mini is 5x cheaper and fast enough (~1-2s). No vision needed since we already have OCR text.
+3. **Fine-tuned model** — Out of scope for a prototype. Would require labeled training data we don't have.
+4. **Keep rule-based only** — Viable but leaves brand_name/fanciful_name pre-fill at ~60% accuracy, degrading the applicant experience.
+
+**Trade-offs:**
+- Cost: ~$0.001/label for applicant pre-fill (text-only, no images). Specialist flow stays at $0.
+- Latency: Adds ~1-2s to applicant pre-fill. Specialist flow unchanged.
+- Deployment: Requires `OPENAI_API_KEY` env var for applicant pre-fill. Without it, falls back to rules.
+- Network: Applicant pre-fill makes outbound API calls to `api.openai.com`. If TTB network blocks this, the rule-based fallback activates automatically. Specialist flow never makes outbound calls.
+
+**Revised:** "Cloud APIs → Local Pipeline" decision (below) — that decision still stands for the specialist flow. This adds a targeted exception for applicant pre-fill where the rule-based approach has a known gap.
+
+---
+
+### Cloud APIs → Local Pipeline: Tesseract.js + Rule-Based Classification _(Feb 24, 2026)_
+
+**Chosen:** Replace the entire cloud AI pipeline (Google Cloud Vision + OpenAI GPT-4.1/GPT-5 Mini) with a fully self-contained local pipeline: Tesseract.js v7 (WASM OCR) + rule-based classification (pure TypeScript). Zero outbound API calls.
+
+**Problem:** Marcus Williams (TTB IT Systems Admin) explicitly warns in the task document: "our network blocks outbound traffic to a lot of domains." The scanning vendor pilot failed because their ML endpoints were blocked. Our pipeline made two external API calls per label — `vision.googleapis.com` for OCR and `api.openai.com` for classification. Both would be blocked by TTB's firewall, making the tool unusable in the target environment.
+
+**What changed:**
+- OCR: Google Cloud Vision (~600ms, network) → Tesseract.js WASM (~1-3s, local CPU)
+- Classification: GPT-4.1/GPT-5 Mini (~3-5s, network) → rule-based engine (~5ms, local CPU)
+- Total pipeline: ~4-6s → ~2-3.5s (faster despite slower OCR because we eliminate the LLM entirely)
+- Cost: ~$0.004/label → $0/label (no API calls)
+- Dependencies removed: `@google-cloud/vision`, `ai`, `@ai-sdk/openai`
+- Dependencies added: `tesseract.js` (~15MB WASM + training data, bundled)
+- Environment variables removed: `OPENAI_API_KEY`, `GOOGLE_APPLICATION_CREDENTIALS`, `GOOGLE_APPLICATION_CREDENTIALS_JSON`
+
+**Key insight:** The specialist submission flow — the critical path — always has application data (expected field values from Form 5100.31). This transforms classification from an identification problem ("figure out WHAT this text is") into a text-search problem ("find WHERE this expected value appears"). Fuzzy text matching with Dice coefficient handles OCR errors. No LLM needed.
+
+**Alternatives considered:**
+- **Keep cloud APIs with VPN/proxy** — adds infra complexity, doesn't solve the firewall problem, TTB IT unlikely to whitelist external AI endpoints.
+- **Self-hosted LLM (Ollama/vLLM)** — requires GPU infra, adds deployment complexity, harder to maintain. Rule-based is simpler and sufficient for text search.
+- **Tesseract.js worker pool** — could parallelize OCR across images but WASM is single-threaded per worker. Sequential processing is simpler and still meets the 5s target. Can add pool later if needed.
+
+**Trade-offs:**
+- Tesseract.js returns axis-aligned bounding boxes (rectangles), not rotated polygons like Cloud Vision. `computeTextAngle()` returns 0 for all text. SVG overlays still render correctly — rectangles are correct, just no rotation indicator.
+- Rule-based classification is less flexible than LLM for novel label formats. Handles the standard TTB field set well. The applicant flow (no application data) extracts fewer fields reliably than the LLM did — brand_name and fanciful_name require visual context that rules can't provide.
+- Token usage reports zeros (no LLM = no tokens). `PipelineMetrics` fields remain for interface compatibility.
+
+**Revised:** This supersedes the "gpt-5-mini → gpt-4.1" decision below. The entire cloud pipeline is now gone.
+
+### Submission Pipeline: gpt-5-mini → gpt-4.1 for 5-Second Target _(Feb 24, 2026)_ — _Revised: replaced by local pipeline (see above)_
 
 **Chosen:** Switch the submission classification model from gpt-5-mini (reasoning) to gpt-4.1 (non-reasoning, `temperature: 0`).
 

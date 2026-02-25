@@ -1,8 +1,9 @@
-import vision from '@google-cloud/vision'
 import sharp from 'sharp'
+import Tesseract from 'tesseract.js'
+import path from 'node:path'
 
 // ---------------------------------------------------------------------------
-// Types
+// Types (unchanged — downstream consumers depend on this interface)
 // ---------------------------------------------------------------------------
 
 export interface OcrWord {
@@ -19,63 +20,98 @@ export interface OcrResult {
 }
 
 // ---------------------------------------------------------------------------
-// Client (singleton — reuse across calls to avoid constructor overhead)
+// Tesseract worker (eager init — starts WASM compilation at module load)
 // ---------------------------------------------------------------------------
 
-let _client: InstanceType<typeof vision.ImageAnnotatorClient> | null = null
+let _workerPromise: Promise<Tesseract.Worker> | null = null
 
-function getClient(): InstanceType<typeof vision.ImageAnnotatorClient> {
-  if (_client) return _client
+async function initWorker(): Promise<Tesseract.Worker> {
+  const langPath = path.join(process.cwd(), 'public', 'tesseract')
 
-  // In Vercel, credentials JSON is stored as an env var string.
-  // Locally, GOOGLE_APPLICATION_CREDENTIALS points to a file path.
-  const credentialsJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON
-  if (credentialsJson) {
-    // dotenv may interpret \n in the private key as literal newlines,
-    // which are invalid control characters inside a JSON string literal.
-    // Re-escape them so JSON.parse succeeds.
-    const sanitized = credentialsJson
-      .replace(/\r/g, '\\r')
-      .replace(/\n/g, '\\n')
-    const credentials = JSON.parse(sanitized) as {
-      client_email: string
-      private_key: string
-    }
-    _client = new vision.ImageAnnotatorClient({ credentials })
-  } else {
-    // Falls back to GOOGLE_APPLICATION_CREDENTIALS file path (local dev)
-    _client = new vision.ImageAnnotatorClient()
-  }
+  // Custom worker that forces the plain LSTM core (no SIMD).
+  // The default auto-detected relaxedsimd core crashes in Node.js
+  // with a missing DotProductSSE symbol.
+  const workerPath = path.join(
+    process.cwd(),
+    'src',
+    'lib',
+    'ai',
+    'tesseract-worker.js',
+  )
 
-  return _client
+  const worker = await Tesseract.createWorker('eng', Tesseract.OEM.LSTM_ONLY, {
+    langPath,
+    workerPath,
+    gzip: false,
+  })
+
+  // PSM 11 = Sparse text. Find as much text as possible in no particular order.
+  // Best for label-style scattered layouts where text isn't in neat columns.
+  await worker.setParameters({
+    tessedit_pageseg_mode: Tesseract.PSM.SPARSE_TEXT,
+  })
+
+  return worker
 }
 
+function getWorker(): Promise<Tesseract.Worker> {
+  if (!_workerPromise) {
+    _workerPromise = initWorker().catch((err) => {
+      _workerPromise = null // Allow retry on next call
+      throw err
+    })
+  }
+  return _workerPromise
+}
+
+// Eagerly start worker init at module load so WASM is compiled before
+// the first submission arrives (~1.5s head start). Catch the rejection
+// to prevent unhandled promise errors in test environments where the
+// Tesseract worker path doesn't exist.
+getWorker().catch(() => {})
+
 // ---------------------------------------------------------------------------
-// EXIF auto-orientation
+// Image preprocessing (sharp)
 // ---------------------------------------------------------------------------
 
+interface PreprocessResult {
+  buffer: Buffer
+  width: number
+  height: number
+}
+
 /**
- * Normalizes image orientation by applying EXIF rotation to the actual pixel
- * data and stripping the EXIF orientation tag. This ensures Google Cloud Vision
- * returns bounding box coordinates in the same coordinate space that browsers
- * use to display the image.
+ * Preprocesses an image for optimal Tesseract OCR accuracy:
+ * 1. EXIF auto-orient (fixes phone photo rotation)
+ * 2. Grayscale conversion (reduces noise, faster processing)
+ * 3. Contrast normalization (helps with low-contrast label text)
+ * 4. Resize to max 2000px on longest side (balances accuracy vs speed)
+ * 5. Output as PNG (lossless, Tesseract's preferred format)
  *
- * Without this, phone photos (which store landscape pixels + EXIF rotation
- * metadata) produce bounding boxes in the raw sensor space, while browsers
- * display the rotated image — causing overlays to be completely misaligned.
+ * Returns the processed buffer AND dimensions, avoiding a redundant
+ * sharp metadata call downstream.
  */
-async function normalizeOrientation(imageBytes: Buffer): Promise<Buffer> {
+async function preprocessImage(imageBytes: Buffer): Promise<PreprocessResult> {
   try {
-    const metadata = await sharp(imageBytes).metadata()
-    // orientation 1 = normal, undefined = no tag (already correct)
-    if (metadata.orientation && metadata.orientation !== 1) {
-      return await sharp(imageBytes).rotate().toBuffer()
-    }
-    return imageBytes
+    const { data, info } = await sharp(imageBytes)
+      .rotate() // EXIF auto-orient
+      .grayscale()
+      .normalize() // Stretch contrast to full range
+      .resize(2000, 2000, { fit: 'inside', withoutEnlargement: true })
+      .png()
+      .toBuffer({ resolveWithObject: true })
+    return { buffer: data, width: info.width, height: info.height }
   } catch {
-    // If sharp can't process the image (e.g., unsupported format),
-    // fall through with original bytes — GCV may still handle it
-    return imageBytes
+    // If preprocessing fails, try with just rotation
+    try {
+      const { data, info } = await sharp(imageBytes)
+        .rotate()
+        .png()
+        .toBuffer({ resolveWithObject: true })
+      return { buffer: data, width: info.width, height: info.height }
+    } catch {
+      return { buffer: imageBytes, width: 0, height: 0 }
+    }
   }
 }
 
@@ -84,79 +120,84 @@ async function normalizeOrientation(imageBytes: Buffer): Promise<Buffer> {
 // ---------------------------------------------------------------------------
 
 /**
- * Runs Google Cloud Vision document text detection on image bytes.
- * Uses documentTextDetection (not textDetection) to get accurate page
- * dimensions along with word-level bounding polygons.
+ * Runs Tesseract.js WASM OCR on image bytes.
+ * Returns word-level bounding boxes in the same 4-vertex polygon format
+ * that Google Cloud Vision used, so downstream consumers are unaffected.
  *
- * Images are auto-oriented (EXIF rotation applied to pixels) before
- * sending to GCV so bounding box coordinates match the displayed image.
+ * Images are preprocessed (EXIF orient, grayscale, contrast normalize,
+ * resize) for optimal OCR accuracy on label images.
  */
 export async function extractText(imageBytes: Buffer): Promise<OcrResult> {
-  const client = getClient()
+  const worker = await getWorker()
 
-  // Normalize EXIF orientation so GCV coordinates match displayed image
-  const orientedBytes = await normalizeOrientation(imageBytes)
+  // Preprocess image for better OCR accuracy (returns dimensions too)
+  const {
+    buffer: processed,
+    width: imageWidth,
+    height: imageHeight,
+  } = await preprocessImage(imageBytes)
 
-  const [result] = await client.documentTextDetection({
-    image: { content: orientedBytes },
-  })
+  // Run OCR with block-level hierarchy for word extraction
+  // options=undefined, output={ blocks: true } enables hierarchical word data
+  const { data } = await worker.recognize(processed, {}, { blocks: true })
 
-  // Get actual image dimensions from the page-level annotation
-  const pages = result.fullTextAnnotation?.pages ?? []
-  const page = pages[0]
-  const imageWidth = page?.width ?? 0
-  const imageHeight = page?.height ?? 0
+  // Traverse hierarchy: blocks → paragraphs → lines → words
+  const words: OcrWord[] = []
+  const blocks = data.blocks ?? []
 
-  // Fall back to textAnnotations for word-level data
-  const annotations = result.textAnnotations
+  for (const block of blocks) {
+    for (const paragraph of block.paragraphs ?? []) {
+      for (const line of paragraph.lines ?? []) {
+        for (const word of line.words ?? []) {
+          if (!word.text || word.text.trim() === '') continue
 
-  if (!annotations || annotations.length === 0) {
-    throw new Error('No text detected in image')
+          // Convert Tesseract bbox {x0, y0, x1, y1} to 4-vertex polygon
+          // matching Google Cloud Vision's format
+          const { x0, y0, x1, y1 } = word.bbox
+          const vertices = [
+            { x: x0, y: y0 }, // top-left
+            { x: x1, y: y0 }, // top-right
+            { x: x1, y: y1 }, // bottom-right
+            { x: x0, y: y1 }, // bottom-left
+          ]
+
+          words.push({
+            text: word.text,
+            boundingPoly: { vertices },
+            // Tesseract confidence is 0-100, normalize to 0-1
+            confidence: (word.confidence ?? 0) / 100,
+          })
+        }
+      }
+    }
   }
 
-  // First annotation contains the full concatenated text
-  const fullTextAnnotation = annotations[0]
-  const fullText = fullTextAnnotation.description?.trim() ?? ''
+  // Build full text from words (preserving reading order from Tesseract)
+  const fullText = data.text?.trim() ?? words.map((w) => w.text).join(' ')
 
-  // Remaining annotations are individual words with bounding polys
-  const words: OcrWord[] = annotations.slice(1).map((annotation) => {
-    const vertices = (annotation.boundingPoly?.vertices ?? []).map((v) => ({
-      x: v.x ?? 0,
-      y: v.y ?? 0,
-    }))
-
-    return {
-      text: annotation.description ?? '',
-      boundingPoly: { vertices },
-      confidence: annotation.confidence ?? 0.9,
-    }
-  })
-
-  // If page dimensions aren't available, estimate from text bounding poly
-  let finalWidth = imageWidth
-  let finalHeight = imageHeight
-  if (finalWidth === 0 || finalHeight === 0) {
-    const fullVertices = fullTextAnnotation.boundingPoly?.vertices ?? []
-    const allX = fullVertices.map((v) => v.x ?? 0)
-    const allY = fullVertices.map((v) => v.y ?? 0)
-    finalWidth = Math.max(...allX, 1)
-    finalHeight = Math.max(...allY, 1)
+  if (words.length === 0) {
+    throw new Error('No text detected in image')
   }
 
   return {
     words,
     fullText,
-    imageWidth: finalWidth,
-    imageHeight: finalHeight,
+    imageWidth,
+    imageHeight,
   }
 }
 
 /**
- * Runs OCR on multiple images in parallel.
- * Accepts image byte buffers (fetched from private blob storage).
+ * Runs OCR on multiple images sequentially.
+ * Tesseract.js WASM is single-threaded so Promise.all would serialize anyway.
+ * Sequential processing is clearer and avoids potential memory pressure.
  */
 export async function extractTextMultiImage(
   imageBuffers: Buffer[],
 ): Promise<OcrResult[]> {
-  return Promise.all(imageBuffers.map(extractText))
+  const results: OcrResult[] = []
+  for (const buffer of imageBuffers) {
+    results.push(await extractText(buffer))
+  }
+  return results
 }

@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   updateLabelStatus: vi.fn(),
   parseImageUrls: vi.fn(),
   runValidationPipeline: vi.fn(),
+  fetchImageBytes: vi.fn(),
 }))
 
 vi.mock('next/cache', () => ({ updateTag: mocks.updateTag }))
@@ -38,6 +39,9 @@ vi.mock('@/lib/actions/parse-image-urls', () => ({
 }))
 vi.mock('@/lib/actions/validation-pipeline', () => ({
   runValidationPipeline: mocks.runValidationPipeline,
+}))
+vi.mock('@/lib/storage/blob', () => ({
+  fetchImageBytes: mocks.fetchImageBytes,
 }))
 
 // ---------------------------------------------------------------------------
@@ -129,6 +133,7 @@ function setupDefaults() {
   mocks.insertLabelImages.mockResolvedValue([{ id: imageRecordId }])
   mocks.updateLabelStatus.mockResolvedValue(undefined)
   mocks.runValidationPipeline.mockResolvedValue(defaultPipelineOutput())
+  mocks.fetchImageBytes.mockResolvedValue(Buffer.from('fake-image'))
   // after() just runs callback immediately for testing — or we can ignore it
   mocks.after.mockImplementation((fn: () => void) => fn())
 

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Label verification, precisely.**
 
-AI-powered alcohol label verification tool for TTB labeling specialists. Compares label images against COLA application data (Form 5100.31) using a hybrid AI pipeline (Google Cloud Vision OCR + GPT-5 Mini classification).
+AI-powered alcohol label verification tool for TTB labeling specialists. Compares label images against COLA application data (Form 5100.31) using a fully local AI pipeline (Tesseract.js WASM OCR + rule-based classification). Zero outbound API calls.
 
 ## Stack
 
@@ -16,7 +16,7 @@ AI-powered alcohol label verification tool for TTB labeling specialists. Compare
 - **Animation:** Motion (framer-motion v12)
 - **Database:** Drizzle ORM + Neon Postgres (production) / local Postgres via Docker (development)
 - **Storage:** Vercel Blob (signed URLs, client-side direct uploads via `@vercel/blob/client`)
-- **AI:** Hybrid pipeline — Google Cloud Vision (`@google-cloud/vision`) for OCR + bounding boxes, GPT-5 Mini (`ai` + `@ai-sdk/openai`) for field classification via `generateText` + `Output.object()` + Zod schemas
+- **AI:** Local pipeline — Tesseract.js v7 (WASM OCR, `public/tesseract/eng.traineddata`) + rule-based classification (regex, dictionary, fuzzy text search). Zero outbound API calls — runs entirely on Vercel serverless.
 - **Forms:** React Hook Form v7 + `@hookform/resolvers` (Zod resolver)
 - **State:** Zustand v5 (client stores) + nuqs v2.8 (URL search params)
 - **Auth:** Better Auth v1.4 (specialist + applicant roles, session-based)
@@ -129,12 +129,12 @@ Keep entries concrete and specific — explain _what_ we'd build and _why_ it ma
 9. **Nano IDs everywhere** — all PKs use `nanoid()` via `$defaultFn`, never UUID. Exception: Better Auth managed tables.
 10. **Types from schema** — derive TypeScript types via `$inferSelect`/`$inferInsert` and Zod schemas via `drizzle-orm/zod`. No manual type files.
 11. **Zustand for client state, nuqs for URL state** — Zustand stores for ephemeral UI state (annotations, uploads, reviews). nuqs for persistent filter/pagination/sort state (URL-backed, shareable, RSC-compatible).
-12. **AI: Hybrid pipeline** — Stage 1: `@google-cloud/vision` for OCR + pixel-accurate bounding boxes. Stage 2: `generateText` + `Output.object()` from `ai` with `@ai-sdk/openai` provider, model `openai('gpt-5-mini')` for text classification. No AI Gateway. Use `.nullable()` not `.optional()` in Zod schemas (OpenAI structured output limitation).
+12. **AI: Hybrid pipeline** — Stage 1: Tesseract.js v7 (WASM OCR, PSM 11 sparse text mode) with sharp preprocessing. Stage 2: Classification depends on flow — specialist uses `ruleClassify()` (fuzzy text search with app data, regex/dictionary otherwise, zero outbound API calls); applicant pre-fill auto-upgrades to GPT-4.1-mini via `llmExtractFields()` when `OPENAI_API_KEY` is set, with rule-based fallback.
 13. **Migrations forward-only** — `drizzle-kit push` in dev, `drizzle-kit generate` + `drizzle-kit migrate` for production. No down migrations.
 14. **No dotenv** — Next.js handles `.env` / `.env.local` natively. Use `NEXT_PUBLIC_` prefix only for client-exposed vars.
 15. **React Hook Form for all multi-field forms** — `useForm` + `zodResolver` for client-side validation. Server actions re-validate independently.
 16. **Lazy deadline expiration** — no cron jobs. `getEffectiveStatus()` computes true status inline from `correction_deadline`. Fire-and-forget DB update on page load.
-17. **Bounding boxes are pixel-accurate** — Google Cloud Vision provides word-level bounding polygons. No fallback/degradation needed. Every detected text region has exact coordinates.
+17. **Bounding boxes are axis-aligned** — Tesseract.js returns `{x0,y0,x1,y1}` rectangles, converted to 4-vertex polygons at OCR output time. Accurate for text position, no rotation detection. Most label text is horizontal.
 18. **Next.js file conventions** — every route group has `loading.tsx` (Suspense skeleton), `error.tsx` (error boundary), `not-found.tsx`. Root has `global-error.tsx`.
 19. **Rate limiting deferred** — not implemented for prototype. Production would use `@upstash/ratelimit` + Upstash Redis.
 
@@ -181,12 +181,16 @@ Received → Processing → Approved
 | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `src/db/schema.ts`                                    | Database schema — single source of truth for all tables, types (`$inferSelect`/`$inferInsert`), and Zod schemas (`drizzle-orm/zod`) |
 | `src/app/actions/`                                    | Server actions — all mutations live here                                                                                            |
-| `src/lib/ai/ocr.ts`                                   | Stage 1: Google Cloud Vision OCR — word-level bounding polygons                                                                     |
-| `src/lib/ai/classify-fields.ts`                       | Stage 2: GPT-5 Mini field classification — text-only input                                                                          |
+| `src/lib/ai/ocr.ts`                                   | Stage 1: Tesseract.js WASM OCR — word-level bounding boxes                                                                         |
+| `src/lib/ai/classify-fields.ts`                       | Stage 2: Rule-based field classification adapter                                                                                    |
+| `src/lib/ai/openai-extract.ts`                        | Optional GPT-4.1-mini extraction for applicant pre-fill — `llmExtractFields()`, `isLlmAvailable()`                                 |
+| `src/lib/ai/rule-classify.ts`                         | Core rule engine — fuzzy text search (with app data) or regex/dictionary extraction (without)                                       |
 | `src/lib/ai/extract-label.ts`                         | AI pipeline orchestrator — runs OCR → classification → merges bounding boxes                                                        |
 | `src/lib/labels/effective-status.ts`                  | Lazy deadline expiration — `getEffectiveStatus()`                                                                                   |
 | `src/lib/ai/compare-fields.ts`                        | Field comparison engine (fuzzy, strict, normalized)                                                                                 |
-| `src/lib/ai/prompts.ts`                               | Classification prompts (beverage-type-aware)                                                                                        |
+| `src/lib/ai/prompts.ts`                               | Field descriptions and field name helpers (prompts removed)                                                                         |
+| `src/config/grape-varietals.ts`                        | ~60 grape varietal names for dictionary-based extraction                                                                            |
+| `src/config/appellations.ts`                           | ~80 AVAs/appellations for dictionary-based extraction                                                                               |
 | `src/config/beverage-types.ts`                        | Mandatory fields + valid sizes per product type                                                                                     |
 | `src/config/class-type-codes.ts`                      | TTB numeric class/type codes (0-999)                                                                                                |
 | `src/config/health-warning.ts`                        | Exact GOVERNMENT WARNING text + formatting rules                                                                                    |
@@ -201,7 +205,7 @@ Received → Processing → Approved
 | `PRODUCTION.md`                                       | Production readiness gaps — what we'd address before a real release (security, data, ops)                                           |
 | `DECISIONS.md`                                        | Living decision log — engineering trade-offs with dates, reasoning, and revisions                                                   |
 | `CHANGELOG.md`                                        | Narrative changelog — what changed and why, grouped by version                                                                      |
-| `docs/ai-pipelines.md`                                | AI pipeline architecture — all 4 pipelines, stages, models, comparison engine, cost model. **Keep updated when changing AI code.**  |
+| `docs/ai-pipelines.md`                                | AI pipeline architecture — all 5 pipelines, stages, cost model. **Keep updated when changing AI code.**                            |
 
 ## AI Pipeline Documentation
 
@@ -236,11 +240,10 @@ Changes that require updating the doc:
 ```bash
 DATABASE_URL=              # Local: postgresql://excisely:excisely@localhost:5432/excisely
                            # Prod: Neon Postgres connection string (must contain neon.tech)
-OPENAI_API_KEY=            # OpenAI API key (used by @ai-sdk/openai provider for GPT-5 Mini)
-GOOGLE_APPLICATION_CREDENTIALS=  # Path to Google Cloud service account JSON (for Cloud Vision OCR)
 BLOB_READ_WRITE_TOKEN=     # Vercel Blob storage token
 BETTER_AUTH_SECRET=        # Better Auth session secret (openssl rand -hex 32)
 BETTER_AUTH_URL=           # App URL (http://localhost:3000 in dev)
+OPENAI_API_KEY=            # Optional — enables GPT-4.1-mini for applicant pre-fill extraction.
+                           # When unset, falls back to rule-based extraction.
 # .env.local for local secrets, .env for defaults. No dotenv package needed.
-# For Vercel: set GOOGLE_APPLICATION_CREDENTIALS_JSON with raw JSON content (not file path).
 ```

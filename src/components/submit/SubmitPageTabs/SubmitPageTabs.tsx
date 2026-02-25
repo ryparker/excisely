@@ -19,8 +19,17 @@ import {
 } from '@/components/ui/AlertDialog'
 import { useExtractionStore } from '@/stores/useExtractionStore'
 import { useNavigationGuard } from '@/hooks/useNavigationGuard'
+import type { ApplicantOption } from '@/db/queries/applicants'
 
-export function SubmitPageTabs() {
+interface SubmitPageTabsProps {
+  isSpecialist?: boolean
+  applicants?: ApplicantOption[]
+}
+
+export function SubmitPageTabs({
+  isSpecialist = false,
+  applicants = [],
+}: SubmitPageTabsProps) {
   const [resetKey, setResetKey] = useState(0)
   const [hasFiles, setHasFiles] = useState(false)
   const extraction = useExtractionStore()
@@ -88,6 +97,8 @@ export function SubmitPageTabs() {
           key={resetKey}
           mode="submit"
           onActiveChange={(active) => setHasFiles(active)}
+          isSpecialist={isSpecialist}
+          applicants={applicants}
         />
       </div>
 

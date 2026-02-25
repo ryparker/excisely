@@ -58,6 +58,9 @@ next-env.d.ts
 # sample images (downloaded during seed)
 scripts/sample-images/
 
+# tesseract OCR training data (downloaded during setup)
+public/tesseract/*.traineddata
+
 # misc
 *.pem
 

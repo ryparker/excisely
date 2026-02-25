@@ -1,6 +1,6 @@
 # AI Pipeline Architecture
 
-How Excisely extracts, classifies, and verifies alcohol label fields using a hybrid AI pipeline.
+How Excisely extracts, classifies, and verifies alcohol label fields using a fully local pipeline — no external API calls.
 
 ---
 
@@ -12,18 +12,20 @@ Every label that enters the system goes through a 3-stage pipeline:
                     Stage 1              Stage 2                Stage 3
                   +---------+     +------------------+     +----------------+
   Label Images -->|   OCR   |---->|  Classification  |---->|  Bounding Box  |--> Structured
-  (Blob URLs)     | (Vision)|     |    (OpenAI)      |     |   Resolution   |    Fields
+  (Blob URLs)     |(Tesseract)|   | (Rules or LLM)  |     |   Resolution   |    Fields
                   +---------+     +------------------+     +----------------+
-                   ~600ms            ~3-15s                     ~1ms
+                   ~1-3s            ~5ms or ~1-2s                ~1ms
 ```
 
-**Stage 1 — OCR** (`@google-cloud/vision`): Extracts every word from label images with pixel-accurate bounding polygons. Runs in parallel across all images.
+**Stage 1 — OCR** (Tesseract.js WASM): Extracts every word from label images with bounding boxes. Runs sequentially (WASM is single-threaded).
 
-**Stage 2 — Classification** (OpenAI): Maps the raw OCR text to TTB-regulated field names (brand_name, alcohol_content, health_warning, etc.) with confidence scores and reasoning.
+**Stage 2 — Classification** (hybrid): Two engines depending on the flow:
+- **Specialist flow** (Rule Engine): Maps OCR text to TTB fields using regex, dictionary matching, and fuzzy text search. When application data is available, classification is a text-search problem. Zero outbound API calls.
+- **Applicant pre-fill** (GPT-4.1-mini, optional): When `OPENAI_API_KEY` is set, uses GPT-4.1-mini for better brand_name/fanciful_name extraction. Falls back to rule engine when key is absent or on error.
 
 **Stage 3 — Bounding Box Resolution** (local CPU): Matches classified field values back to their OCR word positions, producing normalized bounding boxes for the annotation viewer.
 
-This hybrid approach plays to each system's strengths: Cloud Vision for pixel-accurate text localization, OpenAI for semantic understanding of what each piece of text _means_ on a TTB label.
+The specialist flow requires **zero outbound network calls** — critical for TTB's restricted network. The applicant pre-fill flow optionally calls OpenAI's API, with automatic rule-based fallback if the network blocks it.
 
 ---
 
@@ -34,59 +36,48 @@ The system has five pipelines optimized for different use cases. They all share 
 ### Pipeline Comparison
 
 ```
-                          Images to    Word      Reasoning   Confidence
-  Pipeline       Model    Model?    Indices?    Effort       Scores?     Speed
-  ─────────────  ───────  ────────  ────────    ──────────   ──────────  ────────
-  Submission     4.1      No        No          N/A          Yes         ~4-6s
-  Specialist     5-mini   Yes       Yes         Default      Yes         20-60s+
-  Fast Pre-fill  4.1      No        No          N/A          No (80)     ~3-5s
-  Full Extract   5-mini   Yes       Yes         Default      Yes         20-60s+
-  Auto-Detect    4.1*     No        No          N/A*         No* (80)    ~4-9s*
+                          App Data    Beverage    Word       Engine         Speed
+  Pipeline       Flow     Provided?  Type Known? Indices?   (Stage 2)      (2 images)
+  ─────────────  ───────  ────────   ──────────  ────────   ─────────────  ──────────
+  Submission     special  Yes        Yes         No         rules          ~2-3.5s
+  Specialist     special  Optional   Yes         Yes        rules          ~2-3.5s
+  Fast Pre-fill  applic   No         Yes         No         LLM → rules   ~3-5s / ~2-3.5s
+  Full Extract   applic   No         No          No         LLM → rules   ~3-5s / ~2-3.5s
+  Auto-Detect    applic   No         Detected    No         LLM → rules   ~3-5s / ~2-3.5s
 ```
 
-\* Auto-Detect uses gpt-4.1 when keywords detect the type (happy path, ~4-9s). Falls back to gpt-5-mini Full Extract pipeline when type is ambiguous (~10-20s).
+Specialist pipelines always use the rule engine (~5ms classification). Applicant pipelines auto-upgrade to GPT-4.1-mini when `OPENAI_API_KEY` is set (~1-2s classification), with automatic rule-based fallback. The bottleneck remains Tesseract.js OCR (~1-3s per image).
 
 ---
 
-### 1. Submission Pipeline
+### 1. Submission Pipeline (Critical Path)
 
 **Function:** `extractLabelFieldsForSubmission()`
-**Model:** gpt-4.1 (text-only, `temperature: 0`)
 **Used by:** All label processing actions
 
 ```
-  Blob Storage        Cloud Vision            gpt-4.1              Local CPU
-  ┌──────────┐       ┌────────────┐       ┌──────────────┐       ┌──────────────┐
-  │  Fetch   │──────>│    OCR     │──────>│ Classify     │──────>│ Match fields  │
-  │  images  │ bytes │ (parallel) │ text  │ (text-only)  │fields │ to OCR words  │
-  │          │       │            │       │ temp=0       │       │               │
-  │ ~200ms   │       │  ~600ms    │       │  ~3-5s       │       │    ~1ms       │
-  └──────────┘       └────────────┘       └──────────────┘       └──────────────┘
-       |                   |                     |                       |
-   Image bytes       Word polygons         Field values +          Bounding boxes
-   (for OCR,         + full text           confidence +            (normalized 0-1)
-    NOT sent                               reasoning
-    to LLM)
+  Blob Storage        Tesseract.js          Rule Engine          Local CPU
+  ┌──────────┐       ┌────────────┐       ┌──────────────┐     ┌──────────────┐
+  │  Fetch   │──────>│    OCR     │──────>│ Fuzzy text   │────>│ Match fields  │
+  │  images  │ bytes │  (WASM)    │ text  │ search with  │     │ to OCR words  │
+  │          │       │            │       │ app data     │     │               │
+  │ ~200ms   │       │  ~1-3s     │       │  ~5ms        │     │    ~1ms       │
+  └──────────┘       └────────────┘       └──────────────┘     └──────────────┘
+                                                |
+                                          For each expected value
+                                          from Form 5100.31:
+                                          find WHERE it appears
+                                          in OCR text (or confirm missing)
 ```
 
-**Why this design:**
+**Why this works:**
 
-This is the workhorse pipeline. It handles applicant submissions, specialist validations, reanalysis, and batch processing. Two key optimizations:
+The specialist submission flow always has application data — the expected field values from Form 5100.31. This transforms classification from an identification problem ("figure out WHAT this text is") into a text-search problem ("find WHERE this expected value appears"). The rule engine:
 
-1. **Images are fetched for OCR but never sent to the LLM** — saves ~30-40s of multimodal upload and processing time
-2. **gpt-4.1 (non-reasoning) replaces gpt-5-mini** — drops classification from ~10-15s to ~3-5s, bringing total pipeline time under the 5-second usability threshold identified by Sarah Chen ("If we can't get results back in about 5 seconds, nobody's going to use it.")
-
-- **gpt-4.1** is a fast non-reasoning model with `temperature: 0` for deterministic output
-- **The comparison engine is the real arbiter** — it determines match/mismatch/missing status independently of AI confidence, so the loss of reasoning model nuance doesn't affect validation outcomes
-- **Local text matching** produces equivalent bounding boxes to LLM-provided word indices
-- Application data from Form 5100.31 is included in the prompt for disambiguation
-
-**What's NOT included** (vs the full multimodal pipeline):
-
-- Image buffers are not sent to the model (biggest time saving)
-- No visual verification of OCR digits (OCR errors still get caught as mismatches by the comparison engine)
-- No image type classification (front/back/neck/strip — done during pre-fill)
-- No word indices requested from the model (local matching is equivalent)
+1. **Exact substring match** (95% confidence) — handles clean OCR
+2. **Ampersand normalization** (93%) — "Produced & Bottled by" → "Produced and Bottled by"
+3. **Space-collapsed match** (90%) — "750mL" matches "750 mL"
+4. **Fuzzy match via Dice coefficient** (variable) — handles OCR errors
 
 **Callers:**
 
@@ -100,293 +91,182 @@ This is the workhorse pipeline. It handles applicant submissions, specialist val
 
 ---
 
-### 2. Specialist Pipeline (Full Multimodal)
+### 2. Specialist Pipeline (Full Extraction)
 
 **Function:** `extractLabelFields()` / `extractLabelFieldsFromBuffers()`
-**Model:** gpt-5-mini (multimodal — text + images)
-**Used by:** Currently no callers (kept for future use)
+**Used by:** Test scripts, direct extraction
 
-```
-  Blob Storage        Cloud Vision          gpt-5-mini             Index Lookup
-  ┌──────────┐       ┌────────────┐       ┌──────────────────┐   ┌──────────────┐
-  │  Fetch   │──────>│    OCR     │──────>│ Classify         │──>│ Map indices   │
-  │  images  │ bytes │ (parallel) │ text  │ (text + images)  │   │ to OCR words  │
-  │          │       │            │ +list │                  │   │               │
-  │ ~200ms   │       │  ~600ms    │       │  ~20-60s+        │   │    ~1ms       │
-  └──────────┘       └────────────┘       └──────────────────┘   └──────────────┘
-       |                   |                     |                       |
-   Image bytes       Word polygons         Field values +          Bounding boxes
-   (sent to LLM     + indexed word         word indices +          (from indexed
-    for visual        list                 confidence +             word lookup)
-    verification)                          reasoning +
-                                           image classifications
-```
-
-**Why this exists:**
-
-This is the most thorough pipeline — the model can _see_ the label images and cross-check OCR results. It catches digit misreads that text-only pipelines miss (e.g., "52%" OCR'd as "12%"). The trade-off is speed: sending full-resolution images to a reasoning model means ~30-40s of multimodal upload + internal processing on top of the text classification time.
-
-**When it matters:**
-
-Visual verification is most valuable for:
-
-- Alcohol content (a misread % changes the entire validation)
-- Vintage year (2019 vs 2014)
-- Net contents (750 mL vs 150 mL)
-
-In practice, the comparison engine catches these as mismatches anyway (the extracted value won't match the application data), routing them to specialist review. The specialist then verifies visually themselves. This is why the submission pipeline dropped multimodal — the safety net works without it.
-
-**Key differences from submission pipeline:**
-
-- Images sent to model (multimodal messages)
-- Word indices requested and provided by model
-- Visual verification instructions in prompt
-- Image type classification (front/back/neck/strip/other)
-- Bounding boxes resolved via index lookup (not text matching)
+Same as submission pipeline but supports optional application data and word index mapping via the combined word list. When application data is provided, behaves identically to the submission pipeline.
 
 ---
 
 ### 3. Fast Pre-fill Pipeline
 
 **Function:** `extractLabelFieldsForApplicantWithType()`
-**Model:** gpt-4.1 (non-reasoning, `temperature: 0`)
 **Used by:** Applicant form pre-fill when beverage type is known
 
-```
-  Blob Storage        Cloud Vision            gpt-4.1              Local CPU
-  ┌──────────┐       ┌────────────┐       ┌──────────────┐       ┌──────────────┐
-  │  Fetch   │──────>│    OCR     │──────>│ Extract      │──────>│ Match fields  │
-  │  images  │ bytes │ (parallel) │ text  │ (text-only)  │fields │ to OCR words  │
-  │          │       │            │       │ temp=0       │       │               │
-  │ ~200ms   │       │  ~600ms    │       │  ~3-5s       │       │    ~1ms       │
-  └──────────┘       └────────────┘       └──────────────┘       └──────────────┘
-                                                |
-                                          Minimal output:
-                                          fieldName + value only
-                                          (no confidence, no reasoning)
-```
+When `OPENAI_API_KEY` is set, uses GPT-4.1-mini for extraction via `classifyFieldsForExtraction()` → `llmExtractFields()`. This significantly improves brand_name and fanciful_name accuracy (proper nouns that rules can't identify). Falls back to rule-based extraction on error or when key is absent.
 
-**Why gpt-4.1 and not gpt-5-mini:**
+**Rule-based fallback** uses type-specific field lists with per-field extractors:
 
-This pipeline exists for one reason: **speed**. When an applicant uploads label images, they're watching the form fields populate in real-time. 3-5 seconds feels responsive; 15-20 seconds feels broken.
-
-- **gpt-4.1** is a non-reasoning model — no internal chain-of-thought, just direct classification
-- **`temperature: 0`** for deterministic output
-- **Minimal schema** — only `fieldName` + `value` (no confidence, reasoning, or word indices)
-- **Skips fields** — `health_warning` (auto-filled from standard text) and `standards_of_fill` (computed from container size)
-- **System/user message split** — enables OpenAI prompt caching (system message is identical across calls for the same beverage type)
-
-**Quality trade-off:**
-
-This pipeline hardcodes confidence at 80 and provides no reasoning. That's fine — the applicant reviews and corrects every field before submitting. The submission pipeline re-classifies with gpt-5-mini for the values that actually matter to specialists.
+- **Tier 0 (exact match):** health_warning (GOVERNMENT WARNING prefix), qualifying_phrase (21 phrases), sulfite_declaration
+- **Tier 1 (regex):** alcohol_content (XX% Alc./Vol.), net_contents (750 mL), vintage_year, age_statement, country_of_origin
+- **Tier 2 (dictionary):** class_type (TTB code descriptions), grape_varietal (~60 varieties), appellation_of_origin (~80 AVAs), name_and_address (text after qualifying phrase)
+- **Tier 3 (heuristic):** brand_name, fanciful_name (two-pass exclusion, ~60% accuracy)
 
 ---
 
 ### 4. Full Extraction Pipeline (No Beverage Type)
 
 **Function:** `extractLabelFieldsForApplicant()`
-**Model:** gpt-5-mini (text-only, no images sent despite being available)
 **Used by:** Fallback for Pipeline 5 when keyword detection fails
 
-```
-  Blob Storage        Cloud Vision          gpt-5-mini             Index Lookup
-  ┌──────────┐       ┌────────────┐       ┌──────────────────┐   ┌──────────────┐
-  │  Fetch   │──────>│    OCR     │──────>│ Extract ALL      │──>│ Map indices   │
-  │  images  │ bytes │ (parallel) │ text  │ fields + detect  │   │ to OCR words  │
-  │          │       │            │ +list │ beverage type    │   │               │
-  │ ~200ms   │       │  ~600ms    │       │  ~10-20s         │   │    ~1ms       │
-  └──────────┘       └────────────┘       └──────────────────┘   └──────────────┘
-                                                |
-                                          Union of ALL fields
-                                          + detected beverage type
-                                          + image classifications
-```
-
-**Why this exists:**
-
-When an applicant first uploads label images _before selecting a beverage type_, the system needs to:
-
-1. Figure out what kind of product this is (spirits? wine? malt beverage?)
-2. Extract all possible fields from the label
-
-This pipeline uses the **union of all fields** from all beverage types and asks the model to detect the beverage type from context clues:
-
-- Spirits: proof, age statements, "whiskey", "bourbon", "vodka"
-- Wine: grape varietals, vintage years, appellations, "contains sulfites"
-- Malt beverages: "ale", "lager", "IPA", "brewed by", "hard seltzer"
-
-Once the beverage type is detected, the form switches to the Fast Pre-fill Pipeline for subsequent scans.
+Extracts the union of all fields across all beverage types. Less focused than type-specific extraction but covers all possible fields.
 
 ---
 
 ### 5. Auto-Detect Pipeline
 
 **Function:** `extractLabelFieldsWithAutoDetect()`
-**Model:** gpt-4.1 (happy path) or gpt-5-mini (fallback)
 **Used by:** Applicant form pre-fill when beverage type is not selected
 
 ```
-  Blob Storage        Cloud Vision       Keyword Detection     gpt-4.1 or 5-mini    Local CPU
-  ┌──────────┐       ┌────────────┐       ┌──────────────┐     ┌──────────────┐     ┌──────────┐
-  │  Fetch   │──────>│    OCR     │──────>│ Score types  │─┬──>│ Fast Extract │────>│ Match    │
-  │  images  │ bytes │ (parallel) │ text  │ by keywords  │ │   │ (type-aware) │     │ fields   │
-  │          │       │            │       │              │ │   │ gpt-4.1      │     │ to OCR   │
-  │ ~200ms   │       │  ~600ms    │       │  ~0ms        │ │   │ ~3-8s        │     │  ~1ms    │
-  └──────────┘       └────────────┘       └──────────────┘ │   └──────────────┘     └──────────┘
-                                                  │        │
-                                             (ambiguous?)  └──>│ Full Extract │────>│ Match    │
-                                                               │ (all fields) │     │ fields   │
-                                                               │ gpt-5-mini   │     │ to OCR   │
-                                                               │ ~10-20s      │     │  ~1ms    │
-                                                               └──────────────┘     └──────────┘
+  Blob Storage        Tesseract.js       Keyword Detection     Rule Engine       Local CPU
+  ┌──────────┐       ┌────────────┐       ┌──────────────┐     ┌──────────────┐ ┌──────────┐
+  │  Fetch   │──────>│    OCR     │──────>│ Score types  │─┬──>│ Fast Extract │>│ Match    │
+  │  images  │ bytes │  (WASM)    │ text  │ by keywords  │ │   │ (type-aware) │ │ fields   │
+  │          │       │            │       │              │ │   │              │ │ to OCR   │
+  │ ~200ms   │       │  ~1-3s     │       │  ~0ms        │ │   │  ~5ms        │ │  ~1ms    │
+  └──────────┘       └────────────┘       └──────────────┘ │   └──────────────┘ └──────────┘
+                                                 │         │
+                                            (ambiguous?)   └──> Full Extract ──> Match fields
 ```
 
-**Why this exists:**
-
-Previously (Pipeline 4), when no beverage type was selected, the system sent all fields from all types to gpt-5-mini — slower (~10-20s) and less accurate than type-specific prompts. The auto-detect pipeline adds a zero-cost keyword matching step:
-
-1. **Keyword detection** (~0ms): Score each beverage type by counting OCR text hits against type-specific keyword lists (whiskey/bourbon/proof → spirits, wine/cabernet/sulfites → wine, ale/lager/brewed → malt)
-2. **Clear winner?** → Fast type-specific extraction via Pipeline 3 (gpt-4.1, ~3-8s)
-3. **Ambiguous?** → Fall back to Pipeline 4's full extraction (gpt-5-mini, ~10-20s)
-
-**Performance:**
-
-- Happy path (clear keywords): ~4-9s — same speed as manual type selection
-- Fallback (ambiguous): ~10-20s — no worse than before
-
-**Keyword matching rules:**
-
-- Each type has ~30 keywords (spirits: "whiskey", "bourbon", "proof", "distilled by"...)
-- Score = count of matching keywords in OCR text
-- Winner needs at least 1 hit AND 1+ more hits than runner-up
-- Returns null (triggers fallback) if tied or no keywords found
-
-**UX impact:**
-
-- Applicants can skip the beverage type selection step entirely
-- AI auto-fills the type card with an "AI detected" badge
-- If detection fails, a toast prompts manual selection
-- User can override AI-detected type at any time
+Keyword detection scores each beverage type by counting OCR text hits against type-specific keyword lists (~30 keywords per type). Winner needs 1+ more hits than runner-up. Falls back to full extraction if ambiguous.
 
 ---
 
 ## Stage Details
 
-### Stage 1: OCR (Google Cloud Vision)
+### Stage 1: OCR (Tesseract.js WASM)
 
 **File:** `src/lib/ai/ocr.ts`
-**API:** `documentTextDetection()` (not `textDetection` — optimized for document-style layouts)
+**Engine:** Tesseract.js v7 with `eng.traineddata` (bundled in `public/tesseract/`)
 
 ```
   Input: Image buffer (JPEG/PNG)
     |
     v
-  Cloud Vision API
+  sharp preprocessing:
+    - EXIF auto-orient (fixes phone photo rotation)
+    - Grayscale conversion (reduces noise)
+    - Contrast normalization (helps low-contrast text)
+    - Resize to max 2000px (balances accuracy vs speed)
+    - Output as PNG (lossless)
+    |
+    v
+  Tesseract WASM (PSM 11 — sparse text mode)
     |
     v
   Output: {
-    words: [                          // Every word with pixel coordinates
+    words: [                          // Every word with bounding box
       {
         text: "GOVERNMENT",
         boundingPoly: {
-          vertices: [                 // 4 corners in pixel space
-            { x: 120, y: 450 },      // top-left (in reading direction)
+          vertices: [                 // 4 corners (axis-aligned rectangle)
+            { x: 120, y: 450 },      // top-left
             { x: 340, y: 450 },      // top-right
             { x: 340, y: 475 },      // bottom-right
             { x: 120, y: 475 },      // bottom-left
           ]
         },
-        confidence: 0.99
+        confidence: 0.92             // 0-1 (normalized from Tesseract's 0-100)
       },
       ...
     ],
     fullText: "GOVERNMENT WARNING...", // All text concatenated
-    imageWidth: 1200,                  // Source image dimensions
+    imageWidth: 1200,                  // From sharp metadata
     imageHeight: 1600
   }
 ```
 
 **Key properties:**
 
-- Word-level granularity (not character or paragraph)
-- Pixel-accurate bounding polygons (4 vertices per word)
-- Handles rotated, curved, and embossed text
-- Parallel execution across multiple images (`Promise.all`)
-- ~$0.0015 per image, ~600ms latency
+- Word-level granularity via block → paragraph → line → word hierarchy
+- Axis-aligned bounding boxes (rectangles, not rotated polygons)
+- PSM 11 (sparse text) optimized for scattered label layouts
+- Single worker (singleton, lazy init) — WASM is single-threaded
+- Sequential multi-image processing (no benefit from Promise.all)
+- ~1-3s per image depending on complexity
+- $0 per image (runs locally)
 
-### Stage 2: Classification (OpenAI)
+**Bounding box format note:** Tesseract returns `{x0, y0, x1, y1}` rectangles. These are converted to 4-vertex polygons `[{x,y}, ...]` at OCR output time to match the interface that `bounding-box-math.ts` and the annotation viewer expect. `computeTextAngle()` returns 0 for all text (no rotation detection from axis-aligned boxes).
 
-**File:** `src/lib/ai/classify-fields.ts`
+### Stage 2: Classification (Rule Engine)
 
-All classification functions use the AI SDK's `generateText()` with `Output.object()` for guaranteed JSON schema compliance.
+**File:** `src/lib/ai/rule-classify.ts`
+
+Two modes depending on whether application data is available:
+
+**With application data (specialist flow):**
 
 ```
-  Input: OCR text + prompt + (optional) images + (optional) app data
-    |
-    v
-  generateText({
-    model: openai('gpt-5-mini'),       // or gpt-4.1 for fast pre-fill
-    messages: [...],
-    providerOptions: {
-      openai: { reasoningEffort: 'low' } // submission pipeline only
-    },
-    experimental_output: Output.object({
-      schema: z.object({               // Zod schema = guaranteed structure
-        fields: z.array(z.object({
-          fieldName: z.string(),
-          value: z.string().nullable(), // .nullable() not .optional()
-          confidence: z.number(),       //   (OpenAI structured output
-          reasoning: z.string().nullable() //  limitation)
-        }))
-      })
-    })
-  })
-    |
-    v
-  Output: Typed, validated field classifications
+  For each expected field value from Form 5100.31:
+    1. Exact substring match in normalized OCR text → 95% confidence
+    2. Ampersand-normalized match ("&" → "and") → 93% confidence
+    3. Space-collapsed match ("750mL" = "750 mL") → 90% confidence
+    4. Fuzzy match via Dice coefficient sliding window → similarity * 100
+    5. Not found → null value, 0% confidence
 ```
 
-**Schema note:** OpenAI's structured output requires `.nullable()` instead of `.optional()` in Zod schemas. All nullable fields use this pattern.
+**Without application data (applicant flow):**
+
+```
+  Per-field extractors using regex, dictionary, and heuristic matching:
+    - health_warning:      "GOVERNMENT WARNING" prefix search
+    - qualifying_phrase:   Match against 21 canonical phrases (longest first)
+    - alcohol_content:     /(\d+(?:\.\d+)?)\s*%\s*alc/i and proof patterns
+    - net_contents:        /(\d+(?:\.\d+)?)\s*m[lL]/  and unit patterns
+    - grape_varietal:      Dictionary of ~60 varietal names
+    - appellation_of_origin: Dictionary of ~80 AVAs and regions
+    - class_type:          Match against TTB code descriptions + common types
+    - vintage_year:        /\b(19\d{2}|20[0-2]\d)\b/
+    - age_statement:       /aged\s+(\d+)\s*years?/i patterns
+    - country_of_origin:   "Product of X" / "Imported from X" patterns
+    - name_and_address:    Text following qualifying phrase
+```
 
 ### Stage 3: Bounding Box Resolution
 
-**File:** `src/lib/ai/extract-label.ts`
+**File:** `src/lib/ai/text-matching.ts`
 
-Two strategies, both producing identical output:
+All pipelines use the same text-matching strategy:
 
 ```
-  Strategy A: Index Lookup                 Strategy B: Text Matching
-  (multimodal pipelines)                   (text-only pipelines)
-
-  LLM returns wordIndices [3, 4, 5]       LLM returns value "750 mL"
-         |                                          |
-         v                                          v
-  Look up words[3], words[4], words[5]     findMatchingWords("750 mL", allWords)
-  from combined word list                  sliding window, fuzzy match
-         |                                          |
-         v                                          v
-  computeNormalizedBoundingBox()           computeNormalizedBoundingBox()
-  from matched OCR word vertices           from matched OCR word vertices
-         |                                          |
-         v                                          v
-  { x: 0.12, y: 0.65,                     { x: 0.12, y: 0.65,
-    width: 0.08, height: 0.02,              width: 0.08, height: 0.02,
-    angle: 0 }                               angle: 0 }
+  Rule engine returns value "750 mL"
+         |
+         v
+  findMatchingWords("750 mL", allOcrWords)
+  sliding window, fuzzy match, smart-join for split numbers
+         |
+         v
+  computeNormalizedBoundingBox()
+  from matched OCR word vertices
+         |
+         v
+  { x: 0.12, y: 0.65,
+    width: 0.08, height: 0.02,
+    angle: 0 }
 ```
 
 **Text matching algorithm** (`findMatchingWords`):
 
 1. Normalize both strings (lowercase, strip punctuation, collapse whitespace)
 2. Slide a window across OCR words (up to 60 words wide)
-3. Accumulate text and compare against target
-4. Return best match if coverage >= 60%
-5. Runs in <1ms for typical labels (~150 words)
-
-**Coordinate normalization:**
-
-- All bounding boxes are normalized to 0-1 range (divided by image dimensions)
-- Text angle computed from word baseline vectors, snapped to nearest 90 degrees
-- Supports horizontal (0), vertical (90/-90), and upside-down (180) text
+3. Smart-join adjacent tokens that form split numbers ("12." + "5%" → "12.5%")
+4. Space-collapsed fallback ("750mL" matches "750 mL")
+5. Return best match if coverage >= 60%
+6. Runs in <1ms for typical labels (~150 words)
 
 ---
 
@@ -435,104 +315,42 @@ After extraction, each field is compared against the applicant's Form 5100.31 da
                                                    >= 50% match
 ```
 
-### Dice Coefficient (Fuzzy Matching)
-
-```
-  "Knob Creek" vs "Knob creek"
-
-  Bigrams A: { "kn", "no", "ob", "b ", " c", "cr", "re", "ee", "ek" }
-  Bigrams B: { "kn", "no", "ob", "b ", " c", "cr", "re", "ee", "ek" }
-
-  Similarity = 2 * |intersection| / (|A| + |B|)
-             = 2 * 9 / (9 + 9)
-             = 1.0  -->  MATCH
-```
-
-### Comparison Output
-
-Each field comparison produces:
-
-```typescript
-{
-  status: 'match' | 'mismatch' | 'missing' | 'needs_correction',
-  confidence: number,     // 0-100
-  reasoning: string,      // Human-readable explanation
-}
-```
-
-The `needs_correction` status is applied when a mismatch occurs on a minor field (fields where small discrepancies are correctable rather than grounds for rejection).
-
----
-
-## Data Flow: End-to-End Submission
-
-```
-  Applicant                         Server                              AI Services
-  ─────────                         ──────                              ───────────
-
-  1. Upload images ──────────────> Vercel Blob
-                                   (direct upload)
-
-  2. Fill form fields               (AI pre-fill available)
-     (or accept AI pre-fill)
-
-  3. Submit ─────────────────────> submitApplication()
-                                   |
-                                   ├─ Validate form data (Zod)
-                                   ├─ Create label (status: processing)
-                                   ├─ Create application_data record
-                                   ├─ Create label_images records
-                                   |
-                                   ├─ extractLabelFieldsForSubmission()
-                                   |   ├─ fetchImageBytes() ─────────> Blob Storage
-                                   |   ├─ extractTextMultiImage() ───> Cloud Vision
-                                   |   ├─ classifyFieldsForSubmission() ──> OpenAI
-                                   |   └─ matchFieldsToBoundingBoxes()  (local CPU)
-                                   |
-                                   ├─ compareField() for each field
-                                   |   (expected vs extracted)
-                                   |
-                                   ├─ Create validation_result record
-                                   ├─ Create validation_items records
-                                   ├─ Determine overall status
-                                   |   (approved / needs_correction /
-                                   |    conditionally_approved / rejected)
-                                   |
-                                   └─ Update label status
-                                      (auto-approve or route to review)
-
-  4. <── Redirect to submission detail page
-```
-
 ---
 
 ## Cost Model
 
-| Component           | Cost               | Per Label              |
-| ------------------- | ------------------ | ---------------------- |
-| Cloud Vision OCR    | $1.50 / 1K images  | ~$0.003 (2 images)     |
-| gpt-4.1 (submit)   | ~$0.10 / 1M tokens | ~$0.0002 (2K tokens)   |
-| gpt-4.1 (pre-fill)  | ~$0.10 / 1M tokens | ~$0.0001 (1.3K tokens) |
-| **Total per label** |                    | **~$0.004**            |
+| Component                       | Cost               | Per Label              |
+| ------------------------------- | ------------------ | ---------------------- |
+| Tesseract.js OCR                | $0 (local WASM)    | $0                     |
+| Rule-based classify (specialist)| $0 (local CPU)     | $0                     |
+| GPT-4.1-mini (applicant, opt.)  | OpenAI pricing     | ~$0.001                |
+| Blob storage fetch              | Vercel Blob pricing | ~$0.0001 (2 images)    |
+| **Specialist flow**             |                    | **~$0.0001**           |
+| **Applicant flow (with LLM)**   |                    | **~$0.001**            |
+| **Applicant flow (rules only)** |                    | **~$0.0001**           |
 
-Pre-fill adds ~$0.0001 per scan. A label that goes through pre-fill + submission + one reanalysis costs roughly $0.01. Switching the submission pipeline from gpt-5-mini to gpt-4.1 halved per-label cost while cutting latency from ~15-20s to ~4-6s.
+The specialist flow remains at effectively $0/label. Applicant pre-fill adds ~$0.001 when `OPENAI_API_KEY` is set (text-only — no images sent to the LLM). Without the key, applicant flow costs the same as specialist.
 
 ---
 
 ## Why This Architecture
 
-**Why not a single end-to-end vision model?**
+**Why not cloud AI APIs?**
 
-No single model excels at both text localization (where exactly is each word, in pixels?) and semantic classification (what does this text mean in TTB regulatory context?). Cloud Vision provides sub-pixel bounding polygons in ~600ms at $0.0015/image. OpenAI provides regulatory understanding. The hybrid approach costs ~$0.005/label total and completes in ~4-6 seconds.
+Marcus Williams (TTB IT Systems Admin) explicitly warns: "our network blocks outbound traffic to a lot of domains." The scanning vendor pilot failed because their ML endpoints were blocked. Any architecture that requires `api.openai.com` or `vision.googleapis.com` would face the same fate. The local pipeline runs entirely on Vercel serverless with zero outbound API calls.
 
-**Why text-only classification?**
+**Why Tesseract.js over other local OCR?**
 
-The submission pipeline proved that text-only classification produces quality equivalent to multimodal for TTB labels. OCR captures the text accurately; the model's job is semantic mapping, not reading. Visual verification (catching OCR digit errors) sounds valuable in theory, but in practice: (a) OCR digit errors produce mismatches that route to specialist review anyway, and (b) sending images to a model adds 30-40 seconds. The safety net works without it.
+Tesseract.js v7 is the most mature WASM OCR library. It runs in Node.js (Vercel serverless), handles multiple languages, and produces word-level bounding boxes. The `eng.traineddata` file (~15MB) is bundled in `public/tesseract/` and loaded at worker initialization — no CDN download needed at runtime.
 
-**Why gpt-4.1 for the submission pipeline (not gpt-5-mini)?**
+**Why rule-based classification instead of a local LLM?**
 
-The 5-second usability threshold demanded a non-reasoning model. gpt-5-mini (reasoning model) took ~10-15s even with `reasoningEffort: 'low'` because it generates internal chain-of-thought. gpt-4.1 produces equivalent classification quality in ~3-5s — the comparison engine (Dice coefficient, normalized parsing, exact matching) is the real arbiter of match/mismatch outcomes, not the model's confidence score. The model's job is structured extraction; the comparison engine does validation.
+The specialist flow (critical path) always has application data — expected values from Form 5100.31. Finding "WHERE does '45% Alc./Vol.' appear in this OCR text?" is a text search problem, not a language understanding problem. Regex, dictionary matching, and fuzzy search solve it in ~5ms with no GPU, no model weights, and deterministic results. A local LLM (Ollama/vLLM) would require GPU infrastructure and add deployment complexity for no practical benefit.
 
-**Why local bounding box matching?**
+**Why sequential OCR (not parallel)?**
 
-When the model doesn't receive images, it can't return word indices (it doesn't know the word positions). Rather than asking the model to guess indices from the word list, we match extracted values against OCR words locally using CPU fuzzy matching. This is both faster (~1ms vs additional LLM tokens) and more reliable (deterministic matching vs probabilistic index prediction).
+Tesseract.js WASM is single-threaded. `Promise.all` would serialize anyway. Sequential processing is clearer, and two images complete in ~2-4s total — well within the 5-second target. A worker pool could be added later if needed.
+
+**Why axis-aligned bounding boxes are acceptable?**
+
+Tesseract returns rectangles `{x0, y0, x1, y1}`, not rotated polygons like Google Cloud Vision. We convert to 4-vertex format for interface compatibility. `computeTextAngle()` returns 0 for all text. The SVG annotation overlay still renders correctly — rectangles are accurate for text position, just without rotation indicators. Most label text is horizontal anyway.

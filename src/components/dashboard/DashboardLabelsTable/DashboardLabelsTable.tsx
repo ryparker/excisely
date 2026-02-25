@@ -144,6 +144,7 @@ export async function DashboardLabelsTable({
       <FilterBar
         paramKey="status"
         defaultValue="pending_review"
+        className="mb-3"
         options={STATUS_FILTERS.map((f) => ({
           label: f.label,
           value: f.value,

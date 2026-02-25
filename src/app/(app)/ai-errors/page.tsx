@@ -4,7 +4,6 @@ import { Suspense } from 'react'
 import { Flag, AlertTriangle, ShieldAlert, Activity } from 'lucide-react'
 
 import { getAIErrorStats, getFilteredAIErrors } from '@/db/queries/ai-errors'
-import { fetchTokenUsageMetrics } from '@/db/queries/sla'
 import { requireSpecialist } from '@/lib/auth/require-role'
 import { searchParamsCache } from '@/lib/search-params-cache'
 import { FIELD_DISPLAY_NAMES } from '@/config/field-display-names'
@@ -15,7 +14,6 @@ import { SearchInput } from '@/components/shared/SearchInput'
 import { ResetFiltersButton } from '@/components/shared/ResetFiltersButton'
 import { AIErrorsTable } from '@/components/ai-errors/AiErrorsTable'
 import { StatCard, STAT_CARD_BASE } from '@/components/shared/StatCard'
-import { TokenUsageSummary } from '@/components/dashboard/TokenUsageSummary'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
 
@@ -107,10 +105,7 @@ function AIErrorTableSkeleton() {
 // ---------------------------------------------------------------------------
 
 async function AIErrorStats() {
-  const [stats, tokenUsageMetrics] = await Promise.all([
-    getAIErrorStats(),
-    fetchTokenUsageMetrics(),
-  ])
+  const stats = await getAIErrorStats()
 
   const missedBg =
     stats.missedErrors === 0
@@ -126,7 +121,7 @@ async function AIErrorStats() {
       : 'text-amber-700 dark:text-amber-400'
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <StatCard
         icon={Activity}
         iconBg="bg-muted"
@@ -153,7 +148,6 @@ async function AIErrorStats() {
         description="AI flagged, specialist confirmed match"
         valueClassName="text-blue-700 dark:text-blue-400"
       />
-      <TokenUsageSummary metrics={tokenUsageMetrics} index={3} />
     </div>
   )
 }
