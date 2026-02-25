@@ -134,7 +134,7 @@ const fastExtractionResultSchema = z.object({
 /**
  * Ultra-fast beverage-type-aware extraction for applicant pre-fill.
  * Optimized for speed over accuracy — the applicant reviews & corrects.
- * - GPT-4.1 for fast inference (non-reasoning model, ~3-8s)
+ * - GPT-4.1-mini for fast inference (non-reasoning model, ~1-3s)
  * - System/user message split for OpenAI prompt caching
  * - Minimal schema: just fieldName + value
  * - Skips health_warning (auto-filled) and standards_of_fill (computed)
@@ -147,7 +147,7 @@ export async function classifyFieldsForExtraction(
   const { system, user } = buildFastExtractionMessages(ocrText, beverageType)
 
   const { experimental_output, usage } = await generateText({
-    model: openai('gpt-4.1'),
+    model: openai('gpt-4.1-mini'),
     temperature: 0,
     messages: [
       { role: 'system', content: system },
@@ -191,15 +191,14 @@ export async function classifyFieldsForExtraction(
 }
 
 // ---------------------------------------------------------------------------
-// Submission classification (gpt-4.1, text-only, with reasoning)
+// Submission classification (gpt-4.1-nano, text-only, compact prompt)
 // ---------------------------------------------------------------------------
 
-/** Submission schema: confidence + reasoning but no wordIndices (local text matching handles bboxes) */
+/** Submission schema: confidence only, no reasoning (local text matching handles bboxes) */
 const submissionFieldSchema = z.object({
   fieldName: z.string(),
   value: z.string().nullable(),
   confidence: z.number(),
-  reasoning: z.string().nullable(),
 })
 
 const submissionResultSchema = z.object({
@@ -207,14 +206,14 @@ const submissionResultSchema = z.object({
 })
 
 /**
- * Submission-optimized classification using gpt-4.1 (text-only).
- * Optimized for speed (~3-5s) to meet the 5-second pipeline target.
+ * Submission-optimized classification using gpt-4.1-mini (text-only).
+ * Optimized for speed (<5s total pipeline) to meet specialist usability targets.
  * The comparison engine determines match/mismatch outcomes independently.
  *
- * - Model: gpt-4.1 (non-reasoning, temperature=0)
+ * - Model: gpt-4.1-nano (non-reasoning, temperature=0, fastest inference)
  * - Text-only (no image buffers)
  * - System/user message split for OpenAI prompt caching
- * - Returns confidence + reasoning per field (no wordIndices)
+ * - Returns confidence per field, no reasoning (cut output tokens ~40%)
  */
 export async function classifyFieldsForSubmission(
   ocrText: string,
@@ -228,7 +227,7 @@ export async function classifyFieldsForSubmission(
   )
 
   const { experimental_output, usage } = await generateText({
-    model: openai('gpt-4.1'),
+    model: openai('gpt-4.1-nano'),
     temperature: 0,
     messages: [
       { role: 'system', content: system },
@@ -251,7 +250,7 @@ export async function classifyFieldsForSubmission(
     value: f.value,
     confidence: f.confidence,
     wordIndices: [],
-    reasoning: f.reasoning,
+    reasoning: null,
   }))
 
   return {

@@ -39,7 +39,7 @@ The specialist never waits for AI processing. The applicant gets instant feedbac
 2. Go to **Submit New Application** (sidebar or FAB button on mobile)
 3. Click **"Try Sample Data"** to auto-fill with a distilled spirits example
 4. Upload 1-4 label images (drag & drop or click to browse)
-5. Click **"Scan Labels"** — watch the AI extract text and pre-fill the form in ~5-9 seconds
+5. Click **"Scan Labels"** — watch the AI extract text and pre-fill the form in ~3-5 seconds
 6. Review the extracted values — correct anything the AI got wrong
 7. Click **"Submit Application"**
 8. You'll see the AI's proposed status (Approved, Needs Correction, etc.) immediately
@@ -146,7 +146,7 @@ Applicant uploads images
         ↓
 Google Cloud Vision OCR (word-level bounding boxes, <1s)
         ↓
-OpenAI GPT-4.1 (field classification from OCR text, ~3-5s)
+OpenAI GPT-4.1 Nano (field classification from OCR text, ~2-4s)
         ↓
 Comparison engine (field-appropriate: fuzzy, exact, normalized)
         ↓
@@ -155,7 +155,7 @@ Annotated results with bounding boxes + diff highlighting
 Specialist reviews and makes final decision
 ```
 
-**Speed:** ~5-9 seconds end-to-end (varies by number of images).
+**Speed:** ~3-5 seconds end-to-end (varies by number of images).
 
 **A note on cloud APIs:** I recognize that a production TTB system may need to run on-premises or within a restricted network where external API calls aren't permitted. I built a fully local pipeline (Tesseract.js OCR + rule-based classification, zero outbound calls) as well — it's preserved on the `local-pipeline` branch. For this prototype, I chose the cloud pipeline to demonstrate the quality achievable with current models. As self-hosted models continue to improve, the same architecture would work with locally-hosted inference.
 

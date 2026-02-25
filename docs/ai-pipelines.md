@@ -14,7 +14,7 @@ Every label that enters the system goes through a 3-stage pipeline:
   Label Images -->|   OCR   |---->|  Classification  |---->|  Bounding Box  |--> Structured
   (Blob URLs)     | (Vision)|     |    (OpenAI)      |     |   Resolution   |    Fields
                   +---------+     +------------------+     +----------------+
-                   ~600ms            ~3-15s                     ~1ms
+                   ~400ms            ~2-15s                     ~1ms
 ```
 
 **Stage 1 — OCR** (`@google-cloud/vision`): Extracts every word from label images with pixel-accurate bounding polygons. Runs in parallel across all images.
@@ -37,47 +37,49 @@ The system has five pipelines optimized for different use cases. They all share 
                           Images to    Word      Reasoning   Confidence
   Pipeline       Model    Model?    Indices?    Effort       Scores?     Speed
   ─────────────  ───────  ────────  ────────    ──────────   ──────────  ────────
-  Submission     4.1      No        No          N/A          Yes         ~4-6s
+  Submission     4.1-nano No        No          N/A          Yes         ~3-5s
   Specialist     5-mini   Yes       Yes         Default      Yes         20-60s+
-  Fast Pre-fill  4.1      No        No          N/A          No (80)     ~3-5s
+  Fast Pre-fill  4.1-mini No        No          N/A          No (80)     ~2-4s
   Full Extract   5-mini   Yes       Yes         Default      Yes         20-60s+
-  Auto-Detect    4.1*     No        No          N/A*         No* (80)    ~4-9s*
+  Auto-Detect    4.1-mini*No        No          N/A*         No* (80)    ~3-5s*
 ```
 
-\* Auto-Detect uses gpt-4.1 when keywords detect the type (happy path, ~4-9s). Falls back to gpt-5-mini Full Extract pipeline when type is ambiguous (~10-20s).
+\* Auto-Detect uses gpt-4.1-mini when keywords detect the type (happy path, ~3-5s). Falls back to gpt-5-mini Full Extract pipeline when type is ambiguous (~10-20s).
 
 ---
 
 ### 1. Submission Pipeline
 
 **Function:** `extractLabelFieldsForSubmission()`
-**Model:** gpt-4.1 (text-only, `temperature: 0`)
+**Model:** gpt-4.1-nano (text-only, `temperature: 0`)
 **Used by:** All label processing actions
 
 ```
-  Blob Storage        Cloud Vision            gpt-4.1              Local CPU
+  Blob Storage        Cloud Vision          gpt-4.1-nano           Local CPU
   ┌──────────┐       ┌────────────┐       ┌──────────────┐       ┌──────────────┐
   │  Fetch   │──────>│    OCR     │──────>│ Classify     │──────>│ Match fields  │
   │  images  │ bytes │ (parallel) │ text  │ (text-only)  │fields │ to OCR words  │
   │          │       │            │       │ temp=0       │       │               │
-  │ ~200ms   │       │  ~600ms    │       │  ~3-5s       │       │    ~1ms       │
+  │ ~200ms   │       │  ~400ms    │       │  ~2-4s       │       │    ~1ms       │
   └──────────┘       └────────────┘       └──────────────┘       └──────────────┘
        |                   |                     |                       |
    Image bytes       Word polygons         Field values +          Bounding boxes
-   (for OCR,         + full text           confidence +            (normalized 0-1)
-    NOT sent                               reasoning
+   (for OCR,         + full text           confidence               (normalized 0-1)
+    NOT sent
     to LLM)
 ```
 
 **Why this design:**
 
-This is the workhorse pipeline. It handles applicant submissions, specialist validations, reanalysis, and batch processing. Two key optimizations:
+This is the workhorse pipeline. It handles applicant submissions, specialist validations, reanalysis, and batch processing. Three key optimizations:
 
 1. **Images are fetched for OCR but never sent to the LLM** — saves ~30-40s of multimodal upload and processing time
-2. **gpt-4.1 (non-reasoning) replaces gpt-5-mini** — drops classification from ~10-15s to ~3-5s, bringing total pipeline time under the 5-second usability threshold identified by Sarah Chen ("If we can't get results back in about 5 seconds, nobody's going to use it.")
+2. **gpt-4.1-nano (fastest non-reasoning model)** — drops classification from ~10-15s (gpt-5-mini) to ~2-4s, bringing total pipeline to ~3-5s
+3. **Compact prompt (~600 input tokens)** — 65% reduction from the original verbose prompt, cutting time-to-first-token significantly
 
-- **gpt-4.1** is a fast non-reasoning model with `temperature: 0` for deterministic output
-- **The comparison engine is the real arbiter** — it determines match/mismatch/missing status independently of AI confidence, so the loss of reasoning model nuance doesn't affect validation outcomes
+- **gpt-4.1-nano** is OpenAI's fastest model with `temperature: 0` for deterministic output
+- **No reasoning field** in the output schema — cuts output tokens ~40% vs the original schema
+- **The comparison engine is the real arbiter** — it determines match/mismatch/missing status independently of AI confidence, so the smaller model's reduced nuance doesn't affect validation outcomes
 - **Local text matching** produces equivalent bounding boxes to LLM-provided word indices
 - Application data from Form 5100.31 is included in the prompt for disambiguation
 
@@ -149,16 +151,16 @@ In practice, the comparison engine catches these as mismatches anyway (the extra
 ### 3. Fast Pre-fill Pipeline
 
 **Function:** `extractLabelFieldsForApplicantWithType()`
-**Model:** gpt-4.1 (non-reasoning, `temperature: 0`)
+**Model:** gpt-4.1-mini (non-reasoning, `temperature: 0`)
 **Used by:** Applicant form pre-fill when beverage type is known
 
 ```
-  Blob Storage        Cloud Vision            gpt-4.1              Local CPU
+  Blob Storage        Cloud Vision          gpt-4.1-mini           Local CPU
   ┌──────────┐       ┌────────────┐       ┌──────────────┐       ┌──────────────┐
   │  Fetch   │──────>│    OCR     │──────>│ Extract      │──────>│ Match fields  │
   │  images  │ bytes │ (parallel) │ text  │ (text-only)  │fields │ to OCR words  │
   │          │       │            │       │ temp=0       │       │               │
-  │ ~200ms   │       │  ~600ms    │       │  ~3-5s       │       │    ~1ms       │
+  │ ~200ms   │       │  ~600ms    │       │  ~2-4s       │       │    ~1ms       │
   └──────────┘       └────────────┘       └──────────────┘       └──────────────┘
                                                 |
                                           Minimal output:
@@ -166,11 +168,11 @@ In practice, the comparison engine catches these as mismatches anyway (the extra
                                           (no confidence, no reasoning)
 ```
 
-**Why gpt-4.1 and not gpt-5-mini:**
+**Why gpt-4.1-mini and not gpt-5-mini:**
 
-This pipeline exists for one reason: **speed**. When an applicant uploads label images, they're watching the form fields populate in real-time. 3-5 seconds feels responsive; 15-20 seconds feels broken.
+This pipeline exists for one reason: **speed**. When an applicant uploads label images, they're watching the form fields populate in real-time. 2-4 seconds feels responsive; 15-20 seconds feels broken.
 
-- **gpt-4.1** is a non-reasoning model — no internal chain-of-thought, just direct classification
+- **gpt-4.1-mini** is a fast non-reasoning model — no internal chain-of-thought, just direct classification
 - **`temperature: 0`** for deterministic output
 - **Minimal schema** — only `fieldName` + `value` (no confidence, reasoning, or word indices)
 - **Skips fields** — `health_warning` (auto-filled from standard text) and `standards_of_fill` (computed from container size)
@@ -178,7 +180,7 @@ This pipeline exists for one reason: **speed**. When an applicant uploads label 
 
 **Quality trade-off:**
 
-This pipeline hardcodes confidence at 80 and provides no reasoning. That's fine — the applicant reviews and corrects every field before submitting. The submission pipeline re-classifies with gpt-4.1 for the values that actually matter to specialists.
+This pipeline hardcodes confidence at 80 and provides no reasoning. That's fine — the applicant reviews and corrects every field before submitting. The submission pipeline re-classifies with gpt-4.1-nano for the values that actually matter to specialists.
 
 ---
 
@@ -222,16 +224,16 @@ Once the beverage type is detected, the form switches to the Fast Pre-fill Pipel
 ### 5. Auto-Detect Pipeline
 
 **Function:** `extractLabelFieldsWithAutoDetect()`
-**Model:** gpt-4.1 (happy path) or gpt-5-mini (fallback)
+**Model:** gpt-4.1-mini (happy path) or gpt-5-mini (fallback)
 **Used by:** Applicant form pre-fill when beverage type is not selected
 
 ```
-  Blob Storage        Cloud Vision       Keyword Detection     gpt-4.1 or 5-mini    Local CPU
+  Blob Storage        Cloud Vision       Keyword Detection     4.1-mini or 5-mini   Local CPU
   ┌──────────┐       ┌────────────┐       ┌──────────────┐     ┌──────────────┐     ┌──────────┐
   │  Fetch   │──────>│    OCR     │──────>│ Score types  │─┬──>│ Fast Extract │────>│ Match    │
   │  images  │ bytes │ (parallel) │ text  │ by keywords  │ │   │ (type-aware) │     │ fields   │
-  │          │       │            │       │              │ │   │ gpt-4.1      │     │ to OCR   │
-  │ ~200ms   │       │  ~600ms    │       │  ~0ms        │ │   │ ~3-8s        │     │  ~1ms    │
+  │          │       │            │       │              │ │   │ gpt-4.1-mini │     │ to OCR   │
+  │ ~200ms   │       │  ~600ms    │       │  ~0ms        │ │   │ ~2-4s        │     │  ~1ms    │
   └──────────┘       └────────────┘       └──────────────┘ │   └──────────────┘     └──────────┘
                                                   │        │
                                              (ambiguous?)  └──>│ Full Extract │────>│ Match    │
@@ -246,12 +248,12 @@ Once the beverage type is detected, the form switches to the Fast Pre-fill Pipel
 Previously (Pipeline 4), when no beverage type was selected, the system sent all fields from all types to gpt-5-mini — slower (~10-20s) and less accurate than type-specific prompts. The auto-detect pipeline adds a zero-cost keyword matching step:
 
 1. **Keyword detection** (~0ms): Score each beverage type by counting OCR text hits against type-specific keyword lists (whiskey/bourbon/proof → spirits, wine/cabernet/sulfites → wine, ale/lager/brewed → malt)
-2. **Clear winner?** → Fast type-specific extraction via Pipeline 3 (gpt-4.1, ~3-8s)
+2. **Clear winner?** → Fast type-specific extraction via Pipeline 3 (gpt-4.1-mini, ~2-4s)
 3. **Ambiguous?** → Fall back to Pipeline 4's full extraction (gpt-5-mini, ~10-20s)
 
 **Performance:**
 
-- Happy path (clear keywords): ~4-9s — same speed as manual type selection
+- Happy path (clear keywords): ~3-5s — same speed as manual type selection
 - Fallback (ambiguous): ~10-20s — no worse than before
 
 **Keyword matching rules:**
@@ -325,7 +327,7 @@ All classification functions use the AI SDK's `generateText()` with `Output.obje
     |
     v
   generateText({
-    model: openai('gpt-5-mini'),       // or gpt-4.1 for fast pre-fill
+    model: openai('gpt-5-mini'),       // or gpt-4.1-mini for fast pre-fill
     messages: [...],
     providerOptions: {
       openai: { reasoningEffort: 'low' } // submission pipeline only
@@ -511,11 +513,11 @@ The `needs_correction` status is applied when a mismatch occurs on a minor field
 | Component           | Cost               | Per Label              |
 | ------------------- | ------------------ | ---------------------- |
 | Cloud Vision OCR    | $1.50 / 1K images  | ~$0.003 (2 images)     |
-| gpt-4.1 (submit)    | ~$0.10 / 1M tokens | ~$0.0002 (2K tokens)   |
-| gpt-4.1 (pre-fill)  | ~$0.10 / 1M tokens | ~$0.0001 (1.3K tokens) |
+| gpt-4.1-nano (submit)| ~$0.05 / 1M tokens | ~$0.0001 (1.5K tokens) |
+| gpt-4.1-mini (pre-fill)| ~$0.08 / 1M tokens | ~$0.0001 (1.3K tokens) |
 | **Total per label** |                    | **~$0.004**            |
 
-Pre-fill adds ~$0.0001 per scan. A label that goes through pre-fill + submission + one reanalysis costs roughly $0.01. Switching the submission pipeline from gpt-5-mini to gpt-4.1 halved per-label cost while cutting latency from ~15-20s to ~4-6s.
+Pre-fill adds ~$0.0001 per scan. A label that goes through pre-fill + submission + one reanalysis costs roughly $0.008. Switching the submission pipeline from gpt-5-mini to gpt-4.1-nano cut per-label cost by ~75% while cutting latency from ~15-20s to ~3-5s.
 
 ---
 
@@ -529,9 +531,9 @@ No single model excels at both text localization (where exactly is each word, in
 
 The submission pipeline proved that text-only classification produces quality equivalent to multimodal for TTB labels. OCR captures the text accurately; the model's job is semantic mapping, not reading. Visual verification (catching OCR digit errors) sounds valuable in theory, but in practice: (a) OCR digit errors produce mismatches that route to specialist review anyway, and (b) sending images to a model adds 30-40 seconds. The safety net works without it.
 
-**Why gpt-4.1 for the submission pipeline (not gpt-5-mini)?**
+**Why gpt-4.1-nano for the submission pipeline (not gpt-5-mini)?**
 
-The 5-second usability threshold demanded a non-reasoning model. gpt-5-mini (reasoning model) took ~10-15s even with `reasoningEffort: 'low'` because it generates internal chain-of-thought. gpt-4.1 produces equivalent classification quality in ~3-5s — the comparison engine (Dice coefficient, normalized parsing, exact matching) is the real arbiter of match/mismatch outcomes, not the model's confidence score. The model's job is structured extraction; the comparison engine does validation.
+The 5-second usability threshold demanded the fastest possible model. gpt-5-mini (reasoning model) took ~10-15s even with `reasoningEffort: 'low'`. gpt-4.1-nano (OpenAI's fastest model) achieves ~2-4s classification, bringing total pipeline to ~3-5s. The comparison engine (Dice coefficient, normalized parsing, exact matching) is the real arbiter of match/mismatch outcomes — the model's job is structured extraction; the comparison engine does validation.
 
 **Why local bounding box matching?**
 

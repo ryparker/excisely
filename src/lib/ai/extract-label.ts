@@ -189,17 +189,17 @@ export async function extractLabelFieldsFromBuffers(
 }
 
 // ---------------------------------------------------------------------------
-// Submission pipeline (gpt-4.1, text-only, with reasoning + bounding boxes)
+// Submission pipeline (gpt-4.1-nano, text-only, compact prompt + bounding boxes)
 // ---------------------------------------------------------------------------
 
 /**
- * Submission-optimized pipeline: OCR → text-only gpt-4.1 → local bbox matching.
+ * Submission-optimized pipeline: OCR → text-only gpt-4.1-nano → local bbox matching.
  *
  * Targets <5s total to meet Sarah Chen's "about 5 seconds" usability threshold.
  * The comparison engine (not AI confidence) determines match/mismatch outcomes.
  *
  * - Stage 1: OCR via Google Cloud Vision (~600ms)
- * - Stage 2: Text-only classification via gpt-4.1 (~3-5s)
+ * - Stage 2: Text-only classification via gpt-4.1-nano (~2-4s)
  * - Stage 3: Local text matching for bounding boxes (~1ms)
  */
 export async function extractLabelFieldsForSubmission(
@@ -226,7 +226,7 @@ export async function extractLabelFieldsForSubmission(
     .map((r, i) => `--- Image ${i + 1} ---\n${r.fullText}`)
     .join('\n\n')
 
-  // Stage 2: Text-only classification via gpt-4.1 (no images sent)
+  // Stage 2: Text-only classification via gpt-4.1-nano (no images sent)
   const classificationStart = performance.now()
   const { result: classification, usage } = await classifyFieldsForSubmission(
     combinedFullText,
@@ -274,7 +274,7 @@ export async function extractLabelFieldsForSubmission(
     imageClassifications,
     detectedBeverageType: beverageType,
     processingTimeMs: totalTimeMs,
-    modelUsed: 'gpt-4.1',
+    modelUsed: 'gpt-4.1-nano',
     rawResponse: { classification, usage, metrics },
     metrics,
   }
@@ -440,7 +440,7 @@ export async function extractLabelFieldsForApplicantWithType(
     imageClassifications,
     detectedBeverageType: beverageType,
     processingTimeMs: totalTimeMs,
-    modelUsed: 'gpt-4.1',
+    modelUsed: 'gpt-4.1-nano',
     rawResponse: { classification, usage, metrics },
     metrics,
   }
@@ -457,7 +457,7 @@ export async function extractLabelFieldsForApplicantWithType(
  *
  * 1. Fetch images + OCR (shared with all pipelines)
  * 2. Keyword-based type detection (~0ms, free)
- * 3a. If type detected → classifyFieldsForExtraction (Pipeline 3, gpt-4.1, ~3-8s)
+ * 3a. If type detected → classifyFieldsForExtraction (Pipeline 3, gpt-4.1-mini, ~2-4s)
  * 3b. If ambiguous → extractFieldsOnly (Pipeline 4, gpt-5-mini, ~10-20s)
  * 4. Local bounding box matching (~1ms)
  */
@@ -493,12 +493,12 @@ export async function extractLabelFieldsWithAutoDetect(
   let detectedBeverageType: string | null
 
   if (detectedType) {
-    // Happy path: use fast type-specific extraction (gpt-4.1, ~3-8s)
+    // Happy path: use fast type-specific extraction (gpt-4.1-mini, ~2-4s)
     classificationResult = await classifyFieldsForExtraction(
       combinedFullText,
       detectedType,
     )
-    modelUsed = 'gpt-4.1'
+    modelUsed = 'gpt-4.1-mini'
     detectedBeverageType = detectedType
   } else {
     // Fallback: use full extraction with word indices (gpt-5-mini, ~10-20s)

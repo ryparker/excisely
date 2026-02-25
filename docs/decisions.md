@@ -25,26 +25,37 @@ The goal is to show iterative, thoughtful engineering judgment — not just what
 
 The Tesseract.js + rule-based code is preserved on the `local-pipeline` branch for reference.
 
-### Submission Pipeline: gpt-5-mini → gpt-4.1 for 5-Second Target _(Feb 24, 2026)_
+### Submission Pipeline: gpt-4.1 → gpt-4.1-nano + Compact Prompt _(Feb 25, 2026)_
 
-**Chosen:** Switch the submission classification model from gpt-5-mini (reasoning) to gpt-4.1 (non-reasoning, `temperature: 0`).
+_Revised: Originally switched from gpt-5-mini → gpt-4.1 (Feb 24). Now further optimized to gpt-4.1-nano with a compact prompt._
 
-**Problem:** The submission pipeline took ~15-20s end-to-end. Sarah Chen's interview was explicit: "If we can't get results back in about 5 seconds, nobody's going to use it." The previous scanning vendor pilot failed precisely because of 30-40s processing times.
+**Chosen:** Switch the submission classification model from gpt-4.1 to gpt-4.1-nano, paired with a dramatically compressed prompt.
 
-**What changed:**
+**Problem:** gpt-4.1 classification still took 5-12s with the original verbose prompt, frequently exceeding the 5s budget. gpt-4.1-mini was tested but averaged 5.5-7.7s classification time — still too slow.
 
-- Classification: gpt-5-mini (`reasoningEffort: 'low'`, ~10-15s) → gpt-4.1 (`temperature: 0`, ~3-5s)
-- Total pipeline: ~15-20s → ~4-6s (fetch ~200ms + OCR ~600ms + classify ~3-5s + merge ~1ms)
-- Cost: ~$0.008/label → ~$0.004/label (gpt-4.1 is ~60% cheaper)
-- GCV client: per-call instantiation → module-level singleton (eliminates constructor overhead across parallel OCR calls)
+**What changed (three-pronged optimization):**
 
-**Why this works:** The comparison engine — not the AI model's confidence score — is what determines validation outcomes (match/mismatch/missing). It uses strategy-specific algorithms (Dice coefficient for fuzzy text, normalized parsing for alcohol content, exact matching for health warnings) that are independent of how the model scores its own confidence. gpt-4.1 still produces reasonable per-field confidence estimates and brief reasoning for the specialist UI, just without the internal chain-of-thought overhead.
+1. **Model: gpt-4.1 → gpt-4.1-nano** — fastest OpenAI model, classification drops from ~5-12s to ~2-4s
+2. **Prompt compression: ~1700 → ~600 input tokens (65% reduction)** — the single biggest speedup. Replaced verbose field descriptions with concise rules, eliminated redundant disambiguation sections
+3. **Schema: removed `reasoning` field** — cuts output tokens ~40%. The comparison engine handles validation independently.
+
+**Results (28 test labels across all beverage types):**
+
+- Total pipeline: ~3-5s (fetch ~200ms + OCR ~400ms + classify ~2-4s + merge ~1ms)
+- Average: 3.6s across 10 diverse labels, all under 5s budget
+- Quality: 98/98 e2e tests pass (28 perf + 70 diverse)
+- Cost: ~$0.002/label (down from ~$0.004 with gpt-4.1)
+
+**Why nano works:** The comparison engine — not the AI model's confidence score — is what determines validation outcomes. It uses strategy-specific algorithms (Dice coefficient for fuzzy text, normalized parsing for alcohol content, exact matching for health warnings) independently. Nano extracts field values accurately enough for the comparison engine to make correct match/mismatch decisions. Application data from Form 5100.31 is included in the compact prompt for disambiguation.
 
 **Alternatives considered:**
 
-- **Keep gpt-5-mini with `reasoningEffort: 'low'`** — still ~10-15s, well over the 5s target. The reasoning model's internal CoT is the bottleneck, and even `low` effort can't eliminate it.
-- **gpt-4.1-nano** (~1-3s) — faster but lower quality. The submission prompt includes disambiguation rules and application data that benefit from gpt-4.1's capability level. Could revisit if 4-6s proves too slow.
-- **Cache OCR results between pre-fill and submission** — would save ~600ms but adds storage complexity. Not worth the tradeoff when the model switch already gets us under target.
+- **Keep gpt-4.1** — reliable quality but 5-12s, frequently over budget
+- **gpt-4.1-mini** — tested at 5.5-7.7s classification, still too slow even with the compact prompt
+- **gpt-4.1-mini + compact prompt** — 8 of 10 labels still exceeded 5s budget
+- **gpt-4.1-nano without compact prompt** — would work but prompt compression was the bigger win (~65% input token reduction). Both optimizations compound.
+
+**Quality trade-off:** Nano occasionally omits optional fields for malt beverages (e.g., `alcohol_content`, which is optional per 27 CFR Part 7). This is acceptable — the comparison engine marks omitted fields as "missing" and routes them to specialist review, which is the correct workflow for ambiguous extractions.
 
 **Trade-off:** gpt-4.1 confidence scores are less nuanced than gpt-5-mini's reasoning-backed scores. In practice this is acceptable because: (1) the comparison engine independently validates each field, (2) specialists review flagged items visually regardless, and (3) the auto-approval threshold uses comparison confidence, not AI confidence.
 
@@ -77,7 +88,7 @@ The Tesseract.js + rule-based code is preserved on the `local-pipeline` branch f
 
 ### Auto-Detect Beverage Type via Keyword Matching Before AI Classification _(Feb 23, 2026)_
 
-**Chosen:** Two-step pipeline — rule-based keyword matching on OCR text to detect beverage type (~0ms, free), then type-specific gpt-4.1 extraction. Falls back to the existing all-fields gpt-5-mini pipeline when keywords are ambiguous.
+**Chosen:** Two-step pipeline — rule-based keyword matching on OCR text to detect beverage type (~0ms, free), then type-specific gpt-4.1-mini extraction. Falls back to the existing all-fields gpt-5-mini pipeline when keywords are ambiguous.
 
 **Alternatives considered:**
 
@@ -199,9 +210,11 @@ What I explicitly chose NOT to show applicants: confidence scores, match results
 
 **Reasoning:** GPT-5.2 vision has an mAP50:95 of 1.5 for bounding boxes -- the worst of any frontier model (per Roboflow benchmarks). That means bounding box overlays on the label image would be unreliable, undermining the annotated-image UI that specialists need. Google Cloud Vision is purpose-built for OCR: pixel-accurate word-level bounding polygons, sub-second latency, and $0.0015/image. By splitting OCR from classification, we can use GPT-5 Mini for the reasoning step -- it only receives text (no image tokens), making it 7x cheaper than GPT-5.2 ($0.25 vs $1.75 per 1M input tokens). Total cost per label drops from ~$0.0105 to ~$0.003. Total latency stays under 5 seconds (Cloud Vision <1s + GPT-5 Mini ~1-2s), meeting Sarah's "5-second or nobody will use it" requirement from the pilot vendor disaster.
 
-> **Revised (Feb 23, 2026):** The pipeline now uses two different classification models depending on context. **Specialist review** still uses GPT-5 Mini (multimodal, with images, full schema with word indices and reasoning) for maximum accuracy. **Applicant pre-fill** uses GPT-4.1 (text-only, minimal schema) for speed — ~3-5s vs ~20s. See "Applicant Extraction Model" decision above for the full evaluation.
+> **Revised (Feb 23, 2026):** The pipeline now uses two different classification models depending on context. **Specialist review** still uses GPT-5 Mini (multimodal, with images, full schema with word indices and reasoning) for maximum accuracy. **Applicant pre-fill** uses GPT-4.1 Mini (text-only, minimal schema) for speed — ~2-4s vs ~20s. See "Applicant Extraction Model" decision above for the full evaluation.
 
 > **Revised (Feb 25, 2026):** Briefly switched to a fully local pipeline (Tesseract.js WASM OCR + rule-based classification) to eliminate outbound API calls. Reverted back to Cloud Vision + OpenAI after the local OCR proved too unreliable for alcohol label imagery. See "Reverted to Cloud Vision + OpenAI Pipeline" decision at the top of this section.
+
+> **Revised (Feb 25, 2026):** Submission pipeline further optimized from GPT-4.1 to GPT-4.1 Nano + compact prompt. Total pipeline now ~3-5s (previously ~4-6s). See "Submission Pipeline: gpt-4.1 → gpt-4.1-nano + Compact Prompt" decision at the top.
 
 ### Next.js 16 with App Router (RSC-First) _(Feb 21, 2026)_
 

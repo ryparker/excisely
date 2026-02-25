@@ -35,7 +35,7 @@ yarn dev                      # http://localhost:3000
 
 ## How It Works
 
-1. **Applicant uploads label images** — AI extracts text via Cloud Vision OCR, classifies fields via GPT-4.1, and pre-fills the form (~5-9s)
+1. **Applicant uploads label images** — AI extracts text via Cloud Vision OCR, classifies fields via GPT-4.1 Nano, and pre-fills the form (~3-5s)
 2. **Applicant reviews, corrects, and submits** — gets instant AI verification (approved, needs correction, etc.)
 3. **Specialist opens the submission** — AI analysis is already done. Annotated images, field comparison, and the AI's recommendation are ready. They approve or override.
 

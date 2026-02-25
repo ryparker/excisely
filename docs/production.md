@@ -61,7 +61,7 @@ This is the biggest gap between prototype and production.
 
 ### Model Portability
 
-The current architecture already abstracts the AI SDK provider (swapping `openai('gpt-4.1')` for another model is a one-line change), but production would need:
+The current architecture already abstracts the AI SDK provider (swapping `openai('gpt-4.1-nano')` for another model is a one-line change), but production would need:
 
 - Configuration-driven model selection (not hardcoded)
 - Cost and latency monitoring per model

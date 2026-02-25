@@ -274,11 +274,11 @@ ${fieldListText}
 }
 
 // ---------------------------------------------------------------------------
-// Submission classification prompt (gpt-4.1, text-only, with reasoning)
+// Submission classification prompt (gpt-4.1-nano, text-only, compact)
 // ---------------------------------------------------------------------------
 
 /**
- * Builds a submission-optimized prompt for gpt-4.1.
+ * Builds a submission-optimized prompt for gpt-4.1-nano.
  * Optimized for speed: concise instructions, system/user split for prompt caching.
  * - No images, no word indices, no image classification
  * - Keeps: field descriptions, disambiguation rules, application data, confidence/reasoning
@@ -296,67 +296,31 @@ export function buildSubmissionClassificationPrompt(
   }
 
   const allFields = [...config.mandatoryFields, ...config.optionalFields]
-  const fieldListText = allFields
-    .map((field) => {
-      const desc = FIELD_DESCRIPTIONS[field] ?? field
-      const mandatory = config.mandatoryFields.includes(field)
-      return `- **${field}** (${mandatory ? 'MANDATORY' : 'optional'}): ${desc}`
-    })
-    .join('\n')
 
-  const system = `You are an expert at classifying text extracted from alcohol beverage labels via OCR. Your job is to map OCR text to TTB-regulated label fields with high accuracy.
+  const system = `Extract TTB label fields from ${config.label} OCR text. For each field, return fieldName, value (string|null), confidence (0-100).
 
-## Task
+Fields: ${allFields.join(', ')}
 
-Given the OCR-extracted text from a **${config.label}** label, identify and extract the following TTB-regulated fields. For each field found, provide:
-1. The field name (exactly as listed below)
-2. The extracted value (reconstructed from the OCR text)
-3. A confidence score from 0 to 100
-4. Brief reasoning for your classification
+Rules:
+- brand_name = primary trademarked name (largest text), NOT class/type
+- fanciful_name = secondary creative/marketing name, NOT brand/grape/type. null if absent.
+- class_type = legal product designation (e.g. "Vodka", "Table Wine", "India Pale Ale")
+- grape_varietal = grape name for wine, NEVER fanciful_name
+- qualifying_phrase = ONLY prefix phrase ("Bottled by", "Produced and Bottled by"). Normalize "&"→"and". FULL compound form.
+- name_and_address = company + location AFTER qualifying phrase
+- health_warning starts with "GOVERNMENT WARNING:" in ALL CAPS
+- alcohol_content is on virtually ALL commercial labels — look for "XX% Alc./Vol." or "XX% Alc/Vol" patterns
+- Include units for alcohol_content and net_contents
+- If not found: null value, 0 confidence`
 
-## Fields to Identify
-
-${fieldListText}
-
-## Critical Disambiguation Rules
-
-**brand_name vs. fanciful_name vs. class_type**: These are commonly confused. Follow this hierarchy:
-- **brand_name**: The PRIMARY trademarked product name. Largest/most prominent text. The name consumers use to refer to the product. Examples: "Bulleit", "Knob Creek", "Rainy Day", "Cooper Ridge".
-- **fanciful_name**: A SECONDARY creative name for a specific product variant. NOT the brand, NOT the grape, NOT the product type. Examples: "Frontier Whiskey" (variant of Bulleit), "Single Barrel Select", "Old Fashioned". If in doubt, leave null.
-- **class_type**: The LEGAL product designation per TTB regulations. Examples: "Kentucky Straight Bourbon Whiskey", "Table Wine", "India Pale Ale". This describes WHAT the product IS, not what it's called.
-
-**grape_varietal vs. fanciful_name**: For wine, the grape name (Albariño, Viognier, Cabernet Sauvignon, Malbec) is ALWAYS grape_varietal, NEVER fanciful_name.
-
-**name_and_address vs. qualifying_phrase**: The qualifying phrase is ONLY the prefix like "Bottled by" or "Produced and Bottled by". Always use the FULL compound phrase when present (e.g., "Produced & Bottled by" → "Produced and Bottled by", not just "Bottled by"). Normalize "&" to "and". The name_and_address is ONLY the company name and location that follows.
-
-## Important Rules
-
-1. **"GOVERNMENT WARNING:" must be in ALL CAPS** — health warning always begins with "GOVERNMENT WARNING:" followed by two numbered statements.
-2. **If a field is not found**, include it with null value and 0 confidence.
-3. **Alcohol content** should include the full expression with units (e.g., "12.5% Alc./Vol." not just "12.5").
-4. **Net contents** should include units (e.g., "750 mL" not just "750").
-5. **Reconstruct multi-word values** by finding them in the OCR text.
-6. **Do not assign the same text to multiple fields** — each portion of text should ideally belong to only one field.
-
-## Response Format
-
-Return a JSON object with a "fields" array. Each element must have: fieldName, value (string or null), confidence (0-100), reasoning (string or null).`
-
-  let user = `## OCR Full Text\n\n${ocrText}`
+  let user = ocrText
 
   if (applicationData && Object.keys(applicationData).length > 0) {
-    user += `\n\n## Application Data (Form 5100.31)
-
-The applicant submitted these expected values on their COLA application. Use this to help identify and disambiguate fields in the OCR text. The applicant knows their own product — trust their field assignments when the OCR text is ambiguous.
-
-${Object.entries(applicationData)
-  .map(
-    ([field, value]) =>
-      `- **${escapePromptValue(field)}**: "${escapePromptValue(value)}"`,
-  )
-  .join('\n')}
-
-**Important**: Your job is to find WHERE each expected value appears on the label (or confirm it's missing). The application data tells you WHAT to look for; the OCR text tells you what's actually ON the label.`
+    user += `\n\nExpected values (find on label or confirm missing):\n${Object.entries(
+      applicationData,
+    )
+      .map(([f, v]) => `${escapePromptValue(f)}: ${escapePromptValue(v)}`)
+      .join('\n')}`
   }
 
   return { system, user }

@@ -16,7 +16,7 @@ AI-powered alcohol label verification tool for TTB labeling specialists. Compare
 - **Animation:** Motion (framer-motion v12)
 - **Database:** Drizzle ORM + Neon Postgres (production) / local Postgres via Docker (development)
 - **Storage:** Vercel Blob (signed URLs, client-side direct uploads via `@vercel/blob/client`)
-- **AI:** Google Cloud Vision OCR (`@google-cloud/vision`) + OpenAI via `ai` + `@ai-sdk/openai`: GPT-4.1 for submissions/applicant pre-fill (text-only, `temperature: 0`), GPT-5 Mini for specialist review (multimodal with images). `generateText` + `Output.object()` + Zod schemas.
+- **AI:** Google Cloud Vision OCR (`@google-cloud/vision`) + OpenAI via `ai` + `@ai-sdk/openai`: GPT-4.1 Nano for submissions (text-only, `temperature: 0`, ~3-5s), GPT-4.1 Mini for applicant pre-fill, GPT-5 Mini for specialist review (multimodal with images). `generateText` + `Output.object()` + Zod schemas.
 - **Forms:** React Hook Form v7 + `@hookform/resolvers` (Zod resolver)
 - **State:** Zustand v5 (client stores) + nuqs v2.8 (URL search params)
 - **Auth:** Better Auth v1.4 (specialist + applicant roles, session-based)
@@ -129,7 +129,7 @@ Keep entries concrete and specific — explain _what_ we'd build and _why_ it ma
 9. **Nano IDs everywhere** — all PKs use `nanoid()` via `$defaultFn`, never UUID. Exception: Better Auth managed tables.
 10. **Types from schema** — derive TypeScript types via `$inferSelect`/`$inferInsert` and Zod schemas via `drizzle-orm/zod`. No manual type files.
 11. **Zustand for client state, nuqs for URL state** — Zustand stores for ephemeral UI state (annotations, uploads, reviews). nuqs for persistent filter/pagination/sort state (URL-backed, shareable, RSC-compatible).
-12. **AI: Cloud Vision + OpenAI pipeline** — Stage 1: `@google-cloud/vision` for OCR + pixel-accurate bounding boxes. Stage 2: `generateText` + `Output.object()` from `ai` with `@ai-sdk/openai` provider. Submission pipeline uses `openai('gpt-4.1')` (text-only, `temperature: 0`). Specialist pipeline uses `openai('gpt-5-mini')` (multimodal, with images). No AI Gateway. Use `.nullable()` not `.optional()` in Zod schemas (OpenAI structured output limitation).
+12. **AI: Cloud Vision + OpenAI pipeline** — Stage 1: `@google-cloud/vision` for OCR + pixel-accurate bounding boxes. Stage 2: `generateText` + `Output.object()` from `ai` with `@ai-sdk/openai` provider. Submission pipeline uses `openai('gpt-4.1-nano')` (text-only, `temperature: 0`, ~3-5s total). Specialist pipeline uses `openai('gpt-5-mini')` (multimodal, with images). Applicant pre-fill uses `openai('gpt-4.1-mini')`. No AI Gateway. Use `.nullable()` not `.optional()` in Zod schemas (OpenAI structured output limitation).
 13. **Migrations forward-only** — `drizzle-kit push` in dev, `drizzle-kit generate` + `drizzle-kit migrate` for production. No down migrations.
 14. **No dotenv** — Next.js handles `.env` / `.env.local` natively. Use `NEXT_PUBLIC_` prefix only for client-exposed vars.
 15. **React Hook Form for all multi-field forms** — `useForm` + `zodResolver` for client-side validation. Server actions re-validate independently.
@@ -182,7 +182,7 @@ Received → Processing → Approved
 | `src/db/schema.ts`                                    | Database schema — single source of truth for all tables, types (`$inferSelect`/`$inferInsert`), and Zod schemas (`drizzle-orm/zod`) |
 | `src/app/actions/`                                    | Server actions — all mutations live here                                                                                            |
 | `src/lib/ai/ocr.ts`                                   | Stage 1: Google Cloud Vision OCR — word-level bounding polygons                                                                     |
-| `src/lib/ai/classify-fields.ts`                       | Stage 2: OpenAI field classification via AI SDK — GPT-4.1 (submission) / GPT-5 Mini (specialist multimodal)                         |
+| `src/lib/ai/classify-fields.ts`                       | Stage 2: OpenAI field classification via AI SDK — GPT-4.1 Nano (submission) / GPT-4.1 Mini (pre-fill) / GPT-5 Mini (specialist)     |
 | `src/lib/ai/extract-label.ts`                         | AI pipeline orchestrator — runs OCR → classification → merges bounding boxes                                                        |
 | `src/lib/labels/effective-status.ts`                  | Lazy deadline expiration — `getEffectiveStatus()`                                                                                   |
 | `src/lib/ai/compare-fields.ts`                        | Field comparison engine (fuzzy, strict, normalized)                                                                                 |
