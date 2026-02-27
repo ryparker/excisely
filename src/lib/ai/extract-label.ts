@@ -1,5 +1,5 @@
-import { createWorker, OEM, PSM } from 'tesseract.js'
-import sharp from 'sharp'
+// tesseract.js and sharp are imported dynamically inside extractLabelFieldsLocal()
+// to avoid crashing Vercel's serverless runtime at module load time.
 
 import { extractTextMultiImage } from '@/lib/ai/ocr'
 import {
@@ -302,7 +302,18 @@ export async function extractLabelFieldsLocal(
   applicationData?: Record<string, string>,
   preloadedBuffers?: Buffer[],
 ): Promise<ExtractionResult> {
+  // Dynamic imports — tesseract.js and sharp use native modules that crash
+  // Vercel's serverless runtime if imported at the top level
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const tesseract = require('tesseract.js') as typeof import('tesseract.js')
+  const { createWorker, OEM, PSM } = tesseract
+  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+  const sharp = require('sharp') as any
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const path = require('path') as typeof import('path')
+
   const startTime = performance.now()
+  const isServerless = !!process.env.VERCEL
 
   // Fetch images (or use preloaded)
   const fetchStart = performance.now()
@@ -310,10 +321,15 @@ export async function extractLabelFieldsLocal(
     preloadedBuffers ?? (await Promise.all(imageUrls.map(fetchImageBytes)))
   const fetchTimeMs = Math.round(performance.now() - fetchStart)
 
-  // Stage 1: Tesseract OCR with parallel multi-pass preprocessing.
+  // Stage 1: Tesseract OCR with multi-pass preprocessing.
   // Label images often have decorative fonts, gold embossing, dark backgrounds,
-  // or small print that a single OCR pass can't capture. We run 3 preprocessing
-  // variants per image and ALL passes in parallel (one worker per variant).
+  // or small print that a single OCR pass can't capture.
+  //
+  // Environment-aware strategy:
+  // - Local: 3 variants per image, parallel workers (multi-core, fast cold starts)
+  // - Vercel: 2 variants per image, single reused worker (limited CPU, expensive
+  //   cold starts). Drops the red-channel variant (niche) and uses bundled
+  //   eng.traineddata to skip CDN download (~2-3s savings on cold start).
   //
   // PSM modes: SPARSE_TEXT (11) works for scattered decorative text on front
   // labels. SINGLE_BLOCK (6) is better for dense structured text on back labels
@@ -326,11 +342,11 @@ export async function extractLabelFieldsLocal(
     rawBuffers.map((buf) => sharp(buf).metadata()),
   )
 
-  // Build preprocessing variants for all images (3 per image)
+  // Build preprocessing variants per image
   type VariantTask = {
     imageIdx: number
     buffer: Promise<Buffer>
-    psm: PSM
+    psm: (typeof PSM)[keyof typeof PSM]
   }
   const variantTasks: VariantTask[] = []
 
@@ -341,27 +357,30 @@ export async function extractLabelFieldsLocal(
       ? { width: TARGET_WIDTH, fit: 'inside' as const }
       : undefined
 
-    variantTasks.push(
-      // Pass 1: upscale + sharpen — SPARSE_TEXT for scattered decorative text
-      {
-        imageIdx: i,
-        buffer: sharp(buf).resize(resizeOpt).sharpen().png().toBuffer(),
-        psm: PSM.SPARSE_TEXT,
-      },
-      // Pass 2: high contrast — SINGLE_BLOCK for dense back-label text
-      {
-        imageIdx: i,
-        buffer: sharp(buf)
-          .resize(resizeOpt)
-          .greyscale()
-          .linear(1.5, -50)
-          .sharpen()
-          .png()
-          .toBuffer(),
-        psm: PSM.SINGLE_BLOCK,
-      },
-      // Pass 3: red channel inverted — SPARSE_TEXT for gold/light text on dark
-      {
+    // Pass 1: upscale + sharpen — SPARSE_TEXT for scattered decorative text
+    variantTasks.push({
+      imageIdx: i,
+      buffer: sharp(buf).resize(resizeOpt).sharpen().png().toBuffer(),
+      psm: PSM.SPARSE_TEXT,
+    })
+
+    // Pass 2: high contrast — SINGLE_BLOCK for dense back-label text
+    variantTasks.push({
+      imageIdx: i,
+      buffer: sharp(buf)
+        .resize(resizeOpt)
+        .greyscale()
+        .linear(1.5, -50)
+        .sharpen()
+        .png()
+        .toBuffer(),
+      psm: PSM.SINGLE_BLOCK,
+    })
+
+    // Pass 3 (local only): red channel inverted — for gold/light text on dark.
+    // Skipped on Vercel to save ~2-3s per image.
+    if (!isServerless) {
+      variantTasks.push({
         imageIdx: i,
         buffer: sharp(buf)
           .resize(resizeOpt)
@@ -372,25 +391,47 @@ export async function extractLabelFieldsLocal(
           .png()
           .toBuffer(),
         psm: PSM.SPARSE_TEXT,
-      },
-    )
+      })
+    }
   }
 
   // Resolve all preprocessing in parallel
   const resolvedBuffers = await Promise.all(variantTasks.map((v) => v.buffer))
 
-  // Run all OCR passes in parallel — one Tesseract worker per variant
-  const ocrResults = await Promise.all(
-    resolvedBuffers.map(async (vBuf, i) => {
-      const w = await createWorker('eng', OEM.LSTM_ONLY)
-      await w.setParameters({
+  // Tesseract worker options — on Vercel, use bundled traineddata to skip
+  // CDN download (~2-3s savings on cold start). Locally, use default CDN.
+  const workerOpts = isServerless
+    ? { langPath: path.join(process.cwd(), 'tessdata'), gzip: false }
+    : {}
+
+  const ocrResults: { imageIdx: number; text: string }[] = []
+
+  if (isServerless) {
+    // Single worker, sequential — avoids paying cold start per variant
+    const worker = await createWorker('eng', OEM.LSTM_ONLY, workerOpts)
+    for (let i = 0; i < resolvedBuffers.length; i++) {
+      await worker.setParameters({
         tessedit_pageseg_mode: variantTasks[i].psm,
       })
-      const { data } = await w.recognize(vBuf)
-      await w.terminate()
-      return { imageIdx: variantTasks[i].imageIdx, text: data.text }
-    }),
-  )
+      const { data } = await worker.recognize(resolvedBuffers[i])
+      ocrResults.push({ imageIdx: variantTasks[i].imageIdx, text: data.text })
+    }
+    await worker.terminate()
+  } else {
+    // Parallel workers — one per variant, fast on multi-core local machines
+    const results = await Promise.all(
+      resolvedBuffers.map(async (vBuf, i) => {
+        const w = await createWorker('eng', OEM.LSTM_ONLY)
+        await w.setParameters({
+          tessedit_pageseg_mode: variantTasks[i].psm,
+        })
+        const { data } = await w.recognize(vBuf)
+        await w.terminate()
+        return { imageIdx: variantTasks[i].imageIdx, text: data.text }
+      }),
+    )
+    ocrResults.push(...results)
+  }
 
   // Group OCR results by image and combine unique lines
   const linesByImage = new Map<number, { seen: Set<string>; lines: string[] }>()

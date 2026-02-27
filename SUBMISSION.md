@@ -37,7 +37,7 @@ _— Sarah Chen, Deputy Director_
 
 A cloud AI pipeline (Google Cloud Vision + OpenAI GPT-4.1 Nano) is also available as an opt-in upgrade for higher accuracy and bounding box overlays, processing in ~3-5 seconds.
 
-<video src="docs/screenshots/applicant/local-upload.mp4" controls width="100%"></video>
+![Label upload and processing](docs/screenshots/applicant/local-upload.gif)
 
 ---
 
@@ -64,10 +64,12 @@ _— Sarah Chen, on peak season (200-300 labels at once from large importers)_
 - **Batch re-analyze (specialist)** — Select multiple labels and re-run OCR + field comparison in bulk (useful after switching pipeline models or when images are re-uploaded).
 
 Batch Upload (applicant):
-<video src="docs/screenshots/applicant/batch-upload.mp4" controls width="100%"></video>
 
-Batch Approval:
-<video src="docs/screenshots/applicant/local-upload-full.mp4" controls width="100%"></video>
+![Batch upload](docs/screenshots/applicant/batch-upload.gif)
+
+Batch Approval (specialist):
+
+![Batch approval](docs/screenshots/specialist/batch-approve.gif)
 
 ---
 
@@ -86,8 +88,6 @@ _— Jenny Park, on health warning verification_
 The required text is codified in `src/config/health-warning.ts` with both sections and validation rules per 27 CFR 16.21-16.22.
 
 ![Health warning diff](docs/screenshots/applicant/health-warning-diff.png)
-
-![Regulation tooltips](docs/screenshots/specialist/regulation-tooltip-links.gif)
 
 ---
 
@@ -148,7 +148,7 @@ Cloud AI (Google Cloud Vision + OpenAI) is available as an opt-in upgrade for en
 
 For bulk workflows, try **Submit → Batch Upload** — upload a CSV (one row per application) alongside label images to submit up to 50 at once.
 
-![Submit form after sample data](./docs/screenshots/applicant/new-submission-1-review.png)
+![Submit form after sample data](docs/screenshots/applicant/upload-page.png)
 
 ### Step 2: Review as a Specialist
 
@@ -161,7 +161,7 @@ For bulk workflows, try **Submit → Batch Upload** — upload a CSV (one row pe
 5. Override any field if the AI got it wrong, add reviewer notes
 6. **Approve or reject** the label — your decision is final
 
-![Specialist review page](docs/screenshots/specialist/review.png)
+![Specialist review page](docs/screenshots/specialist/review-page-2.png)
 
 ---
 
@@ -173,26 +173,17 @@ These showcase the most impressive features. Each takes under a minute.
 
 Log in as an applicant on your phone. The submit form is fully responsive — you can snap photos of real bottles directly from your camera, upload them, and submit on the go. Try it with any bottle from your kitchen.
 
-![Mobile submit form with camera upload](./docs/screenshots/applicant/upload-phone-qr.gif)
+![Mobile submit form with camera upload](docs/screenshots/applicant/upload-phone-light.gif)
 
-### 2. Character-Level Diff on Health Warning
-
-Submit a label where the health warning text has a minor difference (e.g., "Government Warning" in title case instead of "GOVERNMENT WARNING" in all caps). The review page shows:
-
-- Exact character-level highlighting of what differs
-- Red/green inline diff so the specialist sees precisely what's wrong
-
-This catches the exact scenario Jenny Park described — applicants getting creative with warning statement formatting.
-
-![Character-level diff on health warning](docs/screenshots/specialist/health-warning-diff.png)
-
-### 3. Batch Submission + Approval
+### 2. Batch Submission + Approval
 
 **As an applicant**, go to Submit → Batch Upload:
 
 1. Download the **CSV template** (or click "Load all instantly" to use sample data)
 2. Upload the CSV + label images — the preview table shows validation status per row
 3. Click **"Submit N Applications"** — watch real-time progress as each row processes through the AI pipeline
+
+![Batch upload](docs/screenshots/specialist/batch-upload.png)
 
 **As a specialist** on the dashboard:
 
@@ -204,9 +195,9 @@ This is the full batch workflow Sarah Chen described — applicants submit in bu
 
 ![Batch approval queue](docs/screenshots/specialist/batch-approve.gif)
 
-### 4. Deadline Enforcement
+### 3. Deadline Enforcement
 
-Labels with "Needs Correction" get a 30-day deadline. Labels with "Conditionally Approved" get 7 days. The system:
+Labels with "Needs Correction" get a 30-day deadline:
 
 - Shows countdown timers on each label
 - Automatically expires labels past their deadline (lazy evaluation, no cron jobs)
@@ -214,7 +205,7 @@ Labels with "Needs Correction" get a 30-day deadline. Labels with "Conditionally
 
 ![Deadline enforcement](docs/screenshots/specialist/needs-correction-table.png)
 
-### 5. Regulation Tooltips
+### 4. Regulation Tooltips
 
 Hover over any field label in the form or review page to see a tooltip with the relevant CFR citation. Click through to a built-in regulations reference page with plain-English summaries of each TTB requirement, with links to the official eCFR text. Both applicants and specialists can quickly verify why a field matters without leaving the app.
 

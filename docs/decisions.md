@@ -72,7 +72,7 @@ The goal is to show iterative, thoughtful engineering judgment — not just what
 
 **Trade-off:** The Cloud Vision + OpenAI pipeline costs ~$0.004/label vs $0/label for the local pipeline, and requires outbound API calls. For a TTB deployment behind a restricted firewall, API endpoints would need whitelisting. For this prototype running on Vercel, the cost and network requirements are negligible, and the accuracy improvement is dramatic.
 
-The Tesseract.js + rule-based code is preserved on the `local-pipeline` branch for reference.
+The local pipeline (Tesseract.js + rule-based classification) is now integrated into the main app as a fallback when cloud API keys are not configured.
 
 ### Submission Pipeline: gpt-4.1 → gpt-4.1-nano + Compact Prompt _(Feb 25, 2026)_
 

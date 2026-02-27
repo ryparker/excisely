@@ -88,8 +88,7 @@ export async function runValidationPipeline(
         preloadedBuffers,
       )
     } catch (localError) {
-      // Tesseract.js doesn't work in serverless environments (Vercel) —
-      // fall back to cloud pipeline if API keys are available
+      // Fall back to cloud pipeline if available
       if (hasCloudApiKeys()) {
         console.warn(
           '[ValidationPipeline] Local extraction failed, falling back to cloud pipeline:',
