@@ -149,7 +149,7 @@ export function LoginCard() {
 
           <div className="mt-10 flex items-center justify-center gap-2">
             <div className="h-px w-6 bg-gradient-to-r from-transparent to-border" />
-            <p className="text-center text-[10px] tracking-widest text-muted-foreground/40 uppercase">
+            <p className="text-center text-[10px] tracking-widest text-muted-foreground uppercase">
               Authorized TTB personnel only
             </p>
             <div className="h-px w-6 bg-gradient-to-l from-transparent to-border" />

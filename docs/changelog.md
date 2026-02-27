@@ -8,6 +8,11 @@ All notable changes to Excisely are documented here. This project follows a narr
 
 ### Added
 
+- **Batch CSV upload for applicants** — New `/submit/batch` route lets applicants upload a CSV file (each row = one COLA application) alongside label images, then batch-submit up to 50 labels at once. Client-side CSV parsing with Papaparse, Zod validation per row, semicolon-delimited image filenames, per-row progress tracking with `p-limit(3)` concurrency, and a results summary with retry-failed capability. Reuses the existing AI validation pipeline via a new `submitApplicationCore()` extracted from `submitApplication`.
+- **Local-first pipeline: Cloud APIs opt-in** — The app now defaults to the local Tesseract.js OCR pipeline, making it fully functional without any cloud API keys. Cloud AI (Google Cloud Vision + OpenAI GPT-4.1 Nano) is an opt-in upgrade when keys are configured. Settings page shows cloud API status, disables Cloud AI when keys are missing, and the specialist dashboard shows a dismissable upgrade banner. Validation pipeline automatically falls back to local if cloud extraction fails. Applicant pre-fill scan is disabled in local mode with an explanatory message.
+- **Local VLM comparison pipeline** — Added SmolVLM-256M-Instruct via Transformers.js for browser-local label comparison with zero cloud API calls. Runs entirely in a Web Worker with ONNX Runtime WASM.
+- **`/tools/local-compare` page** — New route for browser-local label comparison using the VLM pipeline. Per-field image inference with streaming results.
+- **Per-field VLM inference with streaming results** — Each field is extracted individually by the local VLM and compared using the existing `compareField()` engine, with results streaming to the UI as they complete.
 - **`preloadedBuffers` optimization** — Image bytes are now fetched in parallel with DB writes during submission, shaving ~150ms off the pipeline by overlapping I/O that was previously sequential.
 - **Specialist can submit labels on behalf of applicants** — Specialists can now select an applicant when submitting a label through the validation form, enabling bulk processing workflows.
 - **E2E test suite with 11 labels** — 4 real-world and 7 AI-generated test labels covering all beverage types (spirits, wine, malt beverages), exercising the full submission pipeline end-to-end.
@@ -23,16 +28,7 @@ All notable changes to Excisely are documented here. This project follows a narr
 - **Tag-based cache invalidation replaces `revalidatePath`** — All server actions now use granular `updateTag('labels' | 'sla-metrics' | 'settings')` instead of full-page `revalidatePath()`. Specialists see changes immediately without invalidating unrelated cached data.
 - **`connection()` replaces `force-dynamic`** — All 9 app pages now use `await connection()` from `next/server` instead of `export const dynamic = 'force-dynamic'`. This is the modern Next.js 16 approach for opting into dynamic rendering.
 - **`experimental.useCache` over `cacheComponents`** — After discovering that `cacheComponents: true` requires all dynamic data inside `<Suspense>` boundaries (incompatible with auth-gated layouts), switched to `experimental: { useCache: true }` which enables `use cache` without the strict enforcement.
-
 - **Auto-detect beverage type from label images** — Applicants can now skip the beverage type selection step. The AI pipeline detects the product type from OCR keywords (whiskey/bourbon → spirits, cabernet/sulfites → wine, ale/lager → malt) before running type-specific extraction. Happy path runs in ~3-5s (same as manual selection). Falls back to the generic pipeline for ambiguous labels. Auto-detected type shows an "AI detected" badge that disappears when the user overrides it.
-- **Regulations Reference page** — New `/regulations` route with curated plain-English summaries of ~30 key CFR sections across Parts 4 (Wine), 5 (Spirits), 7 (Malt Beverages), and 16 (Health Warning). Searchable, filterable by part and field, with deep links to eCFR for authoritative full text. Progressive disclosure: summary first, key requirements on expand, full legal text one click away.
-- **Contextual regulation links in field tooltips** — Hovering over any field label (Brand Name, Alcohol Content, etc.) now shows CFR citation badges linking to the specific regulation. Puts regulatory context right where specialists already look.
-- **Regulation links on flagged fields** — When a field shows a mismatch or needs correction, a "See regulation" link appears below the AI reasoning, connecting the discrepancy to the specific rule being enforced.
-- **Regulations config** (`src/config/regulations.ts`) — Curated regulatory data with types, summaries, key requirements, beverage type mappings, and eCFR deep links. Follows the existing config-file pattern.
-- **Regulation lookup utilities** (`src/lib/regulations/lookup.ts`) — Search by field name, beverage type, or free text across all curated sections.
-
-### Changed
-
 - **Correspondence Timeline replaces copy-to-clipboard reports** — The original plan called for "Send Report" buttons with copy-to-clipboard as a stopgap. We replaced this entirely with a Correspondence Timeline on each label's detail page. It shows a reverse-chronological feed of every communication event (automatic status notifications, specialist override notices, deadline warnings) with expandable email previews showing full From/To/Subject/Body headers and field discrepancy tables. This feels more like a real system — specialists see the audit trail of what was communicated and when, rather than manually copying text into emails.
 - **Dashboard redesigned with SLA metrics** — The specialist dashboard now shows real-time SLA tracking (processing time targets, review queue depth, approval rates) instead of just label counts. Gives specialists visibility into team performance at a glance.
 - **Labels table upgraded** — Added inline search, multi-column sorting, status filters, and deadline countdown badges. The table now handles the full workflow without needing to navigate to individual label pages for basic triage.
@@ -42,9 +38,12 @@ All notable changes to Excisely are documented here. This project follows a narr
 - **Annotated image viewer polish** — Improved bounding box rendering, better zoom/pan behavior, and smoother transitions when clicking fields in the comparison list.
 - **Sidebar navigation updated** — Reorganized nav items, added AI Errors page link, improved active state styling.
 - **Label upload form overhauled** — Major refactor of the validation form with better field organization, improved dropzone UX, and clearer beverage-type-aware field visibility.
-
-### Added
-
+- **Batch upload redesigned as CSV-based** — The original multi-file batch upload was removed because it treated every image as a separate application. Replaced with CSV batch upload: applicants upload a CSV (one row per COLA application) alongside label images, each row becomes a separate submission through the same AI pipeline. The specialist "bulk approve" feature is unaffected.
+- **Regulations Reference page** — New `/regulations` route with curated plain-English summaries of ~30 key CFR sections across Parts 4 (Wine), 5 (Spirits), 7 (Malt Beverages), and 16 (Health Warning). Searchable, filterable by part and field, with deep links to eCFR for authoritative full text. Progressive disclosure: summary first, key requirements on expand, full legal text one click away.
+- **Contextual regulation links in field tooltips** — Hovering over any field label (Brand Name, Alcohol Content, etc.) now shows CFR citation badges linking to the specific regulation. Puts regulatory context right where specialists already look.
+- **Regulation links on flagged fields** — When a field shows a mismatch or needs correction, a "See regulation" link appears below the AI reasoning, connecting the discrepancy to the specific rule being enforced.
+- **Regulations config** (`src/config/regulations.ts`) — Curated regulatory data with types, summaries, key requirements, beverage type mappings, and eCFR deep links. Follows the existing config-file pattern.
+- **Regulation lookup utilities** (`src/lib/regulations/lookup.ts`) — Search by field name, beverage type, or free text across all curated sections.
 - **AI Errors page** — New route for viewing and triaging AI pipeline failures (OCR errors, classification timeouts, malformed responses). Previously these were silent failures visible only in server logs.
 - **Auto-refresh component** — Shared polling component for pages that need live updates (queue status).
 - **Reanalysis guard** — Prevents concurrent re-analysis of the same label, with UI feedback showing when a label is already being processed.
@@ -54,10 +53,6 @@ All notable changes to Excisely are documented here. This project follows a narr
 - **AI prompt improvements** — Enhanced classification prompts with beverage-type-aware instructions for better field extraction accuracy.
 - **Get settings helper** — Server-side utility for reading specialist-configured thresholds and strictness settings.
 - **Override reason codes** — Predefined reason codes for status overrides (regulatory basis for specialist decisions).
-
-### Removed
-
-- **Batch upload feature** — Removed the multi-file batch upload (routes, components, server actions, store, CSV parser) because the UX model was fundamentally wrong — it treated every image as a separate application, when real applicants submit one application per product with multiple images. The specialist "bulk approve" feature (selecting multiple ready labels for approval) is unaffected.
 
 ### Fixed
 

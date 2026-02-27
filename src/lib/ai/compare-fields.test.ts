@@ -193,12 +193,12 @@ describe('compareField — exact strategy', () => {
     expect(result.confidence).toBe(100)
   })
 
-  it('matches health warning case-insensitively with lower confidence', () => {
+  it('matches health warning case-insensitively with floor confidence', () => {
     const expected = 'GOVERNMENT WARNING: Test'
     const extracted = 'government warning: test'
     const result = compareField('health_warning', expected, extracted)
     expect(result.status).toBe('match')
-    expect(result.confidence).toBe(85)
+    expect(result.confidence).toBe(95)
   })
 
   it('matches vintage year with extra characters stripped', () => {
@@ -286,7 +286,7 @@ describe('compareField — normalized alcohol_content', () => {
   it('matches within 0.5% tolerance', () => {
     const result = compareField('alcohol_content', '12.5% ABV', '12.8% ABV')
     expect(result.status).toBe('match')
-    expect(result.confidence).toBe(90)
+    expect(result.confidence).toBe(95)
   })
 
   it('returns mismatch outside tolerance', () => {
@@ -374,7 +374,7 @@ describe('compareField — contains strategy', () => {
       'Product of France',
     )
     expect(result.status).toBe('match')
-    expect(result.confidence).toBe(90)
+    expect(result.confidence).toBe(95)
   })
 
   it('matches when extracted is contained in expected', () => {
@@ -384,7 +384,7 @@ describe('compareField — contains strategy', () => {
       'France',
     )
     expect(result.status).toBe('match')
-    expect(result.confidence).toBe(90)
+    expect(result.confidence).toBe(95)
   })
 
   it('matches on word-level overlap (>=50%)', () => {

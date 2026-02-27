@@ -1,0 +1,27 @@
+{
+  "labelName": "knob-creek-single-barrel",
+  "beverageType": "distilled_spirits",
+  "images": [
+    {
+      "filename": "front.png",
+      "imageType": "front"
+    },
+    {
+      "filename": "back.png",
+      "imageType": "back"
+    }
+  ],
+  "fields": {
+    "brand_name": "KNOB CREEK",
+    "fanciful_name": "Single Barrel Reserve",
+    "class_type": "KENTUCKY STRAIGHT BOURBON WHISKEY",
+    "alcohol_content": "60% ALC./VOL.",
+    "net_contents": "750 mL",
+    "age_statement": "AGED 9 YEARS",
+    "name_and_address": "JAMES B. BEAM DISTILLING CO., CLERMONT, KENTUCKY",
+    "qualifying_phrase": "DISTILLED AND BOTTLED BY",
+    "country_of_origin": null,
+    "health_warning": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE OF THE RISK OF BIRTH DEFECTS. (2) CONSUMPTION OF ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY TO DRIVE A CAR OR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+    "state_of_distillation": "CLERMONT, KENTUCKY"
+  }
+}

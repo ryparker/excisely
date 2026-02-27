@@ -79,7 +79,7 @@ export function RegulationQuickView({
         {/* Key requirements */}
         {keyRequirements.length > 0 && (
           <div>
-            <p className="mb-2 text-xs font-medium text-muted-foreground/70">
+            <p className="mb-2 text-xs font-medium text-muted-foreground">
               Key requirements
             </p>
             <ul className="space-y-1.5">
@@ -99,7 +99,7 @@ export function RegulationQuickView({
         {/* Related fields */}
         {relatedFields.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5 border-t pt-3">
-            <span className="text-[10px] font-medium tracking-wide text-muted-foreground/50 uppercase">
+            <span className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
               Related fields
             </span>
             {relatedFields.map((field) => (
@@ -183,7 +183,7 @@ export function RegulationInlineLink({
 
         {keyRequirements.length > 0 && (
           <div>
-            <p className="mb-2 text-xs font-medium text-muted-foreground/70">
+            <p className="mb-2 text-xs font-medium text-muted-foreground">
               Key requirements
             </p>
             <ul className="space-y-1.5">
@@ -202,7 +202,7 @@ export function RegulationInlineLink({
 
         {relatedFields.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5 border-t pt-3">
-            <span className="text-[10px] font-medium tracking-wide text-muted-foreground/50 uppercase">
+            <span className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
               Related fields
             </span>
             {relatedFields.map((field) => (

@@ -1,0 +1,18 @@
+{
+  "labelName": "barbados-bay-dark-rum",
+  "beverageType": "distilled_spirits",
+  "images": [{ "filename": "front.png", "imageType": "front" }],
+  "fields": {
+    "brand_name": "BARBADOS BAY",
+    "fanciful_name": null,
+    "class_type": "AGED DARK RUM",
+    "alcohol_content": "45% ALC./VOL. (80 PROOF)",
+    "net_contents": "750 ML",
+    "name_and_address": "TROPLED BY SROLLS. SARABDRS",
+    "qualifying_phrase": "DISTILLED AND BOTTLED BY",
+    "country_of_origin": null,
+    "health_warning": "GOVERMENT WARNING -(1)/ CORDING TO THE SUREEON GENERAL, WOMEN SHOULD NOT DUTTRIMNIS)AN TREGNSBE 86 DRINK THE EKURILELI EWER DETTES TO SMAR ELIESEALCOHOL C ESSENINGSS.(A)MLAS SROUR ABLFIES TO ACTINTES TO DHAR DO/ OPERATE MACHINERY. AND MAY CAUSE E HEALTH PROBLEMS.",
+    "age_statement": null,
+    "state_of_distillation": null
+  }
+}

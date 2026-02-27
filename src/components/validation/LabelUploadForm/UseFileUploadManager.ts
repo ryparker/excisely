@@ -251,5 +251,6 @@ export function useFileUploadManager() {
     origin,
     removeFile,
     uploadFiles,
+    addFiles: onDrop,
   }
 }

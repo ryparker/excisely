@@ -2,11 +2,12 @@ import type { NextConfig } from 'next'
 
 const cspDirectives = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com",
+  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://va.vercel-scripts.com https://cdn.jsdelivr.net",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://*.blob.vercel-storage.com https://www.ttb.gov",
   "font-src 'self' https://fonts.gstatic.com",
-  "connect-src 'self' https://va.vercel-scripts.com https://*.blob.vercel-storage.com",
+  "connect-src 'self' https://va.vercel-scripts.com https://*.blob.vercel-storage.com https://cdn.jsdelivr.net https://tessdata.projectnaptha.com",
+  "worker-src 'self' blob:",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -15,6 +16,7 @@ const cspDirectives = [
 const contentSecurityPolicy = cspDirectives.join('; ')
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ['tesseract.js'],
   poweredByHeader: false,
   reactCompiler: true,
   experimental: {

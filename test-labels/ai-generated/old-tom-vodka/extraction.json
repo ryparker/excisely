@@ -1,0 +1,18 @@
+{
+  "labelName": "old-tom-vodka",
+  "beverageType": "distilled_spirits",
+  "images": [{ "filename": "front.png", "imageType": "front" }],
+  "fields": {
+    "brand_name": "OLD TOM DISTILLERY",
+    "fanciful_name": "PREMIUM",
+    "class_type": "VODKA",
+    "alcohol_content": "40% ALC./VOL. (80 PROOF)",
+    "net_contents": "750 ML",
+    "name_and_address": "OLD TOM DISTILLERY, LOUISVILLE, KY",
+    "qualifying_phrase": "DISTILLED & BOTTLED BY",
+    "country_of_origin": "IMPORTED FROM PLONAL",
+    "health_warning": "GOVERMENT WARNING: (1) ACCORDING TO THE SURGEN GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERGES DURING THE SAIDIY THE RHGID OCLTRS TES, (2S ECREEED FITION L/RE PRELLOUNS MMRRIES RUSCOSAGED ASELTEP TO ASVINOS TO DRIVE A CAR FIR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROPRTS.",
+    "age_statement": null,
+    "state_of_distillation": null
+  }
+}

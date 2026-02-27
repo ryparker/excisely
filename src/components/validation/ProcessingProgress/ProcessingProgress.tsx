@@ -61,6 +61,31 @@ export function ProcessingProgress({
   const [smoothProgress, setSmoothProgress] = useState(0)
   const stageStartRef = useRef<number>(0)
 
+  // Live elapsed timer
+  const pipelineStartRef = useRef<number>(0)
+  const [elapsedMs, setElapsedMs] = useState(0)
+
+  useEffect(() => {
+    pipelineStartRef.current = performance.now()
+  }, [])
+
+  useEffect(() => {
+    if (isTimeout || isError) return
+
+    let raf: number
+    function tick() {
+      const now = performance.now()
+      setElapsedMs(now - pipelineStartRef.current)
+      if (!isComplete) {
+        raf = requestAnimationFrame(tick)
+      }
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [isComplete, isTimeout, isError])
+
+  const elapsedDisplay = (elapsedMs / 1000).toFixed(1)
+
   // Reset stage timer when stage changes
   useEffect(() => {
     stageStartRef.current = performance.now()
@@ -205,19 +230,32 @@ export function ProcessingProgress({
           </div>
         )}
 
-        {/* Progress bar */}
-        <Progress
-          value={smoothProgress}
-          className={`mb-6 h-1.5 ${
-            isComplete
-              ? '[&>div]:bg-green-600 dark:[&>div]:bg-green-400'
-              : isTimeout
-                ? '[&>div]:bg-amber-600 dark:[&>div]:bg-amber-400'
-                : isError
-                  ? '[&>div]:bg-destructive'
-                  : ''
-          }`}
-        />
+        {/* Progress bar + elapsed timer */}
+        <div className="mb-6 space-y-1.5">
+          <Progress
+            value={smoothProgress}
+            className={`h-1.5 ${
+              isComplete
+                ? '[&>div]:bg-green-600 dark:[&>div]:bg-green-400'
+                : isTimeout
+                  ? '[&>div]:bg-amber-600 dark:[&>div]:bg-amber-400'
+                  : isError
+                    ? '[&>div]:bg-destructive'
+                    : ''
+            }`}
+          />
+          <div className="flex justify-end">
+            <span
+              className={`font-mono text-xs tabular-nums ${
+                isComplete
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-muted-foreground/70'
+              }`}
+            >
+              {elapsedDisplay}s
+            </span>
+          </div>
+        </div>
 
         {/* Stage list */}
         <div className="space-y-1">

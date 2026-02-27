@@ -27,9 +27,53 @@ This hybrid approach plays to each system's strengths: Cloud Vision for pixel-ac
 
 ---
 
+## Local-First Architecture
+
+The app defaults to the **local pipeline** (Tesseract.js OCR + rule-based classification), making it fully functional without any cloud API keys. Cloud AI is an opt-in upgrade.
+
+### Pipeline Mode Selection
+
+The `submission_pipeline_model` setting (stored in the `settings` table, default: `'local'`) controls which pipeline handles all validation:
+
+```
+  Settings DB           validation-pipeline.ts
+  ┌──────────┐         ┌─────────────────────────────┐
+  │ model:   │────────>│  if model === 'local'       │──> extractLabelFieldsLocal()
+  │  'local' │         │  else                       │──> extractLabelFieldsForSubmission()
+  │  'cloud' │         │    catch → fallback to local │
+  └──────────┘         └─────────────────────────────┘
+```
+
+### Feature Matrix by Pipeline Mode
+
+| Feature                   | Local (default) | Cloud (opt-in)   |
+| ------------------------- | --------------- | ---------------- |
+| Submission validation     | Yes             | Yes              |
+| Specialist validate       | Yes             | Yes              |
+| Specialist reanalyze      | Yes             | Yes              |
+| Batch approve             | Yes             | Yes              |
+| Bounding box overlays     | No              | Yes              |
+| Applicant pre-fill scan   | No              | Yes              |
+| Image type classification | No              | Yes              |
+| Cloud failure fallback    | N/A             | Falls back local |
+| Cost per label            | $0.00           | ~$0.004          |
+
+### Cloud API Detection
+
+**File:** `src/lib/ai/cloud-available.ts`
+
+- `hasCloudApiKeys()`: Synchronous check — returns `true` if both Google credentials (`GOOGLE_APPLICATION_CREDENTIALS` or `GOOGLE_APPLICATION_CREDENTIALS_JSON`) and `OPENAI_API_KEY` are set
+- `getCloudApiStatus()`: Async cached function — returns `{ available, missing[] }` for the Settings UI. Cached for hours via `'use cache'` + `cacheLife('hours')`.
+
+### Cloud Fallback
+
+When the pipeline model is set to `'cloud'` but extraction throws (expired key, quota exceeded, network error), the validation pipeline catches the error and retries with `extractLabelFieldsLocal()`. A console warning is logged so specialists can see the fallback was used. The `modelUsed` field in the validation result will show `'tesseract-local'` even though the setting is `'cloud'`.
+
+---
+
 ## The Five Pipelines
 
-The system has five pipelines optimized for different use cases. They all share Stage 1 (OCR) and Stage 3 (bounding box resolution) but differ in how Stage 2 (classification) is configured.
+The system has five cloud pipelines optimized for different use cases. All share Stage 1 (OCR) and Stage 3 (bounding box resolution) but differ in how Stage 2 (classification) is configured.
 
 ### Pipeline Comparison
 
@@ -327,11 +371,8 @@ All classification functions use the AI SDK's `generateText()` with `Output.obje
     |
     v
   generateText({
-    model: openai('gpt-5-mini'),       // or gpt-4.1-mini for fast pre-fill
+    model: openai('gpt-4.1-nano'),     // or gpt-4.1-mini for pre-fill, gpt-5-mini for specialist
     messages: [...],
-    providerOptions: {
-      openai: { reasoningEffort: 'low' } // submission pipeline only
-    },
     experimental_output: Output.object({
       schema: z.object({               // Zod schema = guaranteed structure
         fields: z.array(z.object({

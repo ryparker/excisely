@@ -1,0 +1,18 @@
+{
+  "labelName": "harrow-london-gin",
+  "beverageType": "distilled_spirits",
+  "images": [{ "filename": "front.png", "imageType": "front" }],
+  "fields": {
+    "brand_name": "HARROW & CO.",
+    "fanciful_name": null,
+    "class_type": "LONDON DRY GIN",
+    "alcohol_content": "47% ALC./VOL.",
+    "net_contents": "•• 700 ML ••",
+    "name_and_address": "HARROW & CO. NEW YORK, NY",
+    "qualifying_phrase": "IMPORTED BY",
+    "country_of_origin": "IMPORTE D'ANGLETERRE",
+    "health_warning": "GOVERMENT WARNING -(1) ACCORDING TO THE SUREEON GENERAL, WOMEN SHOULA NOT BO TETHING. BISRANI BECOVNG BNR DRINIMS BNR EKURILLELI/RDER DETTES FRDM ER GUISSES ALCOHOLE C ESSENINGSS, INPLAS TROUR ABLIFES TO ACEPNES TO DIVAR DRI OPERATE MACHINERY, AND MAY CAUSE II HEALTH PROBLEMS.",
+    "age_statement": null,
+    "state_of_distillation": "DISTILLED IN ENGLAND"
+  }
+}

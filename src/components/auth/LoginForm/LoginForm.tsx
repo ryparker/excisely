@@ -220,7 +220,7 @@ export function LoginForm({ onSuccess, isTransitioning }: LoginFormProps) {
                 aria-label="Test accounts"
               >
                 <div className="px-2.5 pt-2 pb-1.5">
-                  <p className="text-[10px] font-medium tracking-wider text-muted-foreground/50 uppercase">
+                  <p className="text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
                     Demo accounts
                   </p>
                 </div>

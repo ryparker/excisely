@@ -1,0 +1,18 @@
+{
+  "labelName": "crescent-washington-gin",
+  "beverageType": "distilled_spirits",
+  "images": [{ "filename": "front.png", "imageType": "front" }],
+  "fields": {
+    "brand_name": "CRESCENT DISTILLERY",
+    "fanciful_name": "WASHINGTON",
+    "class_type": "GIN",
+    "alcohol_content": "44% ALC./VOL. (88 PROOF)",
+    "net_contents": "750 ML",
+    "name_and_address": "CRESCENT DISTILLERY SEATTLE, WASHINGTON - N USA",
+    "qualifying_phrase": "DISTILLED AND BOTTLED BY",
+    "country_of_origin": null,
+    "health_warning": "GOVERMENT WARNING: (1) ACCORDING TO THE RAWEEM DENERAL, WOMEN SHOULD NOT THINK ALCOHALIC BEVERGES MABFTRNEO NAKES 1MA. ANST HLEARER PROBLEMTS.",
+    "age_statement": null,
+    "state_of_distillation": null
+  }
+}

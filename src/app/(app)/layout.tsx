@@ -7,6 +7,7 @@ import { getSLATargets } from '@/db/queries/settings'
 import { fetchSLAMetrics } from '@/db/queries/sla'
 import { getSession } from '@/lib/auth/get-session'
 import { getSLAStatus, worstSLAStatus, type SLAStatus } from '@/lib/sla/status'
+import { AppFooter } from '@/components/layout/AppFooter'
 import { AppSidebar } from '@/components/layout/AppSidebar'
 import { MobileHeader } from '@/components/layout/MobileHeader'
 import { ParallelRouteGuard } from '@/components/layout/ParallelRouteGuard'
@@ -96,11 +97,14 @@ export default async function AppLayout({
           role: userRole,
         }}
       />
-      <main id="main" className="min-w-0 flex-1 px-4 py-4 md:px-8 md:py-6">
-        <ParallelRouteGuard showAtRoot>
-          {userRole === 'specialist' ? specialist : applicant}
-        </ParallelRouteGuard>
-        <ParallelRouteGuard showAtRoot={false}>{children}</ParallelRouteGuard>
+      <main id="main" className="flex min-w-0 flex-1 flex-col">
+        <div className="flex-1 px-4 py-4 md:px-8 md:py-6">
+          <ParallelRouteGuard showAtRoot>
+            {userRole === 'specialist' ? specialist : applicant}
+          </ParallelRouteGuard>
+          <ParallelRouteGuard showAtRoot={false}>{children}</ParallelRouteGuard>
+        </div>
+        <AppFooter />
       </main>
     </div>
   )

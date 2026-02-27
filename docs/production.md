@@ -285,7 +285,7 @@ Based on feedback, I'd run 2-3 iteration cycles before GA:
 
 1. **Quick wins** — Fix the obvious usability issues that every user trips over. These are usually layout, labeling, and flow problems that are cheap to fix and high-impact.
 2. **Workflow adjustments** — Revise the label review flow based on how specialists actually work. The current flow (open label → review fields → approve/reject) may not match reality. Maybe specialists batch-review all "high confidence" labels first, then deep-dive the flagged ones. I don't know yet.
-3. **Feature priority recalibration** — Some of the stretch features I deferred (batch upload, resubmission linking, applicant compliance history) may turn out to be critical for daily use. Conversely, features I built (keyboard shortcuts, detailed diff highlighting) may turn out to be unnecessary. User testing tells us where to invest.
+3. **Feature priority recalibration** — Some of the stretch features I deferred (resubmission linking, applicant compliance history) may turn out to be critical for daily use. Conversely, features I built (keyboard shortcuts, detailed diff highlighting) may turn out to be unnecessary. User testing tells us where to invest.
 
 ### Why This Matters
 

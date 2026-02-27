@@ -1,7 +1,7 @@
-import { put } from '@vercel/blob'
 import { NextResponse } from 'next/server'
 
 import { getSession } from '@/lib/auth/get-session'
+import { uploadImageWithSuffix } from '@/lib/storage/blob'
 import { validateFile } from '@/lib/validators/file-schema'
 
 export async function POST(request: Request): Promise<Response> {
@@ -39,13 +39,14 @@ export async function POST(request: Request): Promise<Response> {
       .replace(/\.{2,}/g, '.')
       .slice(0, 255)
 
-    const blob = await put(`labels/${sanitizedName}`, file, {
-      access: 'private',
-      contentType: file.type,
-      addRandomSuffix: true,
+    // Create a new File with sanitized name (File constructor requires re-wrapping)
+    const sanitizedFile = new File([file], sanitizedName, {
+      type: file.type,
     })
 
-    return NextResponse.json({ url: blob.url, pathname: blob.pathname })
+    const result = await uploadImageWithSuffix(sanitizedFile, 'labels')
+
+    return NextResponse.json({ url: result.url, pathname: result.pathname })
   } catch (error) {
     console.error('[blob/upload] Error:', error)
     return NextResponse.json(

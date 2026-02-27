@@ -1,0 +1,18 @@
+{
+  "labelName": "vine-haven-chardonnay",
+  "beverageType": "wine",
+  "images": [{ "filename": "front.png", "imageType": "front" }],
+  "fields": {
+    "brand_name": "VINE HAVEN",
+    "fanciful_name": null,
+    "class_type": "CHARDONNAY",
+    "grape_varietal": "CHARDONNAY",
+    "alcohol_content": "ALC. 12.5% BY VOL.",
+    "net_contents": "750 ML",
+    "name_and_address": "INEIWEN WINES, SOUTH AUSTRALIA",
+    "qualifying_phrase": "PRODUCED & BOTTLED BY",
+    "appellation_of_origin": "COONAWARRA",
+    "country_of_origin": "PRODUCT OF AUSTRALIA",
+    "health_warning": "GOVERMENT WARNING: (2) ACCORDING TO TNE-VUGFFEEN/DOSIRBLSALE, ANTEENG HNESMA, SHOULD PNOTLIA FOTHPMT CREST DNTREAS. BELUS-SEANAN/HALL IN RINSE BRES ARFIVED TO RE SNANR A CARR GOT E RATT MACHINERY/ AAMAA WL.LSII, HIRE ME HEALTH PROBLE MS."
+  }
+}

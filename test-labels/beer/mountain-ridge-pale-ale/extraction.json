@@ -1,0 +1,16 @@
+{
+  "labelName": "mountain-ridge-pale-ale",
+  "beverageType": "malt_beverage",
+  "images": [{ "filename": "front.png", "imageType": "front" }],
+  "fields": {
+    "brand_name": "MOUNTAIN RIDGE BREWING",
+    "fanciful_name": null,
+    "class_type": "PALE ALE",
+    "alcohol_content": "ALC. 5.6% BY VOL.",
+    "net_contents": "12 FL. OZ (355ML)",
+    "name_and_address": "MOUNTAIN DIDE BREWING WI, MILWAUKEE, OL",
+    "qualifying_phrase": "BREWED & PACKAGED BY",
+    "country_of_origin": "• PRODUCT OF USA",
+    "health_warning": "GOVERMENT WARNING: 1) ACCORDNG TO THE SUREEON GENERAL, WOMEN SHOULD NOT THINK AECHOLIGC BEVERALES. DUHRINNEE MES, MAARTINE SMSRO DETTES. DRIVE E. C.A.RN OFSE MACHINERN AND MAY CAUSE HEALTH PROBLEMS."
+  }
+}

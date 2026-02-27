@@ -1,30 +1,20 @@
 # Excisely — Submission Guide
 
-**Label verification, precisely.** An AI-powered tool that verifies alcohol label compliance against TTB Form 5100.31 application data.
+**Label verification, precisely.** A tool that verifies alcohol label compliance against TTB Form 5100.31 application data using OCR + AI field classification.
 
 **Live app:** [https://excisely.vercel.app](https://excisely.vercel.app)
 
 ---
 
-## The Big Idea
+## Quick Setup
 
-The task described a 5-second response time target for specialists. I went further: **I moved the AI verification to the applicant side**, so the specialist wait time is zero.
+```bash
+git clone https://github.com/ryparker/excisely.git && cd excisely && yarn install
+cp .env.example .env.local
+docker compose up -d && yarn db:push && yarn db:seed && yarn dev
+```
 
-Here's how it works:
-
-1. **Applicant uploads label images** and the AI instantly extracts all field values (brand name, ABV, health warning, etc.) and pre-fills the form
-2. **Applicant reviews, corrects if needed, and submits** — gets instant feedback on whether the label passes verification
-3. **Specialist opens the submission** — AI analysis is already complete. They see annotated images, field-by-field comparison, and the AI's recommendation. They decide to trust it or override it.
-
-The specialist never waits for AI processing. The applicant gets instant feedback. Everyone wins.
-
-| Applicant                                                       | Specialist                                                                 |
-| --------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| ![Applicant submit page](docs/screenshots/applicant/upload.gif) | ![Specialist review page](docs/screenshots/specialist/review-approval.gif) |
-
----
-
-## Quick Walkthrough
+No API keys needed — the local pipeline works out of the box. Open [http://localhost:3000](http://localhost:3000).
 
 ### Test Accounts
 
@@ -33,18 +23,132 @@ The specialist never waits for AI processing. The applicant gets instant feedbac
 | Applicant  | labeling@oldtomdistillery.com | applicant123  |
 | Specialist | sarah.chen@ttb.gov            | specialist123 |
 
+---
+
+## Requirements Checklist
+
+Every bolded requirement from the task brief, how we met it, and where to see it in action.
+
+### 1. "If we can't get results back in about 5 seconds, nobody's going to use it."
+
+_— Sarah Chen, Deputy Director_
+
+**How we met it:** The local pipeline (Tesseract.js OCR + rule-based classification) processes labels in ~2-4 seconds with zero API calls. I went further by moving verification to the applicant's submission step — so by the time a specialist opens a label, the analysis is already done. Specialist wait time is zero.
+
+A cloud AI pipeline (Google Cloud Vision + OpenAI GPT-4.1 Nano) is also available as an opt-in upgrade for higher accuracy and bounding box overlays, processing in ~3-5 seconds.
+
+<video src="docs/screenshots/applicant/local-upload.mp4" controls width="100%"></video>
+
+---
+
+### 2. "Something my mother could figure out"
+
+_— Sarah Chen, on agent demographics (half the team is over 50)_
+
+**How we met it:** Clean, minimal UI with no hidden controls. Large click targets, obvious primary actions, consistent layout across every page. The applicant flow is three steps: fill in form fields (or use "Sample Data"), upload images, submit. The specialist flow is: open a label, see the analysis side-by-side with the label image, approve or reject. No hunting for buttons — the primary action is always the most prominent element on the page.
+
+Fully responsive — works on phones and tablets. Applicants can snap photos of bottles from their camera and submit on the go.
+
+![Review page](docs/screenshots/applicant/review-page.png)
+
+---
+
+### 3. "Handle batch uploads"
+
+_— Sarah Chen, on peak season (200-300 labels at once from large importers)_
+
+**How we met it:** Three batch features cover both sides of the workflow:
+
+- **Batch submission (applicant)** — `/submit/batch` lets applicants upload a CSV file (one row per COLA application) alongside label images, then submit up to 50 applications at once. Client-side CSV parsing with instant validation, a preview table showing ready/error status per row, real-time progress during processing (`p-limit(3)` concurrency), and a results summary with retry-failed capability. Uses the same AI validation pipeline as single submissions.
+- **Batch approval (specialist)** — Filter the dashboard to "Ready to Approve" (high-confidence labels where all fields match), select multiple labels with checkboxes, and approve them all in one click with optimistic UI updates.
+- **Batch re-analyze (specialist)** — Select multiple labels and re-run OCR + field comparison in bulk (useful after switching pipeline models or when images are re-uploaded).
+
+Batch Upload (applicant):
+<video src="docs/screenshots/applicant/batch-upload.mp4" controls width="100%"></video>
+
+Batch Approval:
+<video src="docs/screenshots/applicant/local-upload-full.mp4" controls width="100%"></video>
+
+---
+
+### 4. "The warning statement check is actually trickier than it sounds. It has to be exact."
+
+_— Jenny Park, on health warning verification_
+
+**How we met it:** The health warning gets the strictest treatment in the system. It's a mandatory field for all beverage types (beer, wine, distilled spirits), and the comparison engine checks:
+
+- **Exact text match** (word-for-word after whitespace normalization)
+- **Case verification** — "GOVERNMENT WARNING:" must be ALL CAPS (catches Jenny's "title case" scenario)
+- **Character-level diff highlighting** — the review page shows red/green inline diffs so specialists see precisely which characters differ
+- **Garbled OCR detection** — the pipeline verifies that key phrases ("surgeon general", "pregnancy", "birth defects", "drive a car", "operate machinery", "health problems") are actually legible in the OCR output, rather than just trusting the "GOVERNMENT WARNING" prefix
+- **CFR citations** — regulation tooltips on the field label link to the relevant 27 CFR Part 16 sections (16.21-16.22)
+
+The required text is codified in `src/config/health-warning.ts` with both sections and validation rules per 27 CFR 16.21-16.22.
+
+![Health warning diff](docs/screenshots/applicant/health-warning-diff.png)
+
+![Regulation tooltips](docs/screenshots/specialist/regulation-tooltip-links.gif)
+
+---
+
+### 5. Core label fields (Brand Name, Class/Type, Alcohol Content, Net Contents, Name & Address, Country of Origin)
+
+_— Technical Requirements: "check that what's on the label matches what's in the application"_
+
+**How we met it:** The AI pipeline extracts and compares all standard TTB fields with field-appropriate matching strategies:
+
+| Field             | Strategy                 | Why                                 |
+| ----------------- | ------------------------ | ----------------------------------- |
+| Brand Name        | Fuzzy (Dice coefficient) | OCR typos, decorative fonts         |
+| Class/Type        | Fuzzy                    | Stylized text, abbreviations        |
+| Alcohol Content   | Normalized               | "45% Alc./Vol." vs "45% ALC BY VOL" |
+| Net Contents      | Normalized               | "750 mL" vs "750ML"                 |
+| Health Warning    | Exact                    | Must be word-for-word per 27 CFR    |
+| Name & Address    | Fuzzy                    | Multi-line, OCR line breaks         |
+| Country of Origin | Fuzzy                    | Abbreviation variations             |
+
+Each field shows a match/mismatch badge with confidence score, and the specialist can override any field.
+
+![Field comparison](docs/screenshots/specialist/review-page.png)
+
+---
+
+### 6. "Our network blocks outbound traffic to a lot of domains, so keep that in mind if you're thinking about cloud APIs."
+
+_— Marcus Williams, IT Systems Administrator, on government network restrictions_
+
+**How we met it:** The app is **local-first by default**. Zero outbound API calls are needed — Tesseract.js OCR runs in-process, field classification is rule-based, and images are stored on the local filesystem. `docker compose up`, seed, and `yarn dev` gives you a fully functional app behind any firewall.
+
+Cloud AI (Google Cloud Vision + OpenAI) is available as an opt-in upgrade for environments where outbound traffic is allowed — just add API keys and toggle it on in Settings. If a cloud call fails, the system automatically falls back to local.
+
+---
+
+### Deliverables
+
+| Requirement                             | Status                                                                                          |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Source code repository                  | [github.com/ryparker/excisely](https://github.com/ryparker/excisely)                            |
+| README with setup/run instructions      | [README.md](./README.md) — Docker, seed, dev server (no API keys needed)                        |
+| Documentation of approach & assumptions | This document + [architecture.md](./docs/architecture.md) + [decisions.md](./docs/decisions.md) |
+| Deployed application URL                | [excisely.vercel.app](https://excisely.vercel.app)                                              |
+
+---
+
+## Quick Walkthrough
+
 ### Step 1: Submit as an Applicant
 
 1. **Log in** as Thomas Blackwell (applicant)
 2. Go to **Submit New Application** (sidebar or FAB button on mobile)
-3. Click **"Try Sample Data"** to auto-fill with a distilled spirits example
+3. Click **"Sample Data"** to auto-fill with a distilled spirits example
 4. Upload 1-4 label images (drag & drop or click to browse)
-5. Click **"Scan Labels"** — watch the AI extract text and pre-fill the form in ~3-5 seconds
-6. Review the extracted values — correct anything the AI got wrong
-7. Click **"Submit Application"**
-8. You'll see the AI's proposed status (Approved, Needs Correction, etc.) immediately
+5. Review the values — correct anything that looks wrong
+6. Click **"Submit Application"**
+7. You'll see the proposed status (Approved, Needs Correction, etc.) immediately
 
-![Submit form after AI pre-fill](./docs/screenshots/applicant/new-submission-1-review.png)
+For bulk workflows, try **Submit → Batch Upload** — upload a CSV (one row per application) alongside label images to submit up to 50 at once.
+
+![Submit form after sample data](./docs/screenshots/applicant/new-submission-1-review.png)
 
 ### Step 2: Review as a Specialist
 
@@ -52,7 +156,6 @@ The specialist never waits for AI processing. The applicant gets instant feedbac
 2. The **dashboard** shows all pending submissions with SLA metrics
 3. Click any label to open the **review detail page**
 4. You'll see:
-   - **Annotated label image** with color-coded bounding boxes (green = match, red = mismatch)
    - **Field comparison table** with character-level diff highlighting
    - **AI's recommendation** and confidence scores
 5. Override any field if the AI got it wrong, add reviewer notes
@@ -70,24 +173,9 @@ These showcase the most impressive features. Each takes under a minute.
 
 Log in as an applicant on your phone. The submit form is fully responsive — you can snap photos of real bottles directly from your camera, upload them, and submit on the go. Try it with any bottle from your kitchen.
 
-The Cloud Vision OCR handles curved text, reflections, glare, and artistic fonts — no need for perfectly flat scans.
-
 ![Mobile submit form with camera upload](./docs/screenshots/applicant/upload-phone-qr.gif)
 
-### 2. Interactive Image Viewer
-
-On any label detail page, try:
-
-- **Click a field** in the comparison table — the image auto-pans and zooms to that exact region
-- **Scroll to zoom**, drag to pan, toolbar buttons to rotate
-- **Toggle overlays** on/off to see the clean label vs. annotated view
-- **Expand to fullscreen** for detailed inspection
-
-This is how a specialist would work through a label — click each field, verify it visually, move on.
-
-![Interactive image viewer](docs/screenshots/specialist/interactive-image-viewer-botanist.gif)
-
-### 3. Character-Level Diff on Health Warning
+### 2. Character-Level Diff on Health Warning
 
 Submit a label where the health warning text has a minor difference (e.g., "Government Warning" in title case instead of "GOVERNMENT WARNING" in all caps). The review page shows:
 
@@ -98,30 +186,25 @@ This catches the exact scenario Jenny Park described — applicants getting crea
 
 ![Character-level diff on health warning](docs/screenshots/specialist/health-warning-diff.png)
 
-### 4. Batch Approval Queue
+### 3. Batch Submission + Approval
 
-As a specialist on the dashboard:
+**As an applicant**, go to Submit → Batch Upload:
 
-1. Filter to **"Ready to Approve"** — these are high-confidence labels where all fields match
+1. Download the **CSV template** (or click "Load all instantly" to use sample data)
+2. Upload the CSV + label images — the preview table shows validation status per row
+3. Click **"Submit N Applications"** — watch real-time progress as each row processes through the AI pipeline
+
+**As a specialist** on the dashboard:
+
+1. Filter to **"Ready to Approve"** — high-confidence labels where all fields match
 2. Select multiple labels with checkboxes
 3. Click **"Approve Selected"** — all approved instantly with optimistic UI updates
 
-This addresses the batch processing need Sarah Chen described for peak season (200-300 labels at once from large importers).
+This is the full batch workflow Sarah Chen described — applicants submit in bulk, specialists approve in bulk.
 
 ![Batch approval queue](docs/screenshots/specialist/batch-approve.gif)
 
-### 5. Applicant Corrections Tracking
-
-1. As an applicant, scan a label and let the AI pre-fill
-2. Change one value (e.g., fix the brand name spelling)
-3. Submit the application
-4. As a specialist, open that label — you'll see a badge showing what the AI originally extracted vs. what the applicant corrected
-
-This gives specialists context: "The AI read it as X, but the applicant says it should be Y."
-
-![Applicant corrections tracking](docs/screenshots/specialist/applicant-correction.png)
-
-### 6. Deadline Enforcement
+### 4. Deadline Enforcement
 
 Labels with "Needs Correction" get a 30-day deadline. Labels with "Conditionally Approved" get 7 days. The system:
 
@@ -131,9 +214,9 @@ Labels with "Needs Correction" get a 30-day deadline. Labels with "Conditionally
 
 ![Deadline enforcement](docs/screenshots/specialist/needs-correction-table.png)
 
-### 7. Regulation Tooltips
+### 5. Regulation Tooltips
 
-Hover over any field label in the form or review page to see a tooltip with the relevant CFR citation. Click through to a built-in regulations reference page with plain-English summaries of each TTB requirement, with links to the official eCFR text. Both Applicants and Specialists can quickly verify why a field matters without leaving the app.
+Hover over any field label in the form or review page to see a tooltip with the relevant CFR citation. Click through to a built-in regulations reference page with plain-English summaries of each TTB requirement, with links to the official eCFR text. Both applicants and specialists can quickly verify why a field matters without leaving the app.
 
 ![Regulation tooltips](docs/screenshots/specialist/regulation-tooltip-links.gif)
 
@@ -144,34 +227,26 @@ Hover over any field label in the form or review page to see a tooltip with the 
 ```
 Applicant uploads images
         ↓
-Google Cloud Vision OCR (word-level bounding boxes, <1s)
+┌─ Local (default): Tesseract.js OCR (in-process, ~1-2s)
+│  OR
+└─ Cloud (opt-in):  Google Cloud Vision OCR (word-level bounding boxes, <1s)
         ↓
-OpenAI GPT-4.1 Nano (field classification from OCR text, ~2-4s)
+┌─ Local: Rule-based field classification (~100ms)
+│  OR
+└─ Cloud: OpenAI GPT-4.1 Nano structured output (~2-4s)
         ↓
 Comparison engine (field-appropriate: fuzzy, exact, normalized)
         ↓
-Annotated results with bounding boxes + diff highlighting
+Results with diff highlighting (+ bounding box overlays if cloud)
         ↓
 Specialist reviews and makes final decision
 ```
 
-**Speed:** ~3-5 seconds end-to-end (varies by number of images).
+**Speed:** ~2-5 seconds end-to-end depending on pipeline and number of images.
 
-**A note on cloud APIs:** I recognize that a production TTB system may need to run on-premises or within a restricted network where external API calls aren't permitted. I built a fully local pipeline (Tesseract.js OCR + rule-based classification, zero outbound calls) as well — it's preserved on the `local-pipeline` branch. For this prototype, I chose the cloud pipeline to demonstrate the quality achievable with current models. As self-hosted models continue to improve, the same architecture would work with locally-hosted inference.
+**Local-first:** Works out of the box with zero API keys. Cloud AI is opt-in via Settings for bounding box overlays, AI field scanning, and higher accuracy. Automatic fallback to local if a cloud call fails.
 
-### Cost at Scale
-
-At ~$0.004 per submission pipeline run and ~$0.002 per applicant pre-fill scan:
-
-|                                                  | Per label   | 150,000 labels/year |
-| ------------------------------------------------ | ----------- | ------------------- |
-| Applicant pre-fill (Cloud Vision OCR + GPT-4.1)  | ~$0.002     | $300                |
-| Submission pipeline (Cloud Vision OCR + GPT-4.1) | ~$0.004     | $600                |
-| **Total**                                        | **~$0.006** | **~$900/year**      |
-
-TTB processes ~150,000 label applications per year with 47 specialists. Full AI verification for every single one would cost roughly **$900/year** — about $19 per specialist per year.
-
-**Stack:** Next.js 16 (React 19, App Router) | TypeScript | Tailwind CSS v4 + shadcn/ui | Drizzle ORM + Neon Postgres | Vercel Blob | Better Auth | Vitest (133 tests)
+**Stack:** Next.js 16 (React 19, App Router) | TypeScript | Tailwind CSS v4 + shadcn/ui | Drizzle ORM + Postgres | Better Auth | Vitest (625+ tests)
 
 ---
 
@@ -180,7 +255,6 @@ TTB processes ~150,000 label applications per year with 47 specialists. Full AI 
 Given more time, these are the features I'd prioritize:
 
 - **Applicant resubmission** — When a label gets "Needs Correction," the applicant should be able to upload corrected images and resubmit against the same application, preserving the review history. Currently they'd need to start a new submission.
-- **Batch submission** — Large importers dump 200-300 labels at once (Sarah Chen's peak season scenario). Applicants should be able to drag in a folder of label images and submit them all in one flow, rather than one at a time.
 - **Email notifications** — Notify applicants when their label status changes (approved, needs correction, rejected) and notify specialists when new submissions arrive.
 - **PDF export** — Generate a printable COLA certificate or rejection letter from the review results.
 
@@ -190,11 +264,12 @@ See [docs/production.md](./docs/production.md) for the full list of production r
 
 ## Further Reading
 
-| Document                                       | What's in it                                          |
-| ---------------------------------------------- | ----------------------------------------------------- |
-| [README.md](./README.md)                       | Setup instructions, quick start, commands             |
-| [docs/architecture.md](./docs/architecture.md) | System diagrams, data flow, DB schema, modules        |
-| [docs/ai-pipelines.md](./docs/ai-pipelines.md) | AI pipeline deep dive — OCR, classification, matching |
-| [docs/decisions.md](./docs/decisions.md)       | 14 engineering decisions with rationale               |
-| [docs/production.md](./docs/production.md)     | What I'd build for production (security, scale, ops)  |
-| [docs/changelog.md](./docs/changelog.md)       | What changed and why, chronologically                 |
+| Document                                       | What's in it                                                  |
+| ---------------------------------------------- | ------------------------------------------------------------- |
+| [README.md](./README.md)                       | Setup instructions, quick start, commands                     |
+| [docs/architecture.md](./docs/architecture.md) | System diagrams, data flow, DB schema, modules                |
+| [docs/ai-pipelines.md](./docs/ai-pipelines.md) | AI pipeline deep dive — OCR, classification, matching         |
+| [docs/cloud-ai.md](./docs/cloud-ai.md)         | Cloud AI features — bounding box overlays, AI pre-fill, costs |
+| [docs/decisions.md](./docs/decisions.md)       | 26 engineering decisions with rationale                       |
+| [docs/production.md](./docs/production.md)     | What I'd build for production (security, scale, ops)          |
+| [docs/changelog.md](./docs/changelog.md)       | What changed and why, chronologically                         |

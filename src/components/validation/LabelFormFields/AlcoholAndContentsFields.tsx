@@ -11,7 +11,14 @@ import { cn } from '@/lib/utils'
 import type { ValidateLabelInput } from '@/lib/validators/label-schema'
 import type { FieldGroupProps } from './FieldGroupTypes'
 
+const ALCOHOL_PLACEHOLDERS: Record<string, string> = {
+  wine: 'e.g., Alc. 14.5% By Vol.',
+  distilled_spirits: 'e.g., 45% Alc./Vol.',
+  malt_beverage: 'e.g., Alc. 5.2% By Vol.',
+}
+
 export function AlcoholAndContentsFields({
+  beverageType,
   showSplitPane,
   onFieldFocus,
   onFieldChange,
@@ -34,7 +41,11 @@ export function AlcoholAndContentsFields({
           </Label>
           <Input
             id="alcoholContent"
-            placeholder="e.g., 45% Alc./Vol."
+            placeholder={
+              beverageType
+                ? ALCOHOL_PLACEHOLDERS[beverageType]
+                : 'e.g., 45% Alc./Vol.'
+            }
             className={cn(
               extraction.aiOriginalValues.has('alcohol_content') &&
                 !extraction.modifiedFields.has('alcohol_content') &&

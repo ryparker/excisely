@@ -1,0 +1,18 @@
+{
+  "labelName": "captains-cove-rum",
+  "beverageType": "distilled_spirits",
+  "images": [{ "filename": "front.png", "imageType": "front" }],
+  "fields": {
+    "brand_name": "CAPTAIN'S COVE",
+    "fanciful_name": "AGED",
+    "class_type": "DARK RUM",
+    "alcohol_content": "42% ALC./VOL. (84 PROOF)",
+    "net_contents": "750 ML",
+    "name_and_address": "ISLAND SPIRITS CO. ST. CROIX, U.S. VIRGIN ISLANDS",
+    "qualifying_phrase": "DISTILLED & BOTTLED BY",
+    "country_of_origin": "PRODUCT OF THE CARIBBEAN",
+    "health_warning": "GOVERMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOTHNOT AECHODLIC BEVERAGES DURING THE SIGNM THE INGBID PETETS TES, (1) ESREFCLIONE MF INCLUNES MIMRNT RUSCOSAGED ASEIER IT ACVINES TO DRIVE CAR NE OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+    "age_statement": null,
+    "state_of_distillation": null
+  }
+}

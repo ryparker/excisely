@@ -1,0 +1,18 @@
+{
+  "labelName": "smithford-rye-whiskey",
+  "beverageType": "distilled_spirits",
+  "images": [{ "filename": "front.png", "imageType": "front" }],
+  "fields": {
+    "brand_name": "SMITHFORD DISTILLING",
+    "fanciful_name": null,
+    "class_type": "RYE WHISKEY",
+    "alcohol_content": "49% ALC./VOL. (98 PROOF)",
+    "net_contents": "750 ML",
+    "name_and_address": "SMITHOM DISTILLING, BARDSTOWN, KY",
+    "qualifying_phrase": "DISTILLED 9 & BOTTLED BY",
+    "country_of_origin": "1A MADE IN USA",
+    "health_warning": "GOVERNMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT THINK AECOMODSIC REVERSES DURING THE SS. WHIY HE BARDG DETTES TO DRIVE A CAR THE OPERNT MAN, E BBBE MAHMNEY CAUSE HEALTH PROPERTIS.",
+    "age_statement": null,
+    "state_of_distillation": null
+  }
+}

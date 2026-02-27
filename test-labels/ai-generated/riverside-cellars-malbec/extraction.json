@@ -1,0 +1,18 @@
+{
+  "labelName": "riverside-cellars-malbec",
+  "beverageType": "wine",
+  "images": [{ "filename": "front.png", "imageType": "front" }],
+  "fields": {
+    "brand_name": "RIVERSIDE CELLARS",
+    "fanciful_name": null,
+    "class_type": "MALBEC",
+    "grape_varietal": "MALBEC",
+    "alcohol_content": "ALC. 14% BY VOL.",
+    "net_contents": "750 ML",
+    "name_and_address": "RIVERSIDE CELLARS IMPORTS, MONTEVIEDO, MN",
+    "qualifying_phrase": "IMPORTED BY",
+    "appellation_of_origin": "MENDOZA, ARGENTINA",
+    "country_of_origin": "PRODUCT OF ARGENTINA",
+    "health_warning": "GOVERMENT WARNING: (2) ACCORDING TO THEV/UGFFEEN/DOSIRBLSALE, ANTEENG HNESMAL, SHOULD PNOTLIA FOTHPMT CIREST DNTREAS. BELUS-SEANAN/HALL RONSHLEB BRES ARFIVED TO RR SNANR A CARR GOT E RATT MACHINERY/ AAMAX WL.LSIT, HIRE ME HEALTH PROBLE MS."
+  }
+}

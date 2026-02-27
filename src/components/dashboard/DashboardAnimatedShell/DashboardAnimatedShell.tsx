@@ -7,6 +7,7 @@ import { PageShell } from '@/components/layout/PageShell'
 
 interface DashboardAnimatedShellProps {
   header: ReactNode
+  banner?: ReactNode
   stats: ReactNode
   /** Search + filters + table, grouped as one section for tighter spacing. */
   filters: ReactNode
@@ -15,6 +16,7 @@ interface DashboardAnimatedShellProps {
 
 export function DashboardAnimatedShell({
   header,
+  banner,
   stats,
   filters,
   table,
@@ -24,6 +26,7 @@ export function DashboardAnimatedShell({
       <AutoRefresh />
       <PageShell className="space-y-6" staggerMs={40}>
         {header}
+        {banner}
         {stats}
         {filters}
         {table}

@@ -4,7 +4,9 @@
 
 ![](docs/screenshots/applicant/upload.gif)
 
-AI-powered alcohol label verification for TTB labeling specialists. Compares uploaded label images against COLA application data (Form 5100.31) using Google Cloud Vision OCR + OpenAI GPT-4.1 classification, with annotated image overlays and field-by-field comparison.
+AI-powered alcohol label verification for TTB labeling specialists. Compares uploaded label images against COLA application data (Form 5100.31) using OCR + field classification, with field-by-field comparison and optional annotated image overlays.
+
+**Local-first** — works out of the box with zero cloud API keys. Cloud AI (Google Cloud Vision + OpenAI GPT-4.1) is opt-in for higher accuracy and bounding box overlays.
 
 **[Live app](https://excisely.vercel.app)** | **[Submission guide](./SUBMISSION.md)** — walkthrough, screenshots, and interesting scenarios to try
 
@@ -15,7 +17,8 @@ AI-powered alcohol label verification for TTB labeling specialists. Compares upl
 ```bash
 git clone https://github.com/ryparker/excisely.git && cd excisely
 yarn install
-cp .env.example .env.local   # then fill in credentials (see below)
+cp .env.example .env.local   # defaults work — no API keys needed
+docker compose up -d          # start local Postgres
 yarn db:push && yarn db:seed  # create tables + seed ~1,000 labels
 yarn dev                      # http://localhost:3000
 ```
@@ -23,8 +26,7 @@ yarn dev                      # http://localhost:3000
 ### Prerequisites
 
 - Node.js 22+ and Yarn
-- PostgreSQL ([Neon](https://neon.tech) recommended)
-- OpenAI API key, Google Cloud Vision credentials, Vercel Blob token
+- Docker (OrbStack or Docker Desktop) — for local Postgres
 
 ### Test Accounts
 
@@ -35,9 +37,11 @@ yarn dev                      # http://localhost:3000
 
 ## How It Works
 
-1. **Applicant uploads label images** — AI extracts text via Cloud Vision OCR, classifies fields via GPT-4.1 Nano, and pre-fills the form (~3-5s)
-2. **Applicant reviews, corrects, and submits** — gets instant AI verification (approved, needs correction, etc.)
-3. **Specialist opens the submission** — AI analysis is already done. Annotated images, field comparison, and the AI's recommendation are ready. They approve or override.
+1. **Applicant uploads label images and fills in application data** — or, with Cloud AI enabled, the form is auto-filled from OCR in ~3-5s
+2. **Applicant reviews and submits** — gets instant AI verification (approved, needs correction, etc.)
+3. **Specialist opens the submission** — analysis is already done. Field comparison and the AI's recommendation are ready. They approve or override.
+
+For bulk workflows, applicants can upload a CSV + images via **Batch Upload** to submit up to 50 applications at once. Specialists can batch-approve high-confidence labels from the dashboard.
 
 The specialist never waits for AI. The applicant gets instant feedback.
 
@@ -52,20 +56,20 @@ Each extracted field is compared using a field-appropriate strategy:
 | Alcohol Content | Normalized  | "45% Alc./Vol. (90 Proof)" = "45%" |
 | Net Contents    | Normalized  | "750 mL" = "750ml" = "0.75L"       |
 
-Results show color-coded bounding box overlays (green = match, red = mismatch) with character-level diff highlighting. Clicking a field zooms the image to that region.
+Results show character-level diff highlighting. With Cloud AI enabled, color-coded bounding box overlays (green = match, red = mismatch) are added, and clicking a field zooms the image to that region.
 
 ## Stack
 
-| Layer     | Technology                                                         |
-| --------- | ------------------------------------------------------------------ |
-| Framework | Next.js 16 (App Router, RSC-first, Turbopack)                      |
-| Language  | TypeScript (strict mode)                                           |
-| Styling   | Tailwind CSS v4 + shadcn/ui                                        |
-| Database  | Drizzle ORM + Neon Postgres                                        |
-| Storage   | Vercel Blob (signed URLs, client-side direct uploads)              |
-| AI        | Google Cloud Vision (OCR) + OpenAI GPT-4.1 / GPT-5 Mini via AI SDK |
-| Auth      | Better Auth v1.4 (specialist + applicant roles)                    |
-| Testing   | Vitest (133 tests) + Playwright                                    |
+| Layer     | Technology                                                                    |
+| --------- | ----------------------------------------------------------------------------- |
+| Framework | Next.js 16 (App Router, RSC-first, Turbopack)                                 |
+| Language  | TypeScript (strict mode)                                                      |
+| Styling   | Tailwind CSS v4 + shadcn/ui                                                   |
+| Database  | Drizzle ORM + Postgres (local Docker or Neon)                                 |
+| Storage   | Local filesystem (default) or Vercel Blob                                     |
+| AI        | Tesseract.js OCR (default) or Google Cloud Vision + OpenAI GPT-4.1 via AI SDK |
+| Auth      | Better Auth v1.4 (specialist + applicant roles)                               |
+| Testing   | Vitest (625+ tests) + Playwright                                              |
 
 ## Commands
 
@@ -81,24 +85,32 @@ yarn db:studio          # Drizzle Studio (web UI)
 
 ## Environment Variables
 
+Only `DATABASE_URL`, `BETTER_AUTH_SECRET`, and `BETTER_AUTH_URL` are required. Everything else enables optional cloud features.
+
 ```bash
-DATABASE_URL=                        # Neon Postgres connection string
+# Required
+DATABASE_URL=                        # Local Docker (default in .env.example) or Neon
+BETTER_AUTH_SECRET=                   # Session secret (openssl rand -hex 32)
+BETTER_AUTH_URL=                      # App URL (http://localhost:3000 in dev)
+
+# Optional — Cloud AI (add these to enable Cloud AI pipeline)
 OPENAI_API_KEY=                      # OpenAI API key
 GOOGLE_APPLICATION_CREDENTIALS=      # Path to GCP service account JSON (local dev)
 GOOGLE_APPLICATION_CREDENTIALS_JSON= # GCP SA JSON content (Vercel deployment)
+
+# Optional — Cloud Storage (add to use Vercel Blob instead of local filesystem)
 BLOB_READ_WRITE_TOKEN=               # Vercel Blob storage token
-BETTER_AUTH_SECRET=                   # Session secret (openssl rand -hex 32)
-BETTER_AUTH_URL=                      # App URL (http://localhost:3000 in dev)
 ```
 
 ## Documentation
 
 | Document                                       | Description                                                    |
 | ---------------------------------------------- | -------------------------------------------------------------- |
-| **[SUBMISSION.md](./SUBMISSION.md)**           | **Start here** — walkthrough, screenshots, cost analysis       |
+| **[SUBMISSION.md](./SUBMISSION.md)**           | **Start here** — walkthrough, screenshots, scenarios           |
 | [docs/architecture.md](./docs/architecture.md) | System diagrams, data flow, DB schema                          |
 | [docs/ai-pipelines.md](./docs/ai-pipelines.md) | AI pipeline deep dive — 5 pipelines, models, comparison engine |
-| [docs/decisions.md](./docs/decisions.md)       | 14 engineering decisions with rationale                        |
+| [docs/cloud-ai.md](./docs/cloud-ai.md)         | Cloud AI features — bounding boxes, AI pre-fill, costs         |
+| [docs/decisions.md](./docs/decisions.md)       | 26 engineering decisions with rationale                        |
 | [docs/production.md](./docs/production.md)     | Production readiness gaps (security, scale, FedRAMP)           |
 | [docs/changelog.md](./docs/changelog.md)       | What changed and why                                           |
 

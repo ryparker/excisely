@@ -71,7 +71,16 @@ export async function getSLATargets(): Promise<SLATargets> {
   return value ?? { ...DEFAULT_SLA_TARGETS }
 }
 
-const DEFAULT_APPROVAL_THRESHOLD = 95
+export type SubmissionPipelineModel = 'cloud' | 'local'
+
+export async function getSubmissionPipelineModel(): Promise<SubmissionPipelineModel> {
+  const value = await getSettingValue<SubmissionPipelineModel>(
+    'submission_pipeline_model',
+  )
+  return value ?? 'local'
+}
+
+const DEFAULT_APPROVAL_THRESHOLD = 90
 
 export async function getApprovalThreshold(): Promise<number> {
   const value = await getSettingValue<number>('approval_threshold')

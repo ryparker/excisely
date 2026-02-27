@@ -4,8 +4,12 @@ import {
   insertValidationItems,
 } from '@/db/mutations/validation'
 import { type NewValidationItem } from '@/db/schema'
-import { extractLabelFieldsForSubmission } from '@/lib/ai/extract-label'
+import {
+  extractLabelFieldsForSubmission,
+  extractLabelFieldsLocal,
+} from '@/lib/ai/extract-label'
 import type { ExtractionResult } from '@/lib/ai/extract-label'
+import { getSubmissionPipelineModel } from '@/db/queries/settings'
 import { compareField } from '@/lib/ai/compare-fields'
 import {
   determineOverallStatus,
@@ -71,12 +75,37 @@ export async function runValidationPipeline(
 
   // 1. Run AI extraction with application data for disambiguation
   const appDataForAI = Object.fromEntries(expectedFields)
-  const extraction = await extractLabelFieldsForSubmission(
-    imageUrls,
-    beverageType,
-    appDataForAI,
-    preloadedBuffers,
-  )
+  const pipelineModel = await getSubmissionPipelineModel()
+
+  let extraction: ExtractionResult
+  if (pipelineModel === 'local') {
+    extraction = await extractLabelFieldsLocal(
+      imageUrls,
+      beverageType,
+      appDataForAI,
+      preloadedBuffers,
+    )
+  } else {
+    try {
+      extraction = await extractLabelFieldsForSubmission(
+        imageUrls,
+        beverageType,
+        appDataForAI,
+        preloadedBuffers,
+      )
+    } catch (cloudError) {
+      console.warn(
+        '[ValidationPipeline] Cloud extraction failed, falling back to local pipeline:',
+        cloudError,
+      )
+      extraction = await extractLabelFieldsLocal(
+        imageUrls,
+        beverageType,
+        appDataForAI,
+        preloadedBuffers,
+      )
+    }
+  }
 
   // 2. Update image types from AI classification (60% confidence threshold)
   if (extraction.imageClassifications.length > 0) {

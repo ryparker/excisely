@@ -1,19 +1,20 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
-import {
-  Copy,
-  Check,
-  FlaskConical,
-  X,
-  Download,
-  ImageIcon,
-  GripVertical,
-} from 'lucide-react'
-import { motion, AnimatePresence, useReducedMotion } from 'motion/react'
+import { useState } from 'react'
+import { Copy, Check, Download, Loader2, Sparkles } from 'lucide-react'
 import Image from 'next/image'
 
+import type { BeverageType } from '@/config/beverage-types'
+import type { ValidateLabelInput } from '@/lib/validators/label-schema'
 import { cn } from '@/lib/utils'
+import {
+  SampleDataShell,
+  useSampleDataShell,
+} from '@/components/submit/SampleDataShell'
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface SampleImage {
   src: string
@@ -24,19 +25,28 @@ interface SampleImage {
 interface SampleField {
   label: string
   value: string
+  formKey: keyof ValidateLabelInput
 }
 
-interface SampleLabel {
+export interface SampleLabel {
   name: string
   beverageType: string
+  beverageTypeKey: BeverageType
+  containerSizeMl: number
   images: SampleImage[]
   fields: SampleField[]
 }
+
+// ---------------------------------------------------------------------------
+// Data
+// ---------------------------------------------------------------------------
 
 const SAMPLE_LABELS: SampleLabel[] = [
   {
     name: 'Willow Glen Cabernet Sauvignon',
     beverageType: 'Wine',
+    beverageTypeKey: 'wine',
+    containerSizeMl: 750,
     images: [
       {
         src: '/sample-labels/willow-glen-cabernet/front.png',
@@ -45,48 +55,95 @@ const SAMPLE_LABELS: SampleLabel[] = [
       },
     ],
     fields: [
-      { label: 'Brand Name', value: 'Willow Glen Winery' },
-      { label: 'Class/Type', value: 'Cabernet Sauvignon' },
-      { label: 'Alcohol Content', value: 'Alc. 14.5% By Vol.' },
-      { label: 'Net Contents', value: '750 ML' },
-      { label: 'Grape Varietal', value: 'Cabernet Sauvignon' },
-      { label: 'Appellation', value: 'Napa Valley' },
-      { label: 'Country of Origin', value: 'Product of USA' },
-      { label: 'Qualifying Phrase', value: 'Produced and Bottled by' },
+      {
+        label: 'Brand Name',
+        value: 'Willow Glen Winery',
+        formKey: 'brandName',
+      },
+      {
+        label: 'Fanciful Name',
+        value: 'Cabernet Sauvignon',
+        formKey: 'fancifulName',
+      },
+      { label: 'Serial Number', value: '24109842', formKey: 'serialNumber' },
+      {
+        label: 'Class/Type Designation',
+        value: 'Table Wine',
+        formKey: 'classType',
+      },
+      { label: 'Bottle Capacity', value: '750', formKey: 'containerSizeMl' },
+      {
+        label: 'Alcohol Content',
+        value: 'Alc. 14.5% By Vol.',
+        formKey: 'alcoholContent',
+      },
+      { label: 'Net Contents', value: '750 ML', formKey: 'netContents' },
+      {
+        label: 'Name and Address',
+        value: 'Willow Glen Winery',
+        formKey: 'nameAndAddress',
+      },
+      {
+        label: 'Qualifying Phrase',
+        value: 'Produced and Bottled by',
+        formKey: 'qualifyingPhrase',
+      },
+      {
+        label: 'Country of Origin',
+        value: 'Product of USA',
+        formKey: 'countryOfOrigin',
+      },
+      {
+        label: 'Grape Varietal',
+        value: 'Cabernet Sauvignon',
+        formKey: 'grapeVarietal',
+      },
+      {
+        label: 'Appellation of Origin',
+        value: 'Napa Valley',
+        formKey: 'appellationOfOrigin',
+      },
     ],
   },
   {
-    name: 'Knob Creek Single Barrel Reserve',
+    name: 'Hacienda Sol Tequila Blanco',
     beverageType: 'Distilled Spirits',
+    beverageTypeKey: 'distilled_spirits',
+    containerSizeMl: 750,
     images: [
       {
-        src: '/sample-labels/knob-creek/front.png',
+        src: '/sample-labels/hacienda-sol-tequila/front.png',
         label: 'Front',
-        filename: 'knob-creek-front.png',
-      },
-      {
-        src: '/sample-labels/knob-creek/back.png',
-        label: 'Back',
-        filename: 'knob-creek-back.png',
+        filename: 'hacienda-sol-tequila-front.png',
       },
     ],
     fields: [
-      { label: 'Brand Name', value: 'Knob Creek' },
-      { label: 'Fanciful Name', value: 'Single Barrel Reserve' },
-      { label: 'Class/Type', value: 'Kentucky Straight Bourbon Whiskey' },
-      { label: 'Alcohol Content', value: '60% Alc./Vol.' },
-      { label: 'Net Contents', value: '750 mL' },
+      { label: 'Brand Name', value: 'Hacienda Sol', formKey: 'brandName' },
+      { label: 'Serial Number', value: '25041893', formKey: 'serialNumber' },
       {
-        label: 'Name & Address',
-        value: 'James B. Beam Distilling Co., Clermont, Kentucky',
+        label: 'Class/Type Designation',
+        value: 'Tequila Blanco',
+        formKey: 'classType',
       },
-      { label: 'Qualifying Phrase', value: 'Distilled and Bottled by' },
-      { label: 'Age Statement', value: 'Aged Nine Years' },
+      { label: 'Bottle Capacity', value: '750', formKey: 'containerSizeMl' },
+      {
+        label: 'Alcohol Content',
+        value: '38% Alc./Vol.',
+        formKey: 'alcoholContent',
+      },
+      { label: 'Net Contents', value: '750 ML', formKey: 'netContents' },
+      {
+        label: 'Country of Origin',
+        value: 'Hecho en Mexico',
+        formKey: 'countryOfOrigin',
+      },
     ],
   },
   {
     name: 'Blue Harbor Classic Lager',
     beverageType: 'Malt Beverages',
+    beverageTypeKey: 'malt_beverage',
+    containerSizeMl: 355,
     images: [
       {
         src: '/sample-labels/blue-harbor-lager/front.png',
@@ -95,18 +152,53 @@ const SAMPLE_LABELS: SampleLabel[] = [
       },
     ],
     fields: [
-      { label: 'Brand Name', value: 'Blue Harbor Brewing Co.' },
-      { label: 'Fanciful Name', value: 'Classic Lager' },
-      { label: 'Class/Type', value: 'Lager' },
-      { label: 'Alcohol Content', value: 'Alc. 5.2% By Vol.' },
-      { label: 'Net Contents', value: '12 FL. OZ (355 ML)' },
-      { label: 'Qualifying Phrase', value: 'Brewed and Packaged by' },
-      { label: 'Country of Origin', value: 'Product of USA' },
+      {
+        label: 'Brand Name',
+        value: 'Blue Harbor Brewing Co.',
+        formKey: 'brandName',
+      },
+      {
+        label: 'Fanciful Name',
+        value: 'Classic Lager',
+        formKey: 'fancifulName',
+      },
+      { label: 'Serial Number', value: '25003187', formKey: 'serialNumber' },
+      { label: 'Class/Type Designation', value: 'Lager', formKey: 'classType' },
+      { label: 'Bottle Capacity', value: '355', formKey: 'containerSizeMl' },
+      {
+        label: 'Alcohol Content',
+        value: 'Alc. 5.2% By Vol.',
+        formKey: 'alcoholContent',
+      },
+      {
+        label: 'Net Contents',
+        value: '12 FL. OZ (355 ML)',
+        formKey: 'netContents',
+      },
+      {
+        label: 'Name and Address',
+        value: 'Blue Harbor Brewing Co.',
+        formKey: 'nameAndAddress',
+      },
+      {
+        label: 'Qualifying Phrase',
+        value: 'Brewed and Packaged by',
+        formKey: 'qualifyingPhrase',
+      },
+      {
+        label: 'Country of Origin',
+        value: 'Product of USA',
+        formKey: 'countryOfOrigin',
+      },
     ],
   },
 ]
 
-function CopyButton({ value }: { value: string }) {
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function CopyableRow({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false)
 
   function handleCopy() {
@@ -119,14 +211,24 @@ function CopyButton({ value }: { value: string }) {
     <button
       type="button"
       onClick={handleCopy}
-      className="ml-auto shrink-0 rounded p-0.5 text-muted-foreground/50 transition-colors hover:text-foreground"
-      aria-label={`Copy ${value}`}
-    >
-      {copied ? (
-        <Check className="size-3 text-emerald-500" />
-      ) : (
-        <Copy className="size-3" />
+      className={cn(
+        'flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-[11px] transition-colors',
+        copied
+          ? 'bg-emerald-500/10 dark:bg-emerald-500/15'
+          : 'hover:bg-muted/50 active:bg-muted/70',
       )}
+    >
+      <span className="w-28 shrink-0 text-muted-foreground">{label}</span>
+      <span className="min-w-0 truncate font-mono text-foreground">
+        {value}
+      </span>
+      <span className="ml-auto shrink-0 text-muted-foreground/50">
+        {copied ? (
+          <Check className="size-3 text-emerald-500" />
+        ) : (
+          <Copy className="size-3" />
+        )}
+      </span>
     </button>
   )
 }
@@ -144,7 +246,7 @@ function DownloadableImage({ image }: { image: SampleImage }) {
           alt={`${image.label} label`}
           fill
           className="object-contain p-1"
-          sizes="140px"
+          sizes="100px"
           unoptimized
         />
         {/* Download overlay */}
@@ -155,245 +257,147 @@ function DownloadableImage({ image }: { image: SampleImage }) {
           </div>
         </div>
       </div>
-      <div className="border-t px-2 py-1 text-center text-[10px] font-medium text-muted-foreground">
+      <div className="border-t px-2 py-0.5 text-center text-[10px] font-medium text-muted-foreground">
         {image.label}
       </div>
     </a>
   )
 }
 
-function HintCallout({ onDismiss }: { onDismiss: () => void }) {
-  const prefersReducedMotion = useReducedMotion()
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
 
-  // Auto-dismiss after 6s
-  useEffect(() => {
-    const t = setTimeout(onDismiss, 6000)
-    return () => clearTimeout(t)
-  }, [onDismiss])
+interface SampleDataProps {
+  onApply?: (label: SampleLabel) => Promise<void>
+}
 
+export function SampleData({ onApply }: SampleDataProps) {
   return (
-    <motion.div
-      initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 4 }}
-      animate={
-        prefersReducedMotion
-          ? { opacity: 1 }
-          : {
-              opacity: 1,
-              y: [4, -2, 4],
-              transition: {
-                opacity: { duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] },
-                y: {
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                },
-              },
-            }
-      }
-      exit={{ opacity: 0, transition: { duration: 0.12 } }}
-      className="pointer-events-none absolute -top-11 right-0 whitespace-nowrap"
-    >
-      <div className="rounded-lg bg-foreground px-2.5 py-1.5 text-[11px] font-medium text-background shadow-md">
-        Need test data? Click here
-      </div>
-      {/* Caret */}
-      <div className="absolute right-5 -bottom-1 size-2.5 rotate-45 bg-foreground" />
-    </motion.div>
+    <SampleDataShell title="Sample labels for testing">
+      <SampleDataContent onApply={onApply} />
+    </SampleDataShell>
   )
 }
 
-export function SampleData() {
-  const [isOpen, setIsOpen] = useState(false)
+function SampleDataContent({ onApply }: SampleDataProps) {
   const [activeTab, setActiveTab] = useState(0)
-  const [showHint, setShowHint] = useState(true)
-  const prefersReducedMotion = useReducedMotion()
-  const constraintsRef = useRef<HTMLDivElement>(null)
-  const didDragRef = useRef(false)
+  const [isApplying, setIsApplying] = useState(false)
+  const { close } = useSampleDataShell()
 
   const activeLabel = SAMPLE_LABELS[activeTab]
 
-  const dismissHint = useCallback(() => setShowHint(false), [])
-
-  // Close on Escape
-  useEffect(() => {
-    if (!isOpen) return
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setIsOpen(false)
+  async function handleApply() {
+    if (!onApply || isApplying) return
+    setIsApplying(true)
+    try {
+      await onApply(activeLabel)
+      close()
+    } finally {
+      setIsApplying(false)
     }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [isOpen])
+  }
 
   return (
     <>
-      {/* Drag constraints — inset from viewport edges */}
-      <div
-        ref={constraintsRef}
-        className="pointer-events-none fixed inset-4 z-50"
-      />
-
-      <AnimatePresence mode="wait">
-        {isOpen ? (
-          <motion.div
-            key="panel"
-            drag
-            dragMomentum={false}
-            dragConstraints={constraintsRef}
-            dragElastic={0.1}
-            initial={
-              prefersReducedMotion
-                ? { opacity: 0 }
-                : { opacity: 0, scale: 0.96 }
-            }
-            animate={{ opacity: 1, scale: 1 }}
-            exit={
-              prefersReducedMotion
-                ? { opacity: 0 }
-                : { opacity: 0, scale: 0.96 }
-            }
-            transition={{ duration: 0.15, ease: [0.25, 0.46, 0.45, 0.94] }}
-            style={{ right: 24, bottom: 80 }}
-            className="fixed z-50 w-[400px] rounded-xl border bg-popover shadow-xl"
+      {/* Beverage type tabs */}
+      <div className="-mx-3 -mt-3 mb-3 flex gap-1 border-b px-3 py-1.5">
+        {SAMPLE_LABELS.map((label, i) => (
+          <button
+            key={label.name}
+            type="button"
+            onClick={() => setActiveTab(i)}
+            className={cn(
+              'rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors',
+              i === activeTab
+                ? 'bg-primary/10 text-primary'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
           >
-            {/* Drag handle + header */}
-            <div className="flex cursor-grab items-center gap-2 border-b px-3 py-2 active:cursor-grabbing">
-              <GripVertical className="size-3.5 text-muted-foreground/40" />
-              <FlaskConical className="size-3.5 text-muted-foreground" />
-              <span className="text-xs font-semibold">
-                Sample labels for testing
-              </span>
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                onPointerDown={(e) => e.stopPropagation()}
-                className="ml-auto rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
-                aria-label="Close sample data"
-              >
-                <X className="size-3.5" />
-              </button>
-            </div>
+            {label.beverageType}
+          </button>
+        ))}
+      </div>
 
-            {/* Beverage type tabs — stop drag propagation so clicks work */}
-            <div
-              className="flex gap-1 border-b px-3 py-1.5"
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              {SAMPLE_LABELS.map((label, i) => (
-                <button
-                  key={label.name}
-                  type="button"
-                  onClick={() => setActiveTab(i)}
-                  className={cn(
-                    'rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors',
-                    i === activeTab
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  {label.beverageType}
-                </button>
-              ))}
-            </div>
+      <div className="space-y-3">
+        <p className="text-[11px] font-semibold text-foreground">
+          {activeLabel.name}
+        </p>
 
-            {/* Content — stop drag propagation so scrolling/clicking works */}
-            <div
-              className="max-h-[70vh] space-y-3 overflow-y-auto px-3 py-3"
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              <p className="text-[11px] font-semibold text-foreground">
-                {activeLabel.name}
-              </p>
-
-              {/* Image thumbnails — downloadable */}
-              <div>
-                <p className="mb-1.5 flex items-center gap-1 text-[10px] font-medium text-muted-foreground/70">
-                  <ImageIcon className="size-3" />
-                  Save{' '}
-                  {activeLabel.images.length === 1
-                    ? 'this image'
-                    : 'these images'}
-                  , then drag into the upload area above
-                </p>
-                <div
-                  className={cn(
-                    'grid gap-2',
-                    activeLabel.images.length === 1
-                      ? 'max-w-[140px] grid-cols-1'
-                      : 'grid-cols-2',
-                  )}
-                >
-                  {activeLabel.images.map((image) => (
-                    <DownloadableImage key={image.src} image={image} />
-                  ))}
-                </div>
-              </div>
-
-              {/* Form values — compact */}
-              <div>
-                <p className="mb-1 text-[10px] font-medium text-muted-foreground/70">
-                  Or skip AI scan and fill manually with these values:
-                </p>
-                <div className="space-y-0.5">
-                  {activeLabel.fields.map((field) => (
-                    <div
-                      key={field.label}
-                      className="flex items-center gap-2 rounded px-1.5 py-0.5 text-[11px] transition-colors hover:bg-muted/40"
-                    >
-                      <span className="w-24 shrink-0 text-muted-foreground/60">
-                        {field.label}
-                      </span>
-                      <span className="min-w-0 truncate font-mono text-foreground">
-                        {field.value}
-                      </span>
-                      <CopyButton value={field.value} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        ) : (
-          <motion.div
-            key="trigger"
-            drag
-            dragMomentum={false}
-            dragConstraints={constraintsRef}
-            dragElastic={0.1}
-            onDragStart={() => {
-              didDragRef.current = true
-              dismissHint()
-            }}
-            initial={prefersReducedMotion ? false : { scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            transition={{ duration: 0.12 }}
-            whileDrag={{ scale: 1.05 }}
-            style={{ right: 24, bottom: 80 }}
-            className="fixed z-50 cursor-grab active:cursor-grabbing"
+        {/* Auto-fill button — primary action */}
+        {onApply && (
+          <button
+            type="button"
+            onClick={handleApply}
+            disabled={isApplying}
+            className={cn(
+              'flex h-9 w-full items-center justify-center gap-2 rounded-lg text-xs font-semibold transition-all',
+              'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none',
+              'disabled:pointer-events-none disabled:opacity-50',
+              'bg-primary text-primary-foreground shadow-sm',
+              'hover:bg-primary/90 active:scale-[0.98]',
+            )}
           >
-            {/* Hint callout */}
-            <AnimatePresence>
-              {showHint && !isOpen && <HintCallout onDismiss={dismissHint} />}
-            </AnimatePresence>
-
-            <button
-              type="button"
-              onClick={() => {
-                if (didDragRef.current) {
-                  didDragRef.current = false
-                  return
-                }
-                dismissHint()
-                setIsOpen(true)
-              }}
-              className="flex items-center gap-1.5 rounded-full border bg-popover px-3 py-2 text-xs font-medium text-muted-foreground shadow-lg transition-colors hover:text-foreground"
-            >
-              <FlaskConical className="size-3.5" />
-              Sample Data
-            </button>
-          </motion.div>
+            {isApplying ? (
+              <>
+                <Loader2 className="size-3.5 animate-spin" />
+                Loading sample...
+              </>
+            ) : (
+              <>
+                <Sparkles className="size-3.5" />
+                Use this sample
+              </>
+            )}
+          </button>
         )}
-      </AnimatePresence>
+
+        {/* Divider — "or fill manually" */}
+        <div className="flex items-center gap-2">
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-[10px] font-medium text-muted-foreground">
+            or fill manually
+          </span>
+          <div className="h-px flex-1 bg-border" />
+        </div>
+
+        {/* Downloadable image thumbnails */}
+        <div>
+          <p className="mb-1.5 text-[10px] font-medium text-muted-foreground">
+            Save{' '}
+            {activeLabel.images.length === 1 ? 'this image' : 'these images'},
+            then drag into the upload area
+          </p>
+          <div
+            className={cn(
+              'grid gap-2',
+              activeLabel.images.length === 1
+                ? 'max-w-[100px] grid-cols-1'
+                : 'max-w-[208px] grid-cols-2',
+            )}
+          >
+            {activeLabel.images.map((image) => (
+              <DownloadableImage key={image.src} image={image} />
+            ))}
+          </div>
+        </div>
+
+        {/* Copyable form values — click row to copy */}
+        <div>
+          <p className="mb-1 text-[10px] font-medium text-muted-foreground">
+            Click a field to copy its value
+          </p>
+          <div className="space-y-0.5">
+            {activeLabel.fields.map((field) => (
+              <CopyableRow
+                key={field.label}
+                label={field.label}
+                value={field.value}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
     </>
   )
 }

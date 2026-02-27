@@ -13,6 +13,7 @@ export const routes = {
   submissions: () => '/submissions' as const,
   submission: (id: string) => `/submissions/${id}` as const,
   submit: () => '/submit' as const,
+  submitBatch: () => '/submit/batch' as const,
 
   // Applicants (specialist)
   applicants: () => '/applicants' as const,

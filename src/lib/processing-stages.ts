@@ -45,8 +45,8 @@ export const STAGES: StageConfig[] = [
         ? `Sending ${n} label images to secure storage`
         : 'Sending label image to secure storage',
     icon: ImageUp,
-    baseEstimatedMs: 2000,
-    perImageMs: 1000,
+    baseEstimatedMs: 600,
+    perImageMs: 400,
   },
   {
     id: 'ocr',
@@ -56,8 +56,8 @@ export const STAGES: StageConfig[] = [
         ? `Extracting text from ${n} label images`
         : 'Extracting text from your label',
     icon: ScanText,
-    baseEstimatedMs: 3000,
-    perImageMs: 1500,
+    baseEstimatedMs: 1000,
+    perImageMs: 600,
   },
   {
     id: 'classifying',
@@ -67,15 +67,15 @@ export const STAGES: StageConfig[] = [
         ? `Identifying regulatory fields across ${n} images`
         : 'Identifying regulatory fields from extracted text',
     icon: Sparkles,
-    baseEstimatedMs: 10000,
-    perImageMs: 2000,
+    baseEstimatedMs: 1200,
+    perImageMs: 800,
   },
   {
     id: 'comparing',
     label: 'Comparing against application',
     description: () => 'Matching extracted fields to Form 5100.31 data',
     icon: TextSearch,
-    baseEstimatedMs: 3000,
+    baseEstimatedMs: 400,
     perImageMs: 0,
   },
   {
@@ -83,7 +83,7 @@ export const STAGES: StageConfig[] = [
     label: 'Generating report',
     description: () => 'Building validation results and status determination',
     icon: FileSearch,
-    baseEstimatedMs: 2000,
+    baseEstimatedMs: 300,
     perImageMs: 0,
   },
 ]
@@ -119,10 +119,10 @@ export function getStageCumulativeDelays(imageCount = 1) {
   })
 }
 
-/** Human-readable time estimate string, e.g. "3–5 seconds" */
+/** Human-readable time estimate string, e.g. "under 5 seconds" */
 export function getTimeEstimateLabel(imageCount = 1): string {
   const { totalEstimatedMs } = getScaledTimings(imageCount)
-  const lowSec = Math.max(1, Math.floor(totalEstimatedMs / 1000))
   const highSec = Math.ceil(totalEstimatedMs / 1000) + 2
-  return `${lowSec}\u2013${highSec} seconds`
+  if (highSec <= 5) return 'under 5 seconds'
+  return `${Math.max(2, Math.floor(totalEstimatedMs / 1000))}\u2013${highSec} seconds`
 }

@@ -1,0 +1,16 @@
+{
+  "labelName": "blue-harbor-lager",
+  "beverageType": "malt_beverage",
+  "images": [{ "filename": "front.png", "imageType": "front" }],
+  "fields": {
+    "brand_name": "BLUE HARBOR BREWING CO.",
+    "fanciful_name": "CLASSIC LAGER",
+    "class_type": "LAGER",
+    "alcohol_content": "ALC. 5.2% BY VOL.",
+    "net_contents": "12 FL. OZ (355 ML)",
+    "name_and_address": "BLUE HARBOR BREWING CO.",
+    "qualifying_phrase": "BREWED & PACKAGED BY",
+    "country_of_origin": "• 8 RODUCT OF BR USA.",
+    "health_warning": "GOVERMENT WARNING: (1) ACCORDING TO THE SURGEON GENERAL, WOMEN SHOULD NOT THING ALCOHOLIC BEVERAGES DURING THE SINGP THNE HNGID POTTET RES, C12 DLISSETL/UMRATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS."
+  }
+}

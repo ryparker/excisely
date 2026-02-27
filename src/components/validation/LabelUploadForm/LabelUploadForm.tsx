@@ -17,6 +17,7 @@ import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { toast } from 'sonner'
 
+import { SampleData, type SampleLabel } from '@/components/submit/SampleData'
 import { pluralize } from '@/lib/pluralize'
 import { routes } from '@/config/routes'
 import { submitApplication } from '@/app/actions/submit-application'
@@ -80,11 +81,13 @@ import { QRCodeDialog } from './QRCodeDialog'
 
 interface LabelUploadFormProps {
   mode?: 'validate' | 'submit'
+  scanAvailable?: boolean
   onActiveChange?: (active: boolean) => void
 }
 
 export function LabelUploadForm({
   mode = 'validate',
+  scanAvailable = true,
   onActiveChange,
 }: LabelUploadFormProps) {
   const router = useRouter()
@@ -102,6 +105,14 @@ export function LabelUploadForm({
   const [photoReviewOpen, setPhotoReviewOpen] = useState(false)
   const prevFileCountRef = useRef(0)
   const [showQrDialog, setShowQrDialog] = useState(false)
+
+  // Auto-scroll refs for progressive phase reveal
+  const phase2Ref = useRef<HTMLDivElement>(null)
+  const phase3Ref = useRef<HTMLDivElement>(null)
+  const prevHasScannedOnceRef = useRef(false)
+  const prevManualFormEntryRef = useRef(false)
+  const prevShowPhase3Ref = useRef(false)
+  const phase3HasScrolledRef = useRef(false)
   // Extraction store
   const extraction = useExtractionStore()
 
@@ -172,6 +183,7 @@ export function LabelUploadForm({
     origin,
     removeFile,
     uploadFiles,
+    addFiles,
   } = fileManager
 
   const scanLabels = useScanLabels({
@@ -223,15 +235,20 @@ export function LabelUploadForm({
   const showPhase2 = true
   const showPhase3 =
     mode === 'submit'
-      ? extraction.status === 'success' ||
-        extraction.status === 'extracting' ||
-        manualFormEntry
+      ? (extraction.status === 'success' ||
+          extraction.status === 'extracting' ||
+          manualFormEntry ||
+          !scanAvailable) &&
+        !!beverageType
       : true
   const showSplitPane =
     mode === 'submit' &&
     (extraction.status === 'success' || extraction.status === 'extracting')
   const showScanButton =
-    mode === 'submit' && files.length > 0 && extraction.status !== 'extracting'
+    mode === 'submit' &&
+    scanAvailable &&
+    files.length > 0 &&
+    extraction.status !== 'extracting'
   const scanButtonLabel =
     hasScannedOnce && files.length !== imageCountAtLastScan
       ? `Re-scan with ${files.length} image${files.length > 1 ? 's' : ''}`
@@ -324,6 +341,50 @@ export function LabelUploadForm({
     }
   }, [files.length, extraction.status, setSubmissionStep])
 
+  // Auto-scroll Phase 2 (beverage type) into view on reveal
+  useEffect(() => {
+    if (mode !== 'submit') return
+
+    const scannedJustBecameTrue =
+      hasScannedOnce && !prevHasScannedOnceRef.current
+    const manualJustBecameTrue =
+      manualFormEntry && !prevManualFormEntryRef.current
+
+    prevHasScannedOnceRef.current = hasScannedOnce
+    prevManualFormEntryRef.current = manualFormEntry
+
+    if (scannedJustBecameTrue || manualJustBecameTrue) {
+      const delay = prefersReducedMotion ? 0 : 400
+      const timer = setTimeout(() => {
+        phase2Ref.current?.scrollIntoView({
+          behavior: prefersReducedMotion ? 'auto' : 'smooth',
+          block: 'start',
+        })
+      }, delay)
+      return () => clearTimeout(timer)
+    }
+  }, [mode, hasScannedOnce, manualFormEntry, prefersReducedMotion])
+
+  // Auto-scroll Phase 3 (form fields) into view on first reveal
+  useEffect(() => {
+    if (mode !== 'submit') return
+
+    const justBecameVisible = showPhase3 && !prevShowPhase3Ref.current
+    prevShowPhase3Ref.current = showPhase3
+
+    if (justBecameVisible && !phase3HasScrolledRef.current) {
+      phase3HasScrolledRef.current = true
+      const delay = prefersReducedMotion ? 0 : 400
+      const timer = setTimeout(() => {
+        phase3Ref.current?.scrollIntoView({
+          behavior: prefersReducedMotion ? 'auto' : 'smooth',
+          block: 'start',
+        })
+      }, delay)
+      return () => clearTimeout(timer)
+    }
+  }, [mode, showPhase3, prefersReducedMotion])
+
   // -------------------------------------------------------------------------
   // Beverage type selection handler (shared by all selector variants)
   // -------------------------------------------------------------------------
@@ -332,6 +393,45 @@ export function LabelUploadForm({
     setValue('beverageType', value, { shouldValidate: true })
     setValue('classTypeCode', '')
     setBeverageTypeSource('user')
+  }
+
+  // -------------------------------------------------------------------------
+  // Sample data auto-fill
+  // -------------------------------------------------------------------------
+
+  async function handleApplySampleData(label: SampleLabel) {
+    // 1. Fetch sample images and convert to File objects
+    const imageFiles = await Promise.all(
+      label.images.map(async (img) => {
+        const res = await fetch(img.src)
+        const blob = await res.blob()
+        return new File([blob], img.filename, {
+          type: blob.type || 'image/png',
+        })
+      }),
+    )
+
+    // 2. Add images to the file upload manager
+    addFiles(imageFiles)
+
+    // 3. Set beverage type
+    setValue('beverageType', label.beverageTypeKey, { shouldValidate: true })
+    setBeverageTypeSource('user')
+
+    // 4. Fill all form fields from sample data
+    const current = getValues()
+    const merged: Record<string, unknown> = {
+      ...current,
+      beverageType: label.beverageTypeKey,
+      containerSizeMl: label.containerSizeMl,
+    }
+    for (const field of label.fields) {
+      merged[field.formKey] = field.value
+    }
+    reset(merged as ValidateLabelInput, { keepDirty: false })
+
+    // 5. Show the form fields (skip scan, manual entry mode)
+    setManualFormEntry(true)
   }
 
   // -------------------------------------------------------------------------
@@ -510,6 +610,7 @@ export function LabelUploadForm({
   const formFields = (
     <LabelFormFields
       mode={mode}
+      beverageType={beverageType}
       showSplitPane={showSplitPane}
       onFieldFocus={handleFieldFocus}
       onFieldChange={handleFieldChange}
@@ -735,7 +836,7 @@ export function LabelUploadForm({
   // -------------------------------------------------------------------------
 
   const submitFormContent = (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-16">
       {/* Phase 1+2: Hidden when split pane is active (images visible in left panel) */}
       <AnimatePresence>
         {!showSplitPane && (
@@ -771,6 +872,12 @@ export function LabelUploadForm({
                   {/* Scan / Skip controls */}
                   {files.length > 0 && (
                     <div className="space-y-3">
+                      {mode === 'submit' && !scanAvailable && (
+                        <div className="rounded-lg bg-muted/50 p-3 text-center text-sm text-muted-foreground">
+                          AI field scanning requires Cloud AI. Enter fields
+                          manually, or enable Cloud AI in Settings.
+                        </div>
+                      )}
                       {showScanButton && (
                         <button
                           type="button"
@@ -804,27 +911,30 @@ export function LabelUploadForm({
                         </button>
                       )}
 
-                      {extraction.status !== 'success' && !manualFormEntry && (
-                        <p className="text-center">
-                          <button
-                            type="button"
-                            onClick={() => setManualFormEntry(true)}
-                            className="text-sm text-muted-foreground/70 underline-offset-4 transition-colors hover:text-foreground hover:underline"
-                          >
-                            Skip — fill in manually
-                          </button>
-                        </p>
-                      )}
+                      {scanAvailable &&
+                        extraction.status !== 'success' &&
+                        !manualFormEntry && (
+                          <p className="text-center">
+                            <button
+                              type="button"
+                              onClick={() => setManualFormEntry(true)}
+                              className="text-sm text-muted-foreground/70 underline-offset-4 transition-colors hover:text-foreground hover:underline"
+                            >
+                              Skip — fill in manually
+                            </button>
+                          </p>
+                        )}
                     </div>
                   )}
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* Phase 2: Beverage Type (shown after scan or manual entry) */}
+            {/* Phase 2: Beverage Type (shown after scan, manual entry, or when scan unavailable) */}
             <AnimatePresence>
-              {(hasScannedOnce || manualFormEntry) && (
+              {(hasScannedOnce || manualFormEntry || !scanAvailable) && (
                 <motion.div
+                  ref={phase2Ref}
                   initial={phaseInitial}
                   animate={phaseAnimate}
                   exit={phaseExit}
@@ -857,6 +967,7 @@ export function LabelUploadForm({
       <AnimatePresence>
         {showPhase3 && (
           <motion.div
+            ref={phase3Ref}
             initial={phaseInitial}
             animate={phaseAnimate}
             exit={phaseExit}
@@ -945,8 +1056,9 @@ export function LabelUploadForm({
               </div>
             )}
 
-            {/* Type of Product — inline segmented control */}
+            {/* Type of Product — inline segmented control (only when scan was used, not in local-only mode) */}
             {mode === 'submit' &&
+              scanAvailable &&
               extraction.status !== 'extracting' &&
               beverageType && (
                 <BeverageTypeSegmented
@@ -967,6 +1079,13 @@ export function LabelUploadForm({
   return (
     <FormProvider {...methods}>
       <form onSubmit={handleSubmit(onSubmit)}>
+        {/* Sample data floating widget — only in submit mode when idle */}
+        {mode === 'submit' && extraction.status === 'idle' && (
+          <div className="hidden md:block">
+            <SampleData onApply={handleApplySampleData} />
+          </div>
+        )}
+
         {/* Hidden file inputs — always in DOM for add-photos-in-review */}
         {showSplitPane && (
           <div className="hidden">

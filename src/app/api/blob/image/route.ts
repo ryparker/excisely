@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { getSession } from '@/lib/auth/get-session'
+import { isLocalUrl } from '@/lib/storage/constants'
+import { readLocalImage } from '@/lib/storage/blob'
 
 /**
- * Image proxy for private Vercel Blob store.
- * Fetches the blob server-side using BLOB_READ_WRITE_TOKEN and streams it to the client.
- * Usage: /api/blob/image?url=<encoded-blob-url>
+ * Image proxy for private storage (Vercel Blob or local filesystem).
+ *
+ * - Local URLs (local://...): reads directly from .data/uploads/ on disk
+ * - Blob URLs (*.blob.vercel-storage.com): fetches server-side with Bearer token
+ *
+ * Usage: /api/blob/image?url=<encoded-url>
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const session = await getSession()
@@ -25,13 +30,29 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     )
   }
 
+  // --- Local file storage ---
+  if (isLocalUrl(url)) {
+    try {
+      const { buffer, contentType } = await readLocalImage(url)
+      return new NextResponse(new Uint8Array(buffer), {
+        headers: {
+          'Content-Type': contentType,
+          'Cache-Control': 'public, max-age=31536000, immutable',
+        },
+      })
+    } catch {
+      return NextResponse.json({ error: 'Image not found' }, { status: 404 })
+    }
+  }
+
+  // --- Vercel Blob storage ---
   try {
     const parsed = new URL(url)
     if (!parsed.hostname.endsWith('.blob.vercel-storage.com')) {
-      return NextResponse.json({ error: 'Invalid blob URL' }, { status: 400 })
+      return NextResponse.json({ error: 'Invalid image URL' }, { status: 400 })
     }
   } catch {
-    return NextResponse.json({ error: 'Invalid blob URL' }, { status: 400 })
+    return NextResponse.json({ error: 'Invalid image URL' }, { status: 400 })
   }
 
   const token = process.env.BLOB_READ_WRITE_TOKEN

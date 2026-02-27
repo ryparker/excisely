@@ -1,0 +1,18 @@
+{
+  "labelName": "tropical-bay-silver-rum",
+  "beverageType": "distilled_spirits",
+  "images": [{ "filename": "front.png", "imageType": "front" }],
+  "fields": {
+    "brand_name": "TROPICAL BAY",
+    "fanciful_name": null,
+    "class_type": "SILVER RUM",
+    "alcohol_content": "40% ALC./VOL(80 PROOF)",
+    "net_contents": "750 ML",
+    "name_and_address": "TROPLED BY SPIRTLAS. SINGAPORE",
+    "qualifying_phrase": "DISTILLED AND BOTTLED BY",
+    "country_of_origin": null,
+    "health_warning": "GOVERMENT WARNING -(1) ACCORDING TO THE SUREEON GENERAL, WOMEN SHOULD NOT DUTTRIMNIS)AN RREGNSBE 86 DRINK THE EKURILELI EWER DETTES TO SMAR ELIESEALCOHOL C ESSENINGSS, A/MLAS SROUR ABLFIES TO ACTINTES TO DMAR DO/ OPERATE MACHINERY, AND MAY CAUSE II HEALTH PROBLEMS.",
+    "age_statement": null,
+    "state_of_distillation": null
+  }
+}

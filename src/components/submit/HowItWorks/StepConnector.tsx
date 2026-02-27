@@ -2,17 +2,16 @@
 
 import { motion, useReducedMotion } from 'motion/react'
 
-import { STEPS } from './HowItWorksTypes'
+import type { Step } from './HowItWorksTypes'
 
 export function StepConnector({
-  index,
+  step,
   filled,
 }: {
-  index: number
+  step: Step
   filled: boolean
 }) {
   const shouldReduceMotion = useReducedMotion()
-  const step = STEPS[index]
 
   return (
     <div className="relative mt-4 self-start">

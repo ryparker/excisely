@@ -6,8 +6,10 @@ import {
   getApprovalThreshold,
   getSettings,
   getSLATargets,
+  getSubmissionPipelineModel,
 } from '@/db/queries/settings'
 import { getFieldMatchRates, getFieldOverrideRates } from '@/db/queries/stats'
+import { getCloudApiStatus } from '@/lib/ai/cloud-available'
 import { requireSpecialist } from '@/lib/auth/require-role'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageShell } from '@/components/layout/PageShell'
@@ -15,6 +17,7 @@ import { Section } from '@/components/shared/Section'
 import { ApprovalThreshold } from '@/components/settings/ApprovalThreshold'
 import { FieldStrictness } from '@/components/settings/FieldStrictness'
 import { SLASettings } from '@/components/settings/SlaSettings'
+import { SubmissionPipeline } from '@/components/settings/SubmissionPipeline'
 import { Skeleton } from '@/components/ui/Skeleton'
 
 export const metadata: Metadata = {
@@ -36,6 +39,23 @@ function SettingsSkeleton({ height = 'h-[200px]' }: { height?: string }) {
 async function ApprovalThresholdSectionData() {
   const approvalThreshold = await getApprovalThreshold()
   return <ApprovalThreshold defaultValue={approvalThreshold} />
+}
+
+// ---------------------------------------------------------------------------
+// Async section: Submission Pipeline
+// ---------------------------------------------------------------------------
+
+async function SubmissionPipelineSectionData() {
+  const [model, cloudStatus] = await Promise.all([
+    getSubmissionPipelineModel(),
+    getCloudApiStatus(),
+  ])
+  return (
+    <SubmissionPipeline
+      defaultValue={model}
+      cloudAvailable={cloudStatus.available}
+    />
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -90,6 +110,17 @@ export default async function SettingsPage() {
       >
         <Suspense fallback={<SettingsSkeleton />}>
           <ApprovalThresholdSectionData />
+        </Suspense>
+      </Section>
+
+      {/* --- Submission Pipeline --- */}
+      <Section
+        title="Submission Pipeline"
+        description="Choose the OCR model used when processing new label submissions."
+        className="border-t pt-6"
+      >
+        <Suspense fallback={<SettingsSkeleton />}>
+          <SubmissionPipelineSectionData />
         </Suspense>
       </Section>
 

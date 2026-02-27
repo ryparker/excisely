@@ -41,12 +41,23 @@ export function Combobox({
   const [open, setOpen] = React.useState(false)
   const [search, setSearch] = React.useState('')
   const [highlightIndex, setHighlightIndex] = React.useState(0)
+  // Local display value — works around React Compiler memoization breaking
+  // React Hook Form's watch() subscription re-renders. When the user selects
+  // an option, we optimistically update local state so the button label
+  // updates immediately without waiting for the parent to re-render.
+  const [localValue, setLocalValue] = React.useState(value)
   const listRef = React.useRef<HTMLUListElement>(null)
   const inputRef = React.useRef<HTMLInputElement>(null)
   const generatedId = React.useId()
   const listboxId = id ? `${id}-listbox` : `${generatedId}-listbox`
 
-  const selectedLabel = options.find((o) => o.value === value)?.label
+  // Sync from parent when value prop changes (e.g., form reset, AI pre-fill)
+  React.useEffect(() => {
+    setLocalValue(value)
+  }, [value])
+
+  const displayValue = localValue
+  const selectedLabel = options.find((o) => o.value === displayValue)?.label
 
   const filtered = React.useMemo(() => {
     if (!search) return options
@@ -59,7 +70,7 @@ export function Combobox({
     if (open) {
       setSearch('')
       // Set highlight to current selection, or 0
-      const idx = filtered.findIndex((o) => o.value === value)
+      const idx = filtered.findIndex((o) => o.value === displayValue)
       setHighlightIndex(idx >= 0 ? idx : 0)
       // Focus input after popover opens
       requestAnimationFrame(() => inputRef.current?.focus())
@@ -83,6 +94,7 @@ export function Combobox({
   }, [highlightIndex, open])
 
   function select(optionValue: string) {
+    setLocalValue(optionValue)
     onValueChange(optionValue)
     setOpen(false)
   }
@@ -124,7 +136,7 @@ export function Combobox({
           onFocus={onFocus}
           className={cn(
             'flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30 dark:hover:bg-input/50',
-            !value && 'text-muted-foreground',
+            !displayValue && 'text-muted-foreground',
             className,
           )}
         >
@@ -163,7 +175,7 @@ export function Combobox({
                 <li
                   key={option.value}
                   role="option"
-                  aria-selected={option.value === value}
+                  aria-selected={option.value === displayValue}
                   data-highlighted={i === highlightIndex || undefined}
                   className={cn(
                     'relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none',
@@ -176,7 +188,7 @@ export function Combobox({
                   }}
                 >
                   <span className="truncate">{option.label}</span>
-                  {option.value === value && (
+                  {option.value === displayValue && (
                     <span className="absolute right-2 flex size-3.5 items-center justify-center">
                       <CheckIcon className="size-4" />
                     </span>

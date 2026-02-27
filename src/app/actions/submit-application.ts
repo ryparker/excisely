@@ -16,7 +16,10 @@ import { guardApplicant } from '@/lib/auth/action-guards'
 import { formatZodError } from '@/lib/actions/parse-zod-error'
 import { logActionError } from '@/lib/actions/action-error'
 import { parseImageUrls } from '@/lib/actions/parse-image-urls'
-import { validateLabelSchema } from '@/lib/validators/label-schema'
+import {
+  validateLabelSchema,
+  type ValidateLabelInput,
+} from '@/lib/validators/label-schema'
 import { buildExpectedFields } from '@/lib/labels/validation-helpers'
 import { runValidationPipeline } from '@/lib/actions/validation-pipeline'
 
@@ -24,105 +27,66 @@ import { runValidationPipeline } from '@/lib/actions/validation-pipeline'
 // Types
 // ---------------------------------------------------------------------------
 
-type SubmitApplicationResult =
+export type SubmitApplicationResult =
   | { success: true; labelId: string; status: 'approved' | 'pending_review' }
   | { success: false; error: string; timeout?: boolean }
 
 // ---------------------------------------------------------------------------
-// Server Action
+// Core — reusable by submitApplication and batchSubmitRow
 // ---------------------------------------------------------------------------
 
-export async function submitApplication(
-  formData: FormData,
-): Promise<SubmitApplicationResult> {
-  // 1. Authenticate — only applicants can submit
-  const guard = await guardApplicant()
-  if (!guard.success) return guard
-  const { session } = guard
+export async function submitApplicationCore(input: {
+  applicantEmail: string
+  data: ValidateLabelInput
+  imageUrls: string[]
+  rawResponseTransform?: (raw: unknown) => unknown
+}): Promise<SubmitApplicationResult> {
+  const { applicantEmail, data, imageUrls, rawResponseTransform } = input
 
   let labelId: string | null = null
 
   try {
-    // 2. Parse and validate form data
-    const rawData = {
-      beverageType: formData.get('beverageType') as string,
-      containerSizeMl: Number(formData.get('containerSizeMl')),
-      classTypeCode: (formData.get('classTypeCode') as string) || undefined,
-      serialNumber: (formData.get('serialNumber') as string) || undefined,
-      brandName: formData.get('brandName') as string,
-      fancifulName: (formData.get('fancifulName') as string) || undefined,
-      classType: (formData.get('classType') as string) || undefined,
-      alcoholContent: (formData.get('alcoholContent') as string) || undefined,
-      netContents: (formData.get('netContents') as string) || undefined,
-      healthWarning: (formData.get('healthWarning') as string) || undefined,
-      nameAndAddress: (formData.get('nameAndAddress') as string) || undefined,
-      qualifyingPhrase:
-        (formData.get('qualifyingPhrase') as string) || undefined,
-      countryOfOrigin: (formData.get('countryOfOrigin') as string) || undefined,
-      grapeVarietal: (formData.get('grapeVarietal') as string) || undefined,
-      appellationOfOrigin:
-        (formData.get('appellationOfOrigin') as string) || undefined,
-      vintageYear: (formData.get('vintageYear') as string) || undefined,
-      sulfiteDeclaration:
-        formData.get('sulfiteDeclaration') === 'true' || undefined,
-      ageStatement: (formData.get('ageStatement') as string) || undefined,
-      stateOfDistillation:
-        (formData.get('stateOfDistillation') as string) || undefined,
-    }
-
-    const parsed = validateLabelSchema.safeParse(rawData)
-    if (!parsed.success) {
-      return { success: false, error: formatZodError(parsed.error) }
-    }
-
-    const input = parsed.data
-
-    // 3. Extract and validate image URLs
-    const imageUrlsResult = parseImageUrls(formData)
-    if (!imageUrlsResult.success) return imageUrlsResult
-    const { imageUrls } = imageUrlsResult
-
-    // 4. Start fetching image bytes NOW — overlaps with DB writes below (~150ms saved)
+    // 1. Start fetching image bytes NOW — overlaps with DB writes below (~150ms saved)
     const imageBuffersPromise = Promise.all(imageUrls.map(fetchImageBytes))
 
-    // 5. Resolve applicant ID by session email
-    const applicantRecord = await getApplicantByEmail(session.user.email)
+    // 2. Resolve applicant ID by email
+    const applicantRecord = await getApplicantByEmail(applicantEmail)
     const applicantId = applicantRecord?.id ?? null
 
-    // 6. Create label record with status "processing"
+    // 3. Create label record with status "processing"
     const label = await insertLabel({
       specialistId: null,
       applicantId,
-      beverageType: input.beverageType,
-      containerSizeMl: input.containerSizeMl,
+      beverageType: data.beverageType,
+      containerSizeMl: data.containerSizeMl,
       status: 'processing',
     })
 
     labelId = label.id
 
-    // 7. Create application data record
+    // 4. Create application data record
     await insertApplicationData({
       labelId: label.id,
-      serialNumber: input.serialNumber || null,
-      brandName: input.brandName,
-      fancifulName: input.fancifulName || null,
-      classType: input.classType || null,
-      classTypeCode: input.classTypeCode || null,
-      alcoholContent: input.alcoholContent || null,
-      netContents: input.netContents || null,
-      healthWarning: input.healthWarning || null,
-      nameAndAddress: input.nameAndAddress || null,
-      qualifyingPhrase: input.qualifyingPhrase || null,
-      countryOfOrigin: input.countryOfOrigin || null,
-      grapeVarietal: input.grapeVarietal || null,
-      appellationOfOrigin: input.appellationOfOrigin || null,
-      vintageYear: input.vintageYear || null,
-      sulfiteDeclaration: input.sulfiteDeclaration ?? null,
-      ageStatement: input.ageStatement || null,
-      stateOfDistillation: input.stateOfDistillation || null,
+      serialNumber: data.serialNumber || null,
+      brandName: data.brandName,
+      fancifulName: data.fancifulName || null,
+      classType: data.classType || null,
+      classTypeCode: data.classTypeCode || null,
+      alcoholContent: data.alcoholContent || null,
+      netContents: data.netContents || null,
+      healthWarning: data.healthWarning || null,
+      nameAndAddress: data.nameAndAddress || null,
+      qualifyingPhrase: data.qualifyingPhrase || null,
+      countryOfOrigin: data.countryOfOrigin || null,
+      grapeVarietal: data.grapeVarietal || null,
+      appellationOfOrigin: data.appellationOfOrigin || null,
+      vintageYear: data.vintageYear || null,
+      sulfiteDeclaration: data.sulfiteDeclaration ?? null,
+      ageStatement: data.ageStatement || null,
+      stateOfDistillation: data.stateOfDistillation || null,
     })
 
-    // 8. Create label image records
+    // 5. Create label image records
     const imageRecords = await insertLabelImages(
       imageUrls.map((url, index) => ({
         labelId: label.id,
@@ -133,41 +97,34 @@ export async function submitApplication(
       })),
     )
 
-    // 9. Build applicant corrections transform for rawResponse
-    const rawResponseTransform = buildApplicantCorrectionsTransform(
-      formData,
-      input,
-    )
-
-    // 10. Await pre-fetched image buffers (started before DB writes)
+    // 6. Await pre-fetched image buffers (started before DB writes)
     const preloadedBuffers = await imageBuffersPromise
 
-    // 11. Run shared AI validation pipeline (with pre-fetched buffers)
-    const expectedFields = buildExpectedFields(input, input.beverageType)
+    // 7. Run shared AI validation pipeline (with pre-fetched buffers)
+    const expectedFields = buildExpectedFields(data, data.beverageType)
     const result = await runValidationPipeline({
       labelId: label.id,
       imageUrls,
       imageRecordIds: imageRecords.map((r) => r.id),
-      beverageType: input.beverageType,
-      containerSizeMl: input.containerSizeMl,
+      beverageType: data.beverageType,
+      containerSizeMl: data.containerSizeMl,
       expectedFields,
       rawResponseTransform,
       preloadedBuffers,
     })
 
-    // 12. Update label with final status
+    // 8. Update label with final status
     await updateLabelStatus(label.id, {
       status: 'pending_review',
       aiProposedStatus: result.overallStatus,
       overallConfidence: String(result.overallConfidence),
     })
 
-    const finalStatus = 'pending_review' as const
-
+    // 9. Invalidate caches
     updateTag('labels')
     updateTag('sla-metrics')
 
-    return { success: true, labelId: label.id, status: finalStatus }
+    return { success: true, labelId: label.id, status: 'pending_review' }
   } catch (error) {
     // Best-effort: reset partially-created label to pending so it can be retried
     if (labelId) {
@@ -182,7 +139,7 @@ export async function submitApplication(
     }
 
     if (error instanceof PipelineTimeoutError) {
-      console.error('[submitApplication] Pipeline timeout:', error)
+      console.error('[submitApplicationCore] Pipeline timeout:', error)
       return {
         success: false,
         error:
@@ -192,11 +149,76 @@ export async function submitApplication(
     }
 
     return logActionError(
-      'submitApplication',
+      'submitApplicationCore',
       error,
       'An unexpected error occurred during submission',
     )
   }
+}
+
+// ---------------------------------------------------------------------------
+// Server Action — thin wrapper over submitApplicationCore
+// ---------------------------------------------------------------------------
+
+export async function submitApplication(
+  formData: FormData,
+): Promise<SubmitApplicationResult> {
+  // 1. Authenticate — only applicants can submit
+  const guard = await guardApplicant()
+  if (!guard.success) return guard
+  const { session } = guard
+
+  // 2. Parse and validate form data
+  const rawData = {
+    beverageType: formData.get('beverageType') as string,
+    containerSizeMl: Number(formData.get('containerSizeMl')),
+    classTypeCode: (formData.get('classTypeCode') as string) || undefined,
+    serialNumber: (formData.get('serialNumber') as string) || undefined,
+    brandName: formData.get('brandName') as string,
+    fancifulName: (formData.get('fancifulName') as string) || undefined,
+    classType: (formData.get('classType') as string) || undefined,
+    alcoholContent: (formData.get('alcoholContent') as string) || undefined,
+    netContents: (formData.get('netContents') as string) || undefined,
+    healthWarning: (formData.get('healthWarning') as string) || undefined,
+    nameAndAddress: (formData.get('nameAndAddress') as string) || undefined,
+    qualifyingPhrase: (formData.get('qualifyingPhrase') as string) || undefined,
+    countryOfOrigin: (formData.get('countryOfOrigin') as string) || undefined,
+    grapeVarietal: (formData.get('grapeVarietal') as string) || undefined,
+    appellationOfOrigin:
+      (formData.get('appellationOfOrigin') as string) || undefined,
+    vintageYear: (formData.get('vintageYear') as string) || undefined,
+    sulfiteDeclaration:
+      formData.get('sulfiteDeclaration') === 'true' || undefined,
+    ageStatement: (formData.get('ageStatement') as string) || undefined,
+    stateOfDistillation:
+      (formData.get('stateOfDistillation') as string) || undefined,
+  }
+
+  const parsed = validateLabelSchema.safeParse(rawData)
+  if (!parsed.success) {
+    return { success: false, error: formatZodError(parsed.error) }
+  }
+
+  const data = parsed.data
+
+  // 3. Extract and validate image URLs
+  const imageUrlsResult = parseImageUrls(formData)
+  if (!imageUrlsResult.success) return imageUrlsResult
+  const { imageUrls } = imageUrlsResult
+
+  // 4. Build applicant corrections transform for rawResponse
+  const rawResponseTransform = buildApplicantCorrectionsTransform(
+    formData,
+    data,
+  )
+
+  // 5. Delegate to core
+  return submitApplicationCore({
+    applicantEmail: session.user.email,
+    data,
+    imageUrls,
+    rawResponseTransform,
+  })
 }
 
 // ---------------------------------------------------------------------------

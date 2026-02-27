@@ -1,0 +1,18 @@
+{
+  "labelName": "sierra-valley-pinot-grigio",
+  "beverageType": "wine",
+  "images": [{ "filename": "front.png", "imageType": "front" }],
+  "fields": {
+    "brand_name": "SIERRA VALLEY WINERY",
+    "fanciful_name": null,
+    "class_type": "PINOT GRIGIO",
+    "grape_varietal": "PINOT GRIGIO",
+    "alcohol_content": "ALC. 12.% BY VOL.",
+    "net_contents": "750 ML",
+    "name_and_address": "SIERRA VALLEY WINES IMPORTS, CHICAGO, IL",
+    "qualifying_phrase": "IMPORTED BY",
+    "appellation_of_origin": "TREVISO, ITALY",
+    "country_of_origin": "PRODUCT OF ITALY",
+    "health_warning": "GOVERMENT WARNING: (2) ACCORDING TO THEV/UGFFEEN/DOSIRBLSALE, ANTEENG HNESMAL, SHOULD PNOTLIA FOTHPMT CIREST DNTREAS. BELUS-SEANAN/HALL RONSHLEB BRES ARFVED TO RE SNANR A CARR GOT E RATT MACHINERY/ AAMAX WL.LSII, HIRE ME HEALTHY PROBLE MS."
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "labelName": "hacienda-sol-tequila",
+  "beverageType": "distilled_spirits",
+  "images": [{ "filename": "front.png", "imageType": "front" }],
+  "fields": {
+    "brand_name": "HACIENDA SOL",
+    "fanciful_name": null,
+    "class_type": "TEQUILA BLANCO",
+    "alcohol_content": "38% ALC./VOL.",
+    "net_contents": "750 ML",
+    "name_and_address": "INEJAR PR0UITS CO, SAN DIEGO, CA, SAN DIEGO, & JALISCO, MEXICO",
+    "qualifying_phrase": "PRODCUTED BY",
+    "country_of_origin": "HECHO EN MEXICO",
+    "health_warning": "GOVERMENT WARNING: (2) ACCORDING TO THE RE-GFFEREN/GOSICAL ANSENG, ANEERAL, SHOULD NHOTLIA FOTHPMT CRESTN INERIAS, BEGUSSEANAN/HALL RONSHLEB BRES ABSNUED TO RE NAMC A CAR DO RERATE MACHINERY' KAMAGA MLASD, MROUN HEALTH PROBLEMS.",
+    "age_statement": null,
+    "state_of_distillation": null
+  }
+}

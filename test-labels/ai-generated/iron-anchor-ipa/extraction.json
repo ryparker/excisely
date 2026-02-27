@@ -1,0 +1,16 @@
+{
+  "labelName": "iron-anchor-ipa",
+  "beverageType": "malt_beverage",
+  "images": [{ "filename": "front.png", "imageType": "front" }],
+  "fields": {
+    "brand_name": "IRON ANCHOR BREWERY",
+    "fanciful_name": null,
+    "class_type": "INDIA PALE ALE",
+    "alcohol_content": "ALC. 7.0% BY VOL.",
+    "net_contents": "12 FL. OZ (355ML)",
+    "name_and_address": "IVIS CANHOR BREWERY, SEATTLE, WA",
+    "qualifying_phrase": "BREWED & CANNED BY",
+    "country_of_origin": "• PRODUCT OF USA",
+    "health_warning": "GOVERMENT WARNING: (2) ACCORDING TO THE SUREEON GENERAL, WOMEN SHOULD NOT THINK ALCHOLIC BEVERAGES DURING TIMLE • MAARINE INGBID DETTES TES, (1S ESSEFLIONE AR PRELING MAMRHE RUSCOSAGED ASELIT R ASVINES TO DRIVE A.C.A.R.3 DPERATE MACHINERN AND MAY CAUSE HEALTH PROBLEMS."
+  }
+}

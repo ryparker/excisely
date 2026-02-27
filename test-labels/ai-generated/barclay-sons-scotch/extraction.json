@@ -1,0 +1,18 @@
+{
+  "labelName": "barclay-sons-scotch",
+  "beverageType": "distilled_spirits",
+  "images": [{ "filename": "front.png", "imageType": "front" }],
+  "fields": {
+    "brand_name": "BARCLAY & SONS",
+    "fanciful_name": null,
+    "class_type": "SCOTCH WHISKY",
+    "alcohol_content": "43% ALC./VOL.",
+    "net_contents": "750 ML",
+    "name_and_address": "BARCLAY A/ SONS DISTILLERY EDINBURGH, SCOTLAND",
+    "qualifying_phrase": "DISTILLED & BOTTLED BY",
+    "country_of_origin": "PRODUCT OF SCOTLAND",
+    "health_warning": "GOVERMENT WARNING: (1) ACCORDING TO TSE THE BARWEEM GENERAL SOME WOMEN SHOULD NOT THINK ACOMODSIC BEVERGES PUIRGEENTEE/ THIKERS FAR.INCOTALREABLE PRODUCETS",
+    "age_statement": null,
+    "state_of_distillation": null
+  }
+}

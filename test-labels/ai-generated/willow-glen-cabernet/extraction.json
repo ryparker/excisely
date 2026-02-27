@@ -1,0 +1,18 @@
+{
+  "labelName": "willow-glen-cabernet",
+  "beverageType": "wine",
+  "images": [{ "filename": "front.png", "imageType": "front" }],
+  "fields": {
+    "brand_name": "WILLOW GLEN WINERY",
+    "fanciful_name": null,
+    "class_type": "CABERNET SAUVIGNON",
+    "grape_varietal": "CABERNET SAUVIGNON",
+    "alcohol_content": "ALC. 14.5% BY VOL.",
+    "net_contents": "750 ML",
+    "name_and_address": "WILLOW GLEN WINERY, PA, CA",
+    "qualifying_phrase": "PRODUCED & BOTTLED BY",
+    "appellation_of_origin": "NAPA VALLEY",
+    "country_of_origin": "PRODUCT OF USA",
+    "health_warning": "GOVERMENT WARNING: (1) ACCORDING TO ERE /HMERAL, SHOULD HOULD B RETHMNORG ACCUDING THIS FAREFAN/ACVEHAL ASVILTABULTY TO TWINE A CAR B OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS."
+  }
+}

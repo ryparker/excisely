@@ -1,0 +1,18 @@
+{
+  "labelName": "havana-coast-spiced-rum",
+  "beverageType": "distilled_spirits",
+  "images": [{ "filename": "front.png", "imageType": "front" }],
+  "fields": {
+    "brand_name": "HAVANA COAST",
+    "fanciful_name": null,
+    "class_type": "SPICED RUM",
+    "alcohol_content": "40% ALC./VOL. (80 PROOF)",
+    "net_contents": "750 ML",
+    "name_and_address": "HAVANA COAST DISTILLING CO. SANTO DOMINGO, R.D.",
+    "qualifying_phrase": "DISTILLED AND BOTTLED BY",
+    "country_of_origin": "PRODUCT OF THE DOMINICAN REPUBLIC",
+    "health_warning": "GOVERMENT WARNING -(1) ACCORDING TO THE SUREEON GENERAL, WOMEN SHOULD NOT BEL *THNINISRRERE BECOMISG/RISTPR RRE-FRETILITLLIEWER DETTES FI SMAR ELIESEALCOHOLE C ESSENINGSS, AAPALS TROUR ABILES TO ACEMES TO DMAR DRI OPERATE MACHINERY, AND MAY CAUSE II HEALTH PROBLEMS.",
+    "age_statement": null,
+    "state_of_distillation": null
+  }
+}

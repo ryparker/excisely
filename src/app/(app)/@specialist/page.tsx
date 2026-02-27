@@ -4,8 +4,11 @@ import { Suspense } from 'react'
 
 import { requireSpecialist } from '@/lib/auth/require-role'
 import { searchParamsCache } from '@/lib/search-params-cache'
+import { getSubmissionPipelineModel } from '@/db/queries/settings'
+import { hasCloudApiKeys } from '@/lib/ai/cloud-available'
 import { Section } from '@/components/shared/Section'
 import { DashboardAnimatedShell } from '@/components/dashboard/DashboardAnimatedShell'
+import { CloudUpgradeBanner } from '@/components/shared/CloudUpgradeBanner'
 import {
   DashboardSLACards,
   SLACardsSkeleton,
@@ -58,12 +61,21 @@ export default async function SpecialistDashboard({
 
   const beverageTypeFilter = searchParamsCache.get('beverageType')
 
+  const pipelineModel = await getSubmissionPipelineModel()
+  const cloudAvailable = hasCloudApiKeys()
+
   return (
     <DashboardAnimatedShell
       header={
         <PageHeader
           title="Label Applications"
           description="All label verification activity and review queue."
+        />
+      }
+      banner={
+        <CloudUpgradeBanner
+          cloudAvailable={cloudAvailable}
+          pipelineModel={pipelineModel}
         />
       }
       stats={

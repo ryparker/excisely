@@ -55,6 +55,9 @@ drizzle/meta/_journal.json.bak
 *.tsbuildinfo
 next-env.d.ts
 
+# local file uploads (used when BLOB_READ_WRITE_TOKEN is not set)
+.data/
+
 # sample images (downloaded during seed)
 scripts/sample-images/
 

@@ -1,6 +1,8 @@
 # Excisely — Architecture
 
-AI-powered alcohol label verification tool for TTB (Alcohol and Tobacco Tax and Trade Bureau) labeling specialists. Compares uploaded label images against COLA application data (TTB Form 5100.31) using a hybrid AI pipeline: Google Cloud Vision for pixel-accurate OCR, then OpenAI GPT-4.1 for semantic field classification.
+Alcohol label verification tool for TTB (Alcohol and Tobacco Tax and Trade Bureau) labeling specialists. Compares uploaded label images against COLA application data (TTB Form 5100.31) using OCR + field classification, with field-by-field comparison and optional annotated image overlays.
+
+**Local-first** — works out of the box with Tesseract.js OCR + rule-based classification. Cloud AI (Google Cloud Vision + OpenAI GPT-4.1 Nano) is opt-in for higher accuracy and bounding box overlays.
 
 ---
 
@@ -21,7 +23,7 @@ AI-powered alcohol label verification tool for TTB (Alcohol and Tobacco Tax and 
 
 The application enables TTB labeling specialists to verify that physical alcohol beverage labels comply with the information submitted on Form 5100.31 (Certificate of Label Approval application). Instead of manually comparing printed labels against form data — a process that takes 5-10 minutes per label — the tool uses AI to extract text from label images, classify it into regulatory fields, and compare it against application data in under 5 seconds.
 
-The system handles three beverage types (distilled spirits, wine, malt beverages), each with different mandatory fields, container size regulations, and formatting requirements. It supports single-label validation, batch uploads of 300+ labels, human review queues for low-confidence results, revalidation, resubmission tracking, and communication report generation.
+The system handles three beverage types (distilled spirits, wine, malt beverages), each with different mandatory fields, container size regulations, and formatting requirements. It supports single-label validation, CSV batch uploads (up to 50 labels), human review queues for low-confidence results, revalidation, resubmission tracking, and communication report generation.
 
 ```
 +------------------------------------------------------------------+
@@ -246,10 +248,10 @@ excisely/
     |   |   |-- validate/
     |   |   |   +-- page.tsx          # Single label validation form
     |   |   |
-    |   |   |-- batch/
-    |   |   |   |-- page.tsx          # Batch upload (300+ files)
-    |   |   |   +-- [id]/
-    |   |   |       +-- page.tsx      # Batch detail / progress
+    |   |   |-- submit/
+    |   |   |   |-- page.tsx          # Single label submission (applicant)
+    |   |   |   +-- batch/
+    |   |   |       +-- page.tsx      # CSV batch upload (up to 50 labels)
     |   |   |
     |   |   |-- history/
     |   |   |   |-- page.tsx          # Validation history list (paginated)
@@ -281,16 +283,16 @@ excisely/
     |   |           +-- route.ts      # Vercel Blob client upload token exchange
     |   |
     |   +-- actions/                  # Server Actions (all mutations)
-    |       |-- validate-label.ts     # Upload + AI validation pipeline
-    |       |-- create-batch.ts       # Batch upload creation
-    |       |-- process-batch-item.ts # Process single batch item
+    |       |-- submit-application.ts # Applicant single-label submission
+    |       |-- batch-submit.ts       # Applicant CSV batch submission (up to 50)
+    |       |-- validate-label.ts     # Specialist upload + AI validation pipeline
     |       |-- submit-review.ts      # Human review override + finalize
     |       |-- revalidate-label.ts   # Re-run AI on existing label
+    |       |-- batch-approve.ts      # Bulk-approve high-confidence labels
     |       |-- manage-applicants.ts  # Create/update applicants
     |       |-- update-settings.ts    # Save settings changes
     |       |-- manage-variants.ts    # Add/remove accepted variants
     |       |-- submit-correction.ts  # Resubmission linked to prior label
-    |       |-- bulk-approve.ts       # Approve all clean labels in batch
     |       +-- delete-label.ts       # Remove label + associated data
     |
     |-- components/
@@ -298,7 +300,7 @@ excisely/
     |   |-- auth/                     # Login form, user menu
     |   |-- layout/                   # App header, sidebar, page header
     |   |-- validation/               # Upload form, checklist, annotated image, comparisons
-    |   |-- batch/                    # Upload zone, progress bar, results table
+    |   |-- submit/                   # Single + batch submission forms, sample data
     |   |-- review/                   # Queue table, field override controls, notes
     |   |-- communication/            # Report messages, copy/send buttons, email preview
     |   |-- dashboard/                # Stats cards, recent activity, status charts
@@ -332,7 +334,7 @@ excisely/
     |   |-- validators/
     |   |   |-- label-schema.ts       # Zod schemas for application data
     |   |   |-- file-schema.ts        # File upload validation (type, size, magic bytes)
-    |   |   +-- batch-schema.ts       # Batch upload validation
+    |   |   +-- csv-row-schema.ts     # CSV batch row validation (per-row Zod schema)
     |   |
     |   |-- settings/
     |   |   +-- get-settings.ts       # Load settings + variants from DB (cached)
@@ -351,14 +353,13 @@ excisely/
     |   +-- utils.ts                  # cn() helper, formatters
     |
     |-- hooks/
-    |   |-- use-batch-progress.ts     # Polling hook for batch status
     |   |-- use-image-annotations.ts  # Annotation interaction state
     |   +-- use-keyboard-shortcuts.ts # Keyboard shortcut registration (context-aware)
     |
     |-- stores/                       # Zustand stores
     |   |-- annotation-store.ts       # Image viewer state (active field, zoom, pan)
     |   |-- review-store.ts           # Review session state (overrides, current field)
-    |   |-- upload-store.ts           # Batch upload queue (files, progress)
+    |   |-- useBatchUploadStore.ts    # CSV batch upload state (rows, images, progress)
     |   +-- shortcut-store.ts         # Active shortcut context per page
     |
     |-- types/
@@ -590,23 +591,22 @@ All primary keys use nanoid (21-char, URL-friendly) generated via `$defaultFn(()
          |    +---------------------------------------------------+
          |    |
          v    v
-+------------------------------+         +---------------------+
-|          labels              |         |      batches        |
-|------------------------------|         |---------------------|
-| id (PK, nanoid)              |<--------| id (PK, nanoid)     |
-| specialist_id (FK -> users)  |  batch_ | specialist_id (FK)  |
-| applicant_id (FK -> applic.) |  id     | applicant_id (FK)   |
-| batch_id (FK -> batches)     |---------| name                |
-| prior_label_id (FK -> self)  |         | status (enum)       |
-| beverage_type (enum)         |         | total_labels        |
-| container_size_ml            |         | processed_count     |
-| status (enum)                |         | approved_count      |
-| overall_confidence           |         | cond_approved_count |
-| correction_deadline          |         | rejected_count      |
-| deadline_expired             |         | needs_corr_count    |
-| is_priority                  |         | created_at          |
-| created_at                   |         | updated_at          |
-| updated_at                   |         +---------------------+
++------------------------------+
+|          labels              |
+|------------------------------|
+| id (PK, nanoid)              |
+| specialist_id (FK -> users)  |
+| applicant_id (FK -> applic.) |
+| prior_label_id (FK -> self)  |
+| beverage_type (enum)         |
+| container_size_ml            |
+| status (enum)                |
+| overall_confidence           |
+| correction_deadline          |
+| deadline_expired             |
+| is_priority                  |
+| created_at                   |
+| updated_at                   |
 +-------+------+------+-------+
         |      |      |
         |      |      +----------------------------------------------+
@@ -703,7 +703,6 @@ All primary keys use nanoid (21-char, URL-friendly) generated via `$defaultFn(()
 | -------------------------------------- | ----------- | ----------------------------------------------- |
 | users -> labels                        | 1:many      | `specialist_id` tracks who processed each label |
 | applicants -> labels                   | 1:many      | Labels grouped by submitting company            |
-| batches -> labels                      | 1:many      | Batch uploads contain multiple labels           |
 | labels -> labels                       | self-ref    | `prior_label_id` for resubmission chains        |
 | labels -> label_images                 | 1:many      | Front, back, neck, strip images                 |
 | labels -> application_data             | 1:1         | Form 5100.31 data per label                     |
@@ -719,8 +718,6 @@ beverage_type:   distilled_spirits | wine | malt_beverage
 
 label_status:    pending | processing | approved | conditionally_approved
                  | needs_correction | rejected
-
-batch_status:    processing | completed | failed
 
 field_name:      brand_name | fanciful_name | class_type | alcohol_content
                  | net_contents | health_warning | name_and_address
@@ -745,7 +742,7 @@ The AI subsystem is split into three files that form a pipeline.
 
 **`ocr.ts`** (Stage 1) wraps the Google Cloud Vision `TEXT_DETECTION` API. Accepts a Vercel Blob URL, returns word-level text with pixel-accurate bounding polygons (4 vertices per word). For multi-image labels, runs OCR on each image in parallel via `Promise.all`. Cost: $0.0015/image. Latency: <1 second.
 
-**`classify-fields.ts`** (Stage 2) uses the Vercel AI SDK (`generateText` + `Output.object()`) with `openai('gpt-5-mini')` to classify OCR text into TTB regulatory fields. Receives text only (no image tokens), making it fast and cheap. The classification prompt is beverage-type-aware: it tells the model which fields to look for based on the product type selection. Returns structured output via Zod schema with `.nullable()` properties (OpenAI limitation: no `.optional()` in structured output). Cost: ~$0.0015/label. Latency: 1-2 seconds.
+**`classify-fields.ts`** (Stage 2) uses the Vercel AI SDK (`generateText` + `Output.object()`) with `openai('gpt-4.1-nano')` (submission pipeline) to classify OCR text into TTB regulatory fields. Receives text only (no image tokens), making it fast and cheap. The classification prompt is beverage-type-aware: it tells the model which fields to look for based on the product type selection. Returns structured output via Zod schema with `.nullable()` properties (OpenAI limitation: no `.optional()` in structured output). Cost: ~$0.0001/label. Latency: ~2-4 seconds.
 
 **`extract-label.ts`** is the orchestrator. Calls OCR, then classification, then merges classification results with bounding box coordinates from OCR. Each classified field references word indices from Stage 1; the orchestrator computes union bounding boxes and normalizes coordinates to 0-1 range for UI rendering. Total cost: ~$0.003/label. Total latency: 2-4 seconds.
 
@@ -794,10 +791,10 @@ All database mutations go through server actions. No API routes are exposed for 
 2. Check role if the action is specialist-only (`session.user.role === 'applicant'` guard).
 3. Validate input with Zod schemas (re-validates independently from client-side validation).
 4. Execute business logic (DB writes, AI calls, file operations).
-5. Call `revalidatePath()` or `revalidateTag()` to bust any cached data.
+5. Call `revalidateTag()` to bust any cached data (tag-based: `'labels'`, `'sla-metrics'`, `'settings'`).
 6. Return result or redirect.
 
-Key actions: `validate-label.ts` (the core validation pipeline), `submit-review.ts` (human review overrides), `bulk-approve.ts` (batch quick-approve for clean labels), `revalidate-label.ts` (re-run AI with current settings), `submit-correction.ts` (resubmission linked to prior label).
+Key actions: `submit-application.ts` (applicant single-label submission), `batch-submit.ts` (applicant CSV batch submission), `validate-label.ts` (specialist validation pipeline), `submit-review.ts` (human review overrides), `batch-approve.ts` (bulk-approve high-confidence labels), `revalidate-label.ts` (re-run AI with current settings), `submit-correction.ts` (resubmission linked to prior label).
 
 ### `proxy.ts` — Auth + Security Headers
 

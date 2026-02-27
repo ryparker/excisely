@@ -1,0 +1,16 @@
+{
+  "labelName": "lakeview-amber-lager",
+  "beverageType": "malt_beverage",
+  "images": [{ "filename": "front.png", "imageType": "front" }],
+  "fields": {
+    "brand_name": "LAKEVIEW BREWING CO.",
+    "fanciful_name": null,
+    "class_type": "AMBER LAGER",
+    "alcohol_content": "ALC. 5.3% BY VOL.",
+    "net_contents": "12 FL. OZ (355ML)",
+    "name_and_address": "LAKEVIEW BREWING CO. MILWAUKEE, WI MILWAUKEE, WI",
+    "qualifying_phrase": "BREWED & PACKAGED BY",
+    "country_of_origin": "• PRODUCT OF USA",
+    "health_warning": "GOVERMENT WARNING: (1) ACCORDING TO THE SUREEON GENERAL WOMEN SHOULD NOT DRINK ALCOHOLOG BEVERAGES DURIING EINEE •MAAPTHE SMMOD DETES TES, (1S.ESSEFTION(E MF FALLOUNS HERR AIRH.ALKE RECTTI ASELTIF IT ASVINOS, DRIVE E. C.A.R.N OPERATE MACHINERN AND MAY CAUSE HEALTH PROHLEMS."
+  }
+}

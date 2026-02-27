@@ -14,7 +14,14 @@ import { cn } from '@/lib/utils'
 import type { ValidateLabelInput } from '@/lib/validators/label-schema'
 import type { FieldGroupProps } from './FieldGroupTypes'
 
+const ADDRESS_PLACEHOLDERS: Record<string, string> = {
+  wine: 'e.g., Willow Glen Winery, St. Helena, CA',
+  distilled_spirits: 'e.g., Beam Suntory, Clermont, KY',
+  malt_beverage: 'e.g., Blue Harbor Brewing Co., San Diego, CA',
+}
+
 export function ProducerInfoFields({
+  beverageType,
   showSplitPane,
   onFieldFocus,
   onFieldChange,
@@ -40,7 +47,11 @@ export function ProducerInfoFields({
           <Textarea
             id="nameAndAddress"
             rows={3}
-            placeholder="e.g., Beam Suntory, Clermont, KY"
+            placeholder={
+              beverageType
+                ? ADDRESS_PLACEHOLDERS[beverageType]
+                : 'e.g., Beam Suntory, Clermont, KY'
+            }
             className={cn(
               extraction.aiOriginalValues.has('name_and_address') &&
                 !extraction.modifiedFields.has('name_and_address') &&

@@ -230,20 +230,36 @@ export function compareField(
 
   const strategy = matchType ?? FIELD_MATCH_STRATEGY[fieldName] ?? 'fuzzy'
 
+  let result: ComparisonResult
   switch (strategy) {
     case 'exact':
-      return compareExact(fieldName, expected, extracted)
+      result = compareExact(fieldName, expected, extracted)
+      break
     case 'fuzzy':
-      return compareFuzzy(fieldName, expected, extracted)
+      result = compareFuzzy(fieldName, expected, extracted)
+      break
     case 'normalized':
-      return compareNormalized(fieldName, expected, extracted)
+      result = compareNormalized(fieldName, expected, extracted)
+      break
     case 'contains':
-      return compareContains(fieldName, expected, extracted)
+      result = compareContains(fieldName, expected, extracted)
+      break
     case 'enum':
-      return compareEnum(fieldName, expected, extracted)
+      result = compareEnum(fieldName, expected, extracted)
+      break
     default:
-      return compareFuzzy(fieldName, expected, extracted)
+      result = compareFuzzy(fieldName, expected, extracted)
   }
+
+  // If we're confident enough to call it a "match", ensure confidence is at
+  // least 95. Some strategies (fuzzy containment, word-overlap) return lower
+  // values even for genuine matches, which drags down the overall confidence
+  // average and prevents labels from appearing in the "Ready to Approve" queue.
+  if (result.status === 'match' && result.confidence < 95) {
+    result.confidence = 95
+  }
+
+  return result
 }
 
 // ---------------------------------------------------------------------------

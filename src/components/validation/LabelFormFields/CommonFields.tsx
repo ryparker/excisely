@@ -11,7 +11,14 @@ import { cn } from '@/lib/utils'
 import type { ValidateLabelInput } from '@/lib/validators/label-schema'
 import type { FieldGroupProps } from './FieldGroupTypes'
 
+const CLASS_TYPE_PLACEHOLDERS: Record<string, string> = {
+  wine: 'e.g., Table Wine',
+  distilled_spirits: 'e.g., Kentucky Straight Bourbon Whiskey',
+  malt_beverage: 'e.g., Lager',
+}
+
 export function CommonFields({
+  beverageType,
   showSplitPane,
   onFieldFocus,
   onFieldChange,
@@ -115,7 +122,11 @@ export function CommonFields({
             </Label>
             <Input
               id="classType"
-              placeholder="e.g., Kentucky Straight Bourbon Whisky"
+              placeholder={
+                beverageType
+                  ? CLASS_TYPE_PLACEHOLDERS[beverageType]
+                  : 'e.g., Kentucky Straight Bourbon Whiskey'
+              }
               className={cn(
                 extraction.aiOriginalValues.has('class_type') &&
                   !extraction.modifiedFields.has('class_type') &&

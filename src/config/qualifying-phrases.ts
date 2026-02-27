@@ -29,6 +29,7 @@ export const QUALIFYING_PHRASES = [
   'Vinted and Bottled by',
   'Prepared and Bottled by',
   'Brewed and Bottled by',
+  'Brewed and Packaged by',
   'Imported and Bottled by',
   // Contract/third-party bottling
   'Bottled for',

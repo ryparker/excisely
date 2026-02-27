@@ -8,7 +8,7 @@ import {
   type ValidationItemBox,
 } from '@/components/validation/AnnotatedImage'
 import { ImageTabs } from '@/components/validation/ImageTabs'
-import { getSignedImageUrl } from '@/lib/storage/blob'
+import { getSignedImageUrl } from '@/lib/storage/constants'
 import { useExtractionStore } from '@/stores/useExtractionStore'
 
 // ---------------------------------------------------------------------------

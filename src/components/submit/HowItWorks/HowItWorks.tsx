@@ -7,8 +7,15 @@ import { ProcessStep } from './ProcessStep'
 import { StepConnector } from './StepConnector'
 import { MobileStep } from './MobileStep'
 
-export function HowItWorks() {
+interface HowItWorksProps {
+  scanAvailable?: boolean
+}
+
+export function HowItWorks({ scanAvailable = false }: HowItWorksProps) {
   const submissionStep = useExtractionStore((s) => s.submissionStep)
+
+  // Local mode has no AI extraction steps to visualize — the form itself guides the user
+  if (!scanAvailable) return null
 
   return (
     <div className="my-10">
@@ -21,7 +28,7 @@ export function HowItWorks() {
             <div key={step.title} className="flex items-start">
               <ProcessStep step={step} index={i} state={state} />
               {i < STEPS.length - 1 && (
-                <StepConnector index={i} filled={connectorFilled} />
+                <StepConnector step={step} filled={connectorFilled} />
               )}
             </div>
           )

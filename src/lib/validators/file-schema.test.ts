@@ -20,6 +20,11 @@ describe('validateImageUrl', () => {
     ).toBe(true)
   })
 
+  it('accepts local filesystem URLs', () => {
+    expect(validateImageUrl('local://labels/image-abc123.png')).toBe(true)
+    expect(validateImageUrl('local://labels/subfolder/image.jpg')).toBe(true)
+  })
+
   it('rejects non-blob domains', () => {
     expect(validateImageUrl('https://example.com/image.jpg')).toBe(false)
     expect(validateImageUrl('https://evil.com/blob.vercel-storage.com')).toBe(

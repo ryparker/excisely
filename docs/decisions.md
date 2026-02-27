@@ -8,6 +8,55 @@ The goal is to show iterative, thoughtful engineering judgment — not just what
 
 ## 1. Engineering Decisions
 
+### Batch CSV Upload Design _(Feb 27, 2026)_
+
+**Chosen:** CSV file upload with semicolon-delimited image filenames, client-side parsing, and concurrent server-side processing via `p-limit(3)`.
+
+**Problem:** Applicants with many labels (e.g., a distillery submitting 20+ products) had to submit each label individually through a multi-step form. At 3-5 seconds of AI processing per label, this was tedious and error-prone.
+
+**What we built:**
+
+1. CSV format maps 1:1 to Form 5100.31 fields (snake_case columns), with a semicolon-delimited `images` column for multi-image labels
+2. Client-side parsing with Papaparse + per-row Zod validation before any server calls
+3. 4-phase UX: Upload → Preview/Validate → Processing → Results
+4. `submitApplicationCore()` extracted from `submitApplication()` for reuse by both single and batch flows
+5. `p-limit(3)` concurrency cap to avoid overwhelming the AI pipeline
+6. Invalid rows skipped (not blocking), retry-failed capability for error recovery
+
+**Alternatives considered:**
+
+- **Comma-delimited images** — would conflict with CSV commas in filenames. Semicolons avoid quoting complexity.
+- **Server-side CSV parsing** — adds unnecessary server load and latency. Client-side parsing gives instant feedback and keeps the server stateless.
+- **ZIP file upload** — more complex UX, harder to map images to rows, and harder to validate incrementally.
+- **Drag-and-drop folder upload** — browser support is inconsistent and doesn't help with the structured data (beverage type, brand name, etc.).
+- **Higher concurrency** — `p-limit(5)` or unlimited would be faster but risks rate limiting from cloud APIs and degrades server responsiveness for other users.
+
+**Trade-off:** CSV requires applicants to prepare data in a specific format, but it's universally supported (Excel, Google Sheets, any text editor) and scales to the 50-label batch limit without custom tooling.
+
+### Local-First Pipeline: Cloud APIs Opt-In _(Feb 27, 2026)_
+
+**Chosen:** Default the submission pipeline to `local` (Tesseract.js OCR), making the app fully functional without any cloud API keys. Cloud AI (Google Cloud Vision + OpenAI) becomes an opt-in upgrade when API keys are configured.
+
+**Problem:** The app required two cloud API keys (Google Cloud Vision + OpenAI) to function at all. Evaluators cloning the repo would hit immediate errors without configuring credentials. The local Tesseract pipeline was already proven (350 tests passing, all under 5s) but wasn't the default.
+
+**What changed:**
+
+1. Default pipeline model switched from `'cloud'` to `'local'` in `getSubmissionPipelineModel()`
+2. Cloud API availability detection (`hasCloudApiKeys()`, `getCloudApiStatus()`) — server-side checks for env vars
+3. Settings page shows cloud API status indicator and disables the Cloud AI radio when keys are missing
+4. Validation pipeline catches cloud extraction failures and falls back to local automatically
+5. Applicant pre-fill scan disabled when using local pipeline (no local equivalent for structured field extraction without an LLM)
+6. Dismissable upgrade banner on specialist dashboard when using local mode
+7. Submit form shows "Enter fields manually" prompt instead of scan button when cloud is unavailable
+
+**Alternatives considered:**
+
+- **Keep cloud as default, handle missing keys with error messages** — poor DX. Evaluators would see cryptic API errors before understanding the app. First impressions matter.
+- **Require all API keys in .env.example** — creates setup friction. The app should demonstrate value immediately.
+- **Auto-detect keys and switch automatically** — unpredictable behavior. Explicit setting is better. We do fall back automatically on cloud _failures_, but the default is intentional.
+
+**Trade-off:** Local pipeline has lower OCR accuracy on decorative/embossed text and no bounding box overlays. But it works immediately, costs nothing, and the comparison engine (Dice coefficient, normalized parsing) compensates for many OCR imperfections. Cloud upgrade is one Settings toggle away once keys are configured.
+
 ### Reverted to Cloud Vision + OpenAI Pipeline _(Feb 25, 2026)_
 
 **Chosen:** Reverted from local Tesseract.js WASM + rule-based classification pipeline back to Google Cloud Vision OCR + OpenAI GPT-4.1 classification.
@@ -357,6 +406,27 @@ What I explicitly chose NOT to show applicants: confidence scores, match results
 - Radix Primitives with custom styling (more work)
 
 **Reasoning:** shadcn/ui gives us accessible, unstyled Radix primitives with sensible defaults that we can customize heavily for the government compliance theme (deep navy, gold accents, official typography). Components are copied into the project (not imported from `node_modules`), so we own them completely -- no version lock-in or style overriding fights. Tailwind CSS v4's CSS-first configuration means theming happens in `globals.css` with the `@theme` directive, making dark mode and custom color palettes straightforward. The government aesthetic (serif headings, badge-style status indicators, shield motifs) requires significant customization that would fight against opinionated libraries like Material UI.
+
+### Local VLM Pipeline with SmolVLM-256M _(Feb 26, 2026)_
+
+**Chosen:** Added a client-side vision-language model pipeline using SmolVLM-256M-Instruct via Transformers.js (@huggingface/transformers). Runs entirely in the browser via Web Worker + WASM — zero cloud API calls.
+
+**Alternatives considered:**
+
+- Server-side local model (Ollama/llama.cpp) — more powerful models available but requires server infrastructure, defeats the "no API calls" goal
+- Larger VLMs (SmolVLM-500M, Florence-2) — better accuracy but significantly larger downloads (1-2GB) and slower inference
+- MobileVLM / TinyLLaVA — similar size class but less active community support and fewer Transformers.js examples
+- Cloud Vision API only — already have this in the main pipeline; the point is an alternative with zero external dependencies
+
+**Reasoning:** SmolVLM-256M is the smallest viable VLM that Transformers.js supports with multimodal (image + text) capabilities. At ~500MB download (quantized q4f16), it's feasible for browser delivery with caching. The 256M parameter count means accuracy will be limited — decorative fonts, small text, and dense health warnings will be challenging — but the existing `compareField()` engine compensates with fuzzy matching, normalization, and field-specific strategies. This pipeline is positioned as a developer tool / proof of concept, not a replacement for the cloud pipeline. It demonstrates that label verification can work with zero external API dependencies.
+
+**Trade-offs:**
+
+- ~500MB first-load download (cached afterward)
+- ~2-5s per field inference (vs. ~3-5s total for cloud pipeline)
+- Lower accuracy on complex fields (health warning, name and address)
+- ~600MB browser memory usage
+- No bounding box support (text generation only, no spatial localization)
 
 ---
 

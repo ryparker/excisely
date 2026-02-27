@@ -1,0 +1,18 @@
+{
+  "labelName": "emerald-hill-sauvignon-blanc",
+  "beverageType": "wine",
+  "images": [{ "filename": "front.png", "imageType": "front" }],
+  "fields": {
+    "brand_name": "EMERALD HILL VINEYARD",
+    "fanciful_name": null,
+    "class_type": "SAUVIGNON BLANC",
+    "grape_varietal": "SAUVIGNON BLANC",
+    "alcohol_content": "ALC. 13% BY VOL.",
+    "net_contents": "750 ML",
+    "name_and_address": "EMERALD MHILLS HILL VINEYARD SONOMA COUNTY CALIFORNIA",
+    "qualifying_phrase": "PRODUCED & BOTTLED BY",
+    "appellation_of_origin": "SONOMA COUNTY CALIFORNIA",
+    "country_of_origin": "PRODUCT OF USA",
+    "health_warning": "GOVERMENT WARNING: (1) ACCORDING TO THE S'UREREN GONSICIAL, DATUIRAL, MEL MEAM, SHOULD NHOTLY AN FY0THIP GRES BROSSION SIBE MORUAMDER ISIST THULE FIURAS ARSHSEND TO RE NAMC E. CARR DPERIATE MACHINERY/ AMMA WASDE, HIIES HLEALETH PROBE.MES."
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "labelName": "dogwood-tennessee-whiskey",
+  "beverageType": "distilled_spirits",
+  "images": [{ "filename": "front.png", "imageType": "front" }],
+  "fields": {
+    "brand_name": "DOGWOOD DISTILLING",
+    "fanciful_name": null,
+    "class_type": "TENNESSEE WHISKEY",
+    "alcohol_content": "46% ALC./VOL. (92 PROOF)",
+    "net_contents": "750 ML",
+    "name_and_address": "DOWTCI 8 STILLING DISTILLING, KY",
+    "qualifying_phrase": "DISTILLED & BOTTLED BY",
+    "country_of_origin": "LYNCHBURG TN USA",
+    "health_warning": "GOVERMENT WARNING: (1) ACCORDING TO THE SMEREIN GENERAL WOMEN SHOULD NOT DRINK ALCOHOLICS BREVERSES SE. MAEN THE ES HAYNE THE RADRO DETTES TO DRIVE A CAR OR SSPERIE INANE, E AMBE MAMHNEY CAUSE HEALTH PRORPERTIES.",
+    "age_statement": null,
+    "state_of_distillation": null
+  }
+}

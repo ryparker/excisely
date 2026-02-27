@@ -11,9 +11,16 @@ import { FieldLabel } from '@/components/shared/FieldLabel'
 import { BEVERAGE_TYPES, isValidSize } from '@/config/beverage-types'
 import { getCodesByBeverageType } from '@/config/class-type-codes'
 import { cn } from '@/lib/utils'
+import type { BeverageType } from '@/config/beverage-types'
 import type { ValidateLabelInput } from '@/lib/validators/label-schema'
 
-export function VolumeAndClassFields() {
+interface VolumeAndClassFieldsProps {
+  beverageType: BeverageType | undefined
+}
+
+export function VolumeAndClassFields({
+  beverageType,
+}: VolumeAndClassFieldsProps) {
   const {
     register,
     watch,
@@ -21,7 +28,6 @@ export function VolumeAndClassFields() {
     formState: { errors },
   } = useFormContext<ValidateLabelInput>()
 
-  const beverageType = watch('beverageType')
   const containerSizeMl = watch('containerSizeMl')
 
   const filteredCodes = useMemo(() => {

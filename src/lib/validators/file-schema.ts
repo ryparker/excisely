@@ -93,15 +93,22 @@ export async function validateFile(
   return { valid: true }
 }
 
+import { LOCAL_URL_PREFIX } from '@/lib/storage/constants'
+
 const ALLOWED_BLOB_HOSTS = [
   '.public.blob.vercel-storage.com',
   '.blob.vercel-storage.com',
 ]
 
 /**
- * Checks whether a URL points to an allowed Vercel Blob storage domain.
+ * Checks whether a URL points to an allowed storage location
+ * (Vercel Blob or local filesystem).
  */
 export function validateImageUrl(url: string): boolean {
+  // Local filesystem storage (local://labels/file.png)
+  if (url.startsWith(LOCAL_URL_PREFIX)) return true
+
+  // Vercel Blob storage
   try {
     const parsed = new URL(url)
     return ALLOWED_BLOB_HOSTS.some((host) => parsed.hostname.endsWith(host))

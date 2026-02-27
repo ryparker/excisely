@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { RotateCcw } from 'lucide-react'
+import Link from 'next/link'
+import { RotateCcw, FileSpreadsheet, ArrowRight } from 'lucide-react'
 
+import { routes } from '@/config/routes'
 import { HowItWorks } from '@/components/submit/HowItWorks'
-import { SampleData } from '@/components/submit/SampleData'
 import { LabelUploadForm } from '@/components/validation/LabelUploadForm'
 import { Button } from '@/components/ui/Button'
 import {
@@ -20,7 +21,11 @@ import {
 import { useExtractionStore } from '@/stores/useExtractionStore'
 import { useNavigationGuard } from '@/hooks/useNavigationGuard'
 
-export function SubmitPageTabs() {
+interface SubmitPageTabsProps {
+  scanAvailable?: boolean
+}
+
+export function SubmitPageTabs({ scanAvailable = true }: SubmitPageTabsProps) {
   const [resetKey, setResetKey] = useState(0)
   const [hasFiles, setHasFiles] = useState(false)
   const extraction = useExtractionStore()
@@ -77,16 +82,29 @@ export function SubmitPageTabs() {
         )}
       </div>
 
-      <HowItWorks />
+      <Link
+        href={routes.submitBatch()}
+        className="group mt-4 flex items-center gap-3 rounded-xl border border-border/60 bg-card px-4 py-3.5 shadow-sm shadow-black/[0.03] transition-[border-color,box-shadow] duration-200 hover:border-border hover:shadow"
+      >
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+          <FileSpreadsheet className="size-4 text-primary" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[13px] font-medium">Batch Upload</p>
+          <p className="text-[12px] text-muted-foreground">
+            Submit up to 50 labels at once via CSV
+          </p>
+        </div>
+        <ArrowRight className="size-4 text-muted-foreground/50 transition-transform duration-200 group-hover:translate-x-0.5" />
+      </Link>
 
-      <div className="hidden md:block">
-        {extraction.status === 'idle' && <SampleData />}
-      </div>
+      <HowItWorks scanAvailable={scanAvailable} />
 
       <div className="mt-3">
         <LabelUploadForm
           key={resetKey}
           mode="submit"
+          scanAvailable={scanAvailable}
           onActiveChange={(active) => setHasFiles(active)}
         />
       </div>

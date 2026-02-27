@@ -1,3 +1,6 @@
+import { createWorker, OEM, PSM } from 'tesseract.js'
+import sharp from 'sharp'
+
 import { extractTextMultiImage } from '@/lib/ai/ocr'
 import {
   classifyFields,
@@ -5,7 +8,9 @@ import {
   classifyFieldsForSubmission,
   extractFieldsOnly,
 } from '@/lib/ai/classify-fields'
+import { compareField } from '@/lib/ai/compare-fields'
 import { fetchImageBytes } from '@/lib/storage/blob'
+import { findInOcrText } from '@/lib/ai/text-search'
 import type { BeverageType } from '@/config/beverage-types'
 
 import {
@@ -276,6 +281,206 @@ export async function extractLabelFieldsForSubmission(
     processingTimeMs: totalTimeMs,
     modelUsed: 'gpt-4.1-nano',
     rawResponse: { classification, usage, metrics },
+    metrics,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Local submission pipeline (Tesseract.js OCR, no cloud calls)
+// ---------------------------------------------------------------------------
+
+/**
+ * Local-only submission pipeline: Tesseract OCR → text search → comparison.
+ *
+ * Zero cloud API calls — runs Tesseract.js natively in Node.js.
+ * No bounding boxes, no LLM confidence — uses text-search similarity instead.
+ * Same `ExtractionResult` interface so downstream validation is unchanged.
+ */
+export async function extractLabelFieldsLocal(
+  imageUrls: string[],
+  beverageType: BeverageType,
+  applicationData?: Record<string, string>,
+  preloadedBuffers?: Buffer[],
+): Promise<ExtractionResult> {
+  const startTime = performance.now()
+
+  // Fetch images (or use preloaded)
+  const fetchStart = performance.now()
+  const rawBuffers =
+    preloadedBuffers ?? (await Promise.all(imageUrls.map(fetchImageBytes)))
+  const fetchTimeMs = Math.round(performance.now() - fetchStart)
+
+  // Stage 1: Tesseract OCR with parallel multi-pass preprocessing.
+  // Label images often have decorative fonts, gold embossing, dark backgrounds,
+  // or small print that a single OCR pass can't capture. We run 3 preprocessing
+  // variants per image and ALL passes in parallel (one worker per variant).
+  //
+  // PSM modes: SPARSE_TEXT (11) works for scattered decorative text on front
+  // labels. SINGLE_BLOCK (6) is better for dense structured text on back labels
+  // (health warning, name & address). We mix modes across variants for coverage.
+  const ocrStart = performance.now()
+  const TARGET_WIDTH = 2048
+
+  // Get metadata for all images in parallel
+  const metas = await Promise.all(
+    rawBuffers.map((buf) => sharp(buf).metadata()),
+  )
+
+  // Build preprocessing variants for all images (3 per image)
+  type VariantTask = {
+    imageIdx: number
+    buffer: Promise<Buffer>
+    psm: PSM
+  }
+  const variantTasks: VariantTask[] = []
+
+  for (let i = 0; i < rawBuffers.length; i++) {
+    const buf = rawBuffers[i]
+    const needsUpscale = (metas[i].width ?? 0) < 1024
+    const resizeOpt = needsUpscale
+      ? { width: TARGET_WIDTH, fit: 'inside' as const }
+      : undefined
+
+    variantTasks.push(
+      // Pass 1: upscale + sharpen — SPARSE_TEXT for scattered decorative text
+      {
+        imageIdx: i,
+        buffer: sharp(buf).resize(resizeOpt).sharpen().png().toBuffer(),
+        psm: PSM.SPARSE_TEXT,
+      },
+      // Pass 2: high contrast — SINGLE_BLOCK for dense back-label text
+      {
+        imageIdx: i,
+        buffer: sharp(buf)
+          .resize(resizeOpt)
+          .greyscale()
+          .linear(1.5, -50)
+          .sharpen()
+          .png()
+          .toBuffer(),
+        psm: PSM.SINGLE_BLOCK,
+      },
+      // Pass 3: red channel inverted — SPARSE_TEXT for gold/light text on dark
+      {
+        imageIdx: i,
+        buffer: sharp(buf)
+          .resize(resizeOpt)
+          .extractChannel(0)
+          .negate()
+          .linear(2.0, -100)
+          .sharpen({ sigma: 2 })
+          .png()
+          .toBuffer(),
+        psm: PSM.SPARSE_TEXT,
+      },
+    )
+  }
+
+  // Resolve all preprocessing in parallel
+  const resolvedBuffers = await Promise.all(variantTasks.map((v) => v.buffer))
+
+  // Run all OCR passes in parallel — one Tesseract worker per variant
+  const ocrResults = await Promise.all(
+    resolvedBuffers.map(async (vBuf, i) => {
+      const w = await createWorker('eng', OEM.LSTM_ONLY)
+      await w.setParameters({
+        tessedit_pageseg_mode: variantTasks[i].psm,
+      })
+      const { data } = await w.recognize(vBuf)
+      await w.terminate()
+      return { imageIdx: variantTasks[i].imageIdx, text: data.text }
+    }),
+  )
+
+  // Group OCR results by image and combine unique lines
+  const linesByImage = new Map<number, { seen: Set<string>; lines: string[] }>()
+
+  for (const { imageIdx, text } of ocrResults) {
+    if (!text.trim()) continue
+    if (!linesByImage.has(imageIdx)) {
+      linesByImage.set(imageIdx, { seen: new Set(), lines: [] })
+    }
+    const { seen, lines } = linesByImage.get(imageIdx)!
+    for (const line of text.split('\n')) {
+      const normalized = line.trim().toLowerCase()
+      if (normalized && !seen.has(normalized)) {
+        seen.add(normalized)
+        lines.push(line.trim())
+      }
+    }
+  }
+
+  const ocrTexts = rawBuffers.map((_, i) => {
+    const entry = linesByImage.get(i)
+    return entry ? entry.lines.join('\n') : ''
+  })
+
+  const ocrTimeMs = Math.round(performance.now() - ocrStart)
+
+  const combinedOcrText = ocrTexts
+    .map((t, i) => `--- Image ${i + 1} ---\n${t}`)
+    .join('\n\n')
+
+  // Stage 2: Text search — find expected values in OCR output
+  const classificationStart = performance.now()
+  const fields: ExtractedField[] = []
+
+  if (applicationData) {
+    for (const [fieldName, expectedValue] of Object.entries(applicationData)) {
+      const extractedValue = findInOcrText(combinedOcrText, expectedValue)
+
+      // Use comparison engine confidence for the extraction confidence
+      const comparison = compareField(fieldName, expectedValue, extractedValue)
+
+      // Determine which image the field was found on by searching each
+      // image's OCR text individually (the combined text found it, but we
+      // need to attribute it to a specific image).
+      let imageIndex = 0
+      if (extractedValue && ocrTexts.length > 1) {
+        for (let i = 0; i < ocrTexts.length; i++) {
+          if (ocrTexts[i] && findInOcrText(ocrTexts[i], expectedValue)) {
+            imageIndex = i
+            break
+          }
+        }
+      }
+
+      fields.push({
+        fieldName,
+        value: extractedValue,
+        confidence: comparison.confidence,
+        reasoning: comparison.reasoning,
+        boundingBox: null,
+        imageIndex,
+      })
+    }
+  }
+  const classificationTimeMs = Math.round(
+    performance.now() - classificationStart,
+  )
+
+  const totalTimeMs = Math.round(performance.now() - startTime)
+
+  const metrics: PipelineMetrics = {
+    fetchTimeMs,
+    ocrTimeMs,
+    classificationTimeMs,
+    mergeTimeMs: 0,
+    totalTimeMs,
+    wordCount: combinedOcrText.split(/\s+/).length,
+    imageCount: rawBuffers.length,
+    inputTokens: 0,
+    outputTokens: 0,
+    totalTokens: 0,
+  }
+
+  return {
+    fields,
+    imageClassifications: [],
+    detectedBeverageType: beverageType,
+    processingTimeMs: totalTimeMs,
+    modelUsed: 'tesseract-local',
+    rawResponse: { ocrText: combinedOcrText, metrics },
     metrics,
   }
 }

@@ -9,6 +9,8 @@ import { logActionError } from '@/lib/actions/action-error'
 import type { StrictnessLevel } from '@/db/queries/settings'
 import type { ActionResult } from '@/lib/actions/result-types'
 
+const submissionPipelineModelSchema = z.enum(['cloud', 'local'])
+
 const updateApprovalThresholdSchema = z.object({
   approvalThreshold: z.number().min(80).max(100),
 })
@@ -76,6 +78,30 @@ export async function updateFieldStrictness(
       'updateFieldStrictness',
       error,
       'Failed to save field strictness',
+    )
+  }
+}
+
+export async function updateSubmissionPipelineModel(
+  model: string,
+): Promise<ActionResult> {
+  const guard = await guardSpecialist()
+  if (!guard.success) return guard
+
+  const parsed = submissionPipelineModelSchema.safeParse(model)
+  if (!parsed.success) {
+    return { success: false, error: 'Model must be "cloud" or "local"' }
+  }
+
+  try {
+    await upsertSetting('submission_pipeline_model', parsed.data)
+    updateTag('settings')
+    return { success: true }
+  } catch (error) {
+    return logActionError(
+      'updateSubmissionPipelineModel',
+      error,
+      'Failed to save submission pipeline model',
     )
   }
 }
