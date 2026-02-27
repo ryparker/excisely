@@ -426,6 +426,8 @@ export function LabelUploadForm({
       containerSizeMl: label.containerSizeMl,
     }
     for (const field of label.fields) {
+      // containerSizeMl is already set as a number above — skip the string version
+      if (field.formKey === 'containerSizeMl') continue
       merged[field.formKey] = field.value
     }
     reset(merged as ValidateLabelInput, { keepDirty: false })

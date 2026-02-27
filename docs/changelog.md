@@ -120,7 +120,7 @@ All notable changes to Excisely are documented here. This project follows a narr
 - **Phase 4 (Review Queue):** Review list with priority/FIFO ordering, review detail with per-field override controls, human review audit trail.
 - **Phase 5 (Specialist Bulk Approval):** Dashboard splits pending labels into "Ready to Approve" and "Needs Review" queues for efficient triage.
 - **Phase 6 (Applicants/Reports/Settings):** Applicant list with compliance stats and risk badges, reports page with Recharts charts, settings page with confidence threshold slider and per-field strictness toggles.
-- **Phase 7 (Polish):** Security headers (CSP, HSTS, X-Frame-Options), robots.txt, input sanitization, Vercel Analytics, loading skeletons and error boundaries per route, seed script (~1,000 labels), Docker Compose for local Postgres.
+- **Phase 7 (Polish):** Security headers (CSP, HSTS, X-Frame-Options), robots.txt, input sanitization, Vercel Analytics, loading skeletons and error boundaries per route, seed script (users/applicants/settings), Docker Compose for local Postgres.
 
 ---
 

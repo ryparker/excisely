@@ -312,8 +312,8 @@ excisely/
     |-- db/
     |   |-- index.ts                  # Drizzle client initialization
     |   |-- schema.ts                 # Schema definitions (single source of truth)
-    |   |-- seed.ts                   # Seed script (~1,000 labels, yarn db:seed)
-    |   |-- seed-data/                # Seed data generators (users, applicants, labels, etc.)
+    |   |-- seed.ts                   # Seed script (users, applicants, settings — no labels)
+    |   |-- seed-data/                # Seed data (users, applicants, settings)
     |   +-- migrations/               # SQL migration files (forward-only)
     |
     |-- lib/
@@ -899,7 +899,7 @@ Vercel auto-deploys on push to `main`. Preview deployments are created for pull 
 ```bash
 yarn db:generate        # Generate SQL migration files from schema changes
 yarn db:migrate         # Apply pending migrations to Neon Postgres
-yarn db:seed            # Seed database with ~1,000 sample labels (dev/staging only)
+yarn db:seed            # Seed users, applicants, and settings (no labels — all data goes through the pipeline)
 ```
 
 Migrations are forward-only. Rollbacks are done by creating a new forward migration that reverses the change. Migration files are committed to git and applied in order.

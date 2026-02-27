@@ -19,7 +19,7 @@ git clone https://github.com/ryparker/excisely.git && cd excisely
 yarn install
 cp .env.example .env.local   # defaults work — no API keys needed
 docker compose up -d          # start local Postgres
-yarn db:push && yarn db:seed  # create tables + seed ~1,000 labels
+yarn db:push && yarn db:seed  # create tables + seed users/applicants/settings
 yarn dev                      # http://localhost:3000
 ```
 
@@ -79,7 +79,7 @@ yarn build && yarn start # Production build + serve
 yarn lint               # ESLint
 yarn test               # Vitest watch mode
 yarn test:e2e           # Playwright E2E
-yarn db:seed            # Seed ~1,000 labels
+yarn db:seed            # Seed users, applicants, and settings
 yarn db:studio          # Drizzle Studio (web UI)
 ```
 

@@ -74,7 +74,7 @@ The current architecture already abstracts the AI SDK provider (swapping `openai
 
 ### Larger Test Dataset
 
-**Current state:** The prototype uses ~1,000 seeded labels with 100-150 unique images. The AI responses in seed data are fabricated — they demonstrate the UI but don't reflect real model behavior on real labels.
+**Current state:** All label data is created through the real submission pipeline (Cloud Vision OCR + OpenAI classification), so every record reflects actual model behavior. The dataset grows organically as labels are submitted.
 
 **What production needs:** A curated dataset of 2,000-5,000+ real label images spanning:
 

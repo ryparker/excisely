@@ -491,8 +491,7 @@ Originally scoped as stretch goals, these features were implemented to demonstra
 
 **Data:**
 
-- Seed data uses fabricated AI responses and pre-computed validation results -- not actual Cloud Vision or GPT-5 Mini output. Real model behavior may differ from seeded examples, particularly for edge cases.
-- The ~1,000 seeded labels reuse 100-150 unique images across multiple label records. This is realistic (same product submitted with different application data), but means the annotated image viewer shows the same images repeatedly.
+- The seed script only creates users, applicants, and settings. All label data is created through the real submission pipeline (Cloud Vision OCR + OpenAI classification), so every record in the database reflects actual model behavior.
 
 **Infrastructure:**
 

@@ -52,7 +52,7 @@ yarn test:e2e           # Playwright E2E tests
 yarn db:push            # Push schema to dev database (no migration files)
 yarn db:generate        # Generate Drizzle migrations from schema changes
 yarn db:migrate         # Run pending migrations (production)
-yarn db:seed            # Seed database with ~1,000 sample labels
+yarn db:seed            # Seed users, applicants, and settings (no labels)
 yarn db:studio          # Open Drizzle Studio (web UI)
 ```
 
@@ -61,7 +61,7 @@ yarn db:studio          # Open Drizzle Studio (web UI)
 ```bash
 docker compose up -d                   # Start Postgres 17 (OrbStack or Docker Desktop)
 cp .env.example .env.local             # DATABASE_URL pre-filled for local Docker
-yarn db:push && yarn db:seed           # Create tables + seed ~1,000 labels
+yarn db:push && yarn db:seed           # Create tables + seed users/applicants/settings
 yarn dev                               # http://localhost:3000
 ```
 

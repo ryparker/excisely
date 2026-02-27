@@ -10,6 +10,7 @@ import {
 } from '@/lib/ai/extract-label'
 import type { ExtractionResult } from '@/lib/ai/extract-label'
 import { getSubmissionPipelineModel } from '@/db/queries/settings'
+import { hasCloudApiKeys } from '@/lib/ai/cloud-available'
 import { compareField } from '@/lib/ai/compare-fields'
 import {
   determineOverallStatus,
@@ -79,12 +80,31 @@ export async function runValidationPipeline(
 
   let extraction: ExtractionResult
   if (pipelineModel === 'local') {
-    extraction = await extractLabelFieldsLocal(
-      imageUrls,
-      beverageType,
-      appDataForAI,
-      preloadedBuffers,
-    )
+    try {
+      extraction = await extractLabelFieldsLocal(
+        imageUrls,
+        beverageType,
+        appDataForAI,
+        preloadedBuffers,
+      )
+    } catch (localError) {
+      // Tesseract.js doesn't work in serverless environments (Vercel) —
+      // fall back to cloud pipeline if API keys are available
+      if (hasCloudApiKeys()) {
+        console.warn(
+          '[ValidationPipeline] Local extraction failed, falling back to cloud pipeline:',
+          localError,
+        )
+        extraction = await extractLabelFieldsForSubmission(
+          imageUrls,
+          beverageType,
+          appDataForAI,
+          preloadedBuffers,
+        )
+      } else {
+        throw localError
+      }
+    }
   } else {
     try {
       extraction = await extractLabelFieldsForSubmission(
